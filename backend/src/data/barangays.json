@@ -1,0 +1,242 @@
+[
+  {
+    "name": "Baclaran",
+    "lat": 13.9292121,
+    "lng": 120.7727406
+  },
+  {
+    "name": "Barangay 1 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 2 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 3 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 4 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 5 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 6 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 7 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 8 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 9 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 10 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 11 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Barangay 12 (Poblacion)",
+    "lat": 13.9365872,
+    "lng": 120.7306266
+  },
+  {
+    "name": "Calan",
+    "lat": 13.9976878,
+    "lng": 120.7679348
+  },
+  {
+    "name": "Caloocan",
+    "lat": 13.9501054,
+    "lng": 120.7225336
+  },
+  {
+    "name": "Calzada",
+    "lat": 13.949957,
+    "lng": 120.729636
+  },
+  {
+    "name": "Canda",
+    "lat": 13.9573003,
+    "lng": 120.701428
+  },
+  {
+    "name": "Carenahan",
+    "lat": 13.9314987,
+    "lng": 120.7581411
+  },
+  {
+    "name": "Caybunga",
+    "lat": 13.9452451,
+    "lng": 120.7595638
+  },
+  {
+    "name": "Cayponce",
+    "lat": 13.9567758,
+    "lng": 120.7357644
+  },
+  {
+    "name": "Dalig",
+    "lat": 13.9348325,
+    "lng": 120.6954494
+  },
+  {
+    "name": "Dao",
+    "lat": 13.9731391,
+    "lng": 120.7404783
+  },
+  {
+    "name": "Dilao",
+    "lat": 13.9753346,
+    "lng": 120.681581
+  },
+  {
+    "name": "Duhatan",
+    "lat": 13.9440948,
+    "lng": 120.6618172
+  },
+  {
+    "name": "Durungao",
+    "lat": 13.9434569,
+    "lng": 120.7652681
+  },
+  {
+    "name": "Gimalas",
+    "lat": 13.947574,
+    "lng": 120.7496172
+  },
+  {
+    "name": "Gumamela",
+    "lat": 13.9450511,
+    "lng": 120.7417757
+  },
+  {
+    "name": "Lagnas",
+    "lat": 13.9666059,
+    "lng": 120.6898945
+  },
+  {
+    "name": "Lanatan",
+    "lat": 13.9562084,
+    "lng": 120.7286444
+  },
+  {
+    "name": "Langgangan",
+    "lat": 13.9454943,
+    "lng": 120.7537474
+  },
+  {
+    "name": "Lucban Pook",
+    "lat": 13.9909314,
+    "lng": 120.7710528
+  },
+  {
+    "name": "Lucban Putol",
+    "lat": 13.9560877,
+    "lng": 120.7510905
+  },
+  {
+    "name": "Magabe",
+    "lat": 13.9717336,
+    "lng": 120.7064786
+  },
+  {
+    "name": "Malalay",
+    "lat": 13.9578001,
+    "lng": 120.676167
+  },
+  {
+    "name": "Munting Tubig",
+    "lat": 13.9664002,
+    "lng": 120.726614
+  },
+  {
+    "name": "Navotas",
+    "lat": 13.9310981,
+    "lng": 120.7196913
+  },
+  {
+    "name": "Palikpikan",
+    "lat": 13.9122663,
+    "lng": 120.7009908
+  },
+  {
+    "name": "Patugo",
+    "lat": 14.0044154,
+    "lng": 120.7850835
+  },
+  {
+    "name": "Pooc",
+    "lat": 13.9580369,
+    "lng": 120.7577772
+  },
+  {
+    "name": "Sambat",
+    "lat": 13.9505649,
+    "lng": 120.7080236
+  },
+  {
+    "name": "Sampaga",
+    "lat": 13.9404504,
+    "lng": 120.7720672
+  },
+  {
+    "name": "San Juan",
+    "lat": 13.9375087,
+    "lng": 120.7407347
+  },
+  {
+    "name": "San Piro",
+    "lat": 13.9206515,
+    "lng": 120.7059723
+  },
+  {
+    "name": "Santol",
+    "lat": 13.9412118,
+    "lng": 120.7132848
+  },
+  {
+    "name": "Sukol",
+    "lat": 14.0129969,
+    "lng": 120.7817294
+  },
+  {
+    "name": "Tactac",
+    "lat": 13.9805148,
+    "lng": 120.6974718
+  },
+  {
+    "name": "Taludtud",
+    "lat": 13.9834722,
+    "lng": 120.7558742
+  },
+  {
+    "name": "Tanggoy",
+    "lat": 13.9514304,
+    "lng": 120.6844107
+  }
+]
