@@ -51,6 +51,80 @@ async function getNutritionReport(req, res, next) {
   }
 }
 
+const MALNOURISHED_WFA = new Set(["Underweight", "Severely Underweight"]);
+const STUNTED_HFA = new Set(["Stunted", "Severely Stunted"]);
+const WASTED_WFL_H = new Set(["Wasted", "Severely Wasted"]);
+
+async function getMonthlyMasterlistReport(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    const barangay = effectiveBarangay(req);
+    const { start, end } = toMonthRange(month);
+
+    const rawRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
+    const totalRegistered = await reportsModel.countChildren({ barangay });
+
+    const rows = rawRows
+      .filter((row) => row.tbl_children)
+      .map((row) => {
+        const child = row.tbl_children;
+        return {
+          assessment_id: row.id,
+          child_id: child.id,
+          purok: child.purok,
+          barangay: child.barangay,
+          parent_name: child.parent_name,
+          name: child.name,
+          is_ip: child.is_ip,
+          gender: child.gender,
+          dob: child.dob,
+          date_measured: row.date_measured,
+          weight: row.weight,
+          height: row.height,
+          age_in_months: row.age_in_months,
+          wfa_status: row.wfa_status,
+          hfa_status: row.hfa_status,
+          wfl_h_status: row.wfl_h_status,
+        };
+      })
+      .sort((a, b) => a.purok?.localeCompare(b.purok) || a.name.localeCompare(b.name));
+
+    let normal = 0;
+    let malnourishedStunted = 0;
+    let obese = 0;
+    for (const row of rows) {
+      if (row.wfa_status === "Normal" && row.hfa_status === "Normal" && row.wfl_h_status === "Normal") {
+        normal += 1;
+      }
+      if (
+        MALNOURISHED_WFA.has(row.wfa_status) ||
+        STUNTED_HFA.has(row.hfa_status) ||
+        WASTED_WFL_H.has(row.wfl_h_status)
+      ) {
+        malnourishedStunted += 1;
+      }
+      if (row.wfl_h_status === "Obese") {
+        obese += 1;
+      }
+    }
+
+    res.json({
+      month,
+      barangay: barangay || "All barangays",
+      totalRegistered,
+      normal,
+      malnourishedStunted,
+      obese,
+      rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getVitaminReport(req, res, next) {
   try {
     const { month } = req.query;
@@ -138,4 +212,10 @@ async function getBarangayComparison(req, res, next) {
   }
 }
 
-module.exports = { getNutritionReport, getVitaminReport, getTrends, getBarangayComparison };
+module.exports = {
+  getNutritionReport,
+  getMonthlyMasterlistReport,
+  getVitaminReport,
+  getTrends,
+  getBarangayComparison,
+};

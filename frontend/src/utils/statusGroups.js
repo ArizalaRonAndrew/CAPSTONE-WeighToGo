@@ -2,6 +2,18 @@ export const SEVERE_STATUSES = new Set(["Severely Underweight", "Severely Stunte
 export const MILD_STATUSES = new Set(["Underweight", "Stunted", "Wasted"]);
 export const OVER_STATUSES = new Set(["Overweight", "Obese"]);
 
+export const STATUS_ABBREVIATIONS = {
+  Normal: "N",
+  Underweight: "UW",
+  "Severely Underweight": "SUW",
+  Stunted: "ST",
+  "Severely Stunted": "SST",
+  Wasted: "W",
+  "Severely Wasted": "SW",
+  Overweight: "OW",
+  Obese: "OB",
+};
+
 export function colorVarForStatus(status) {
   if (!status) return "var(--color-primary-600)";
   if (status === "Normal") return "var(--status-normal-text)";

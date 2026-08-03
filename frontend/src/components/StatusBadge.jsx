@@ -1,4 +1,4 @@
-import { SEVERE_STATUSES, MILD_STATUSES, OVER_STATUSES } from "../utils/statusGroups";
+import { SEVERE_STATUSES, MILD_STATUSES, OVER_STATUSES, STATUS_ABBREVIATIONS } from "../utils/statusGroups";
 
 function variantFor(status) {
   if (status === "Normal") return "badge-normal";
@@ -8,7 +8,12 @@ function variantFor(status) {
   return "badge-muted";
 }
 
-export default function StatusBadge({ status }) {
+export default function StatusBadge({ status, compact = false }) {
   if (!status) return <span className="badge badge-muted">—</span>;
-  return <span className={`badge ${variantFor(status)}`}>{status}</span>;
+  const label = compact ? STATUS_ABBREVIATIONS[status] || status : status;
+  return (
+    <span className={`badge ${variantFor(status)}`} title={compact ? status : undefined}>
+      {label}
+    </span>
+  );
 }
