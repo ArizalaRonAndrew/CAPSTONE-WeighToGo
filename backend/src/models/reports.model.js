@@ -20,6 +20,27 @@ async function fetchAssessmentsWithBarangay({ start, end }) {
   return data;
 }
 
+async function fetchAssessmentsWithChildren({ start, end }) {
+  requireSupabase();
+  const { data, error } = await supabase
+    .from("tbl_assessments")
+    .select("*, tbl_children(*)")
+    .eq("status", "active")
+    .gte("date_measured", start)
+    .lt("date_measured", end);
+  if (error) throw error;
+  return data;
+}
+
+async function countChildren({ barangay }) {
+  requireSupabase();
+  let query = supabase.from("tbl_children").select("id", { count: "exact", head: true }).eq("status", "active");
+  if (barangay) query = query.eq("barangay", barangay);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count;
+}
+
 async function fetchSupplementsWithBarangay({ start, end }) {
   requireSupabase();
   const { data, error } = await supabase
@@ -32,4 +53,9 @@ async function fetchSupplementsWithBarangay({ start, end }) {
   return data;
 }
 
-module.exports = { fetchAssessmentsWithBarangay, fetchSupplementsWithBarangay };
+module.exports = {
+  fetchAssessmentsWithBarangay,
+  fetchAssessmentsWithChildren,
+  countChildren,
+  fetchSupplementsWithBarangay,
+};

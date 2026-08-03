@@ -7,6 +7,7 @@ import Masterlist from "./pages/Masterlist";
 import ChildProfile from "./pages/ChildProfile";
 import VitaminsDeworming from "./pages/VitaminsDeworming";
 import Reports from "./pages/Reports";
+import MonthlyReport from "./pages/MonthlyReport";
 import HealthTrends from "./pages/admin/HealthTrends";
 import BarangayMap from "./pages/admin/BarangayMap";
 
@@ -31,6 +32,7 @@ function App() {
                 <Route path="/bns/masterlist" element={<Masterlist />} />
                 <Route path="/bns/vitamins" element={<VitaminsDeworming />} />
                 <Route path="/bns/reports" element={<Reports />} />
+                <Route path="/bns/monthly-report" element={<MonthlyReport />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["MNAO"]} />}>

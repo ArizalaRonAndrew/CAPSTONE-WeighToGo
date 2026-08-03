@@ -247,6 +247,26 @@ h1, h2, h3, h4 {
   border-color: var(--status-severe-text);
 }
 
+.btn-info {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.btn-info:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.btn-accent {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.btn-accent:hover {
+  background: #c2410c;
+  border-color: #c2410c;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -342,6 +362,54 @@ tr.clickable:hover {
 .stat-tile .label {
   font-size: 13px;
   color: var(--color-text-muted);
+}
+
+.kpi-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.kpi-icon-neutral {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+
+.kpi-icon-normal {
+  background: var(--status-normal-bg);
+  color: var(--status-normal-text);
+}
+
+.kpi-icon-severe {
+  background: var(--status-severe-bg);
+  color: var(--status-severe-text);
+}
+
+.kpi-icon-over {
+  background: var(--status-mild-bg);
+  color: var(--status-mild-text);
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .login-page {

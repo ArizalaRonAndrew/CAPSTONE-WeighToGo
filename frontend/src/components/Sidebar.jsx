@@ -5,6 +5,7 @@ const BNS_LINKS = [
   { to: "/bns/masterlist", label: "Masterlist" },
   { to: "/bns/vitamins", label: "Vitamins & Deworming" },
   { to: "/bns/reports", label: "Reports" },
+  { to: "/bns/monthly-report", label: "Monthly Report" },
 ];
 
 const ADMIN_LINKS = [
