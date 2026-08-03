@@ -19,6 +19,14 @@ function monthLabel(monthString) {
   });
 }
 
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
 function formatFullDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
     year: "numeric",
@@ -187,13 +195,19 @@ export default function ManageChildModal({ childId, onClose, onChanged }) {
         </button>
 
         <div className="manage-modal-header">
-          <svg className="manage-modal-icon" viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
-            <circle cx="12" cy="7" r="4" />
-            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-          </svg>
-          <h2>{child.name}</h2>
-          <div className="manage-modal-meta">
-            📍 {child.purok} | Age: {ageInMonths(child.dob)} mos | {child.gender}
+          <div className="child-avatar" aria-hidden="true">
+            {getInitials(child.name)}
+          </div>
+          <div className="child-header-info">
+            <h2>{child.name}</h2>
+            <div className="child-header-location">
+              {child.purok}{child.purok && child.barangay ? ", " : ""}
+              {child.barangay}
+            </div>
+            <div className="child-header-tags">
+              <span className="child-tag">Age: {ageInMonths(child.dob)} mos</span>
+              <span className="child-tag">{child.gender}</span>
+            </div>
           </div>
         </div>
 
@@ -334,8 +348,16 @@ export default function ManageChildModal({ childId, onClose, onChanged }) {
                 <div className="banner banner-warning">⚠ Pending Checkup</div>
               )}
 
-              <h3 style={{ marginTop: 20 }}>New Checkup ({monthLabel(month)})</h3>
-              <form onSubmit={handleAddAssessment}>
+              {isCheckedThisMonth ? (
+                <p style={{ marginTop: 20 }}>
+                  This child has already been assessed for {monthLabel(month)}. Only one
+                  assessment per month is allowed — check the Checkup History tab for details, or
+                  come back next month.
+                </p>
+              ) : (
+                <>
+                  <h3 style={{ marginTop: 20 }}>New Checkup ({monthLabel(month)})</h3>
+                  <form onSubmit={handleAddAssessment}>
                 <div className="form-grid cols-2">
                   <div className="field">
                     <label>Weight (kg)</label>
@@ -387,11 +409,13 @@ export default function ManageChildModal({ childId, onClose, onChanged }) {
                   </div>
                 </div>
 
-                {assessmentError && <p className="error-text">{assessmentError}</p>}
-                <button className="btn btn-block" type="submit" disabled={savingAssessment}>
-                  {savingAssessment ? "Saving..." : "Save Monthly Assessment"}
-                </button>
-              </form>
+                    {assessmentError && <p className="error-text">{assessmentError}</p>}
+                    <button className="btn btn-block" type="submit" disabled={savingAssessment}>
+                      {savingAssessment ? "Saving..." : "Save Monthly Assessment"}
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           )}
 

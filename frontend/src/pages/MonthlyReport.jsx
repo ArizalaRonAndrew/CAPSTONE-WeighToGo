@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { currentMonth } from "../utils/month";
+import { colorVarForStatus } from "../utils/statusGroups";
 import StatusBadge from "../components/StatusBadge";
 
 function formatShortDate(dateStr) {
@@ -20,15 +21,90 @@ function monthLabel(monthString) {
   });
 }
 
+const INDICATOR_DEFS = [
+  {
+    key: "wfa_status",
+    label: "Weight-for-Age",
+    abbr: "WFA",
+    statuses: ["Normal", "Underweight", "Severely Underweight"],
+  },
+  {
+    key: "hfa_status",
+    label: "Height-for-Age",
+    abbr: "HFA",
+    statuses: ["Normal", "Stunted", "Severely Stunted"],
+  },
+  {
+    key: "wfl_h_status",
+    label: "Weight-for-Length/Height",
+    abbr: "WFL/H",
+    statuses: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
+  },
+];
+
+function tallyBy(rows, key) {
+  const counts = {};
+  for (const row of rows) {
+    const value = row[key];
+    if (!value) continue;
+    counts[value] = (counts[value] || 0) + 1;
+  }
+  return counts;
+}
+
+function UsersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" />
+      <path d="M15.5 6a3 3 0 0 1 0 5.8" />
+      <path d="M17.5 14.3c2 .5 3.7 2.6 3.7 5.7" />
+    </svg>
+  );
+}
+
+function ClipboardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </svg>
+  );
+}
+
+function PrintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M6 9V3h12v6" />
+      <rect x="4" y="9" width="16" height="8" rx="1.5" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M21 3 3 10.5l7 2.5 2.5 7L21 3Z" />
+      <path d="M10.5 13 21 3" />
+    </svg>
+  );
+}
+
+const PAGE_SIZE = 10;
+
 export default function MonthlyReport() {
   const [month, setMonth] = useState(currentMonth());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const [page, setPage] = useState(1);
 
   function load() {
     setLoading(true);
     setSubmitted(false);
+    setPage(1);
     api
       .get(`/reports/monthly-masterlist?month=${month}`)
       .then(setReport)
@@ -38,6 +114,11 @@ export default function MonthlyReport() {
   useEffect(load, [month]);
 
   const rows = report?.rows || [];
+  const totalAssessed = rows.length;
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const rangeStart = rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, rows.length);
 
   return (
     <div>
@@ -45,21 +126,16 @@ export default function MonthlyReport() {
         <div>
           <h1>Monthly Barangay Report</h1>
           <p className="subtitle" style={{ color: "var(--color-text-muted)", margin: 0 }}>
-            Summary of nutritional cases for the selected month.
+            Nutritional status breakdown for {monthLabel(month)}.
           </p>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            className="input"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
-          <button className="btn btn-info" onClick={() => window.print()}>
-            🖨 Print Report
+          <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <button className="btn btn-secondary" onClick={() => window.print()}>
+            <PrintIcon /> Print Report
           </button>
-          <button className="btn btn-accent" onClick={() => setSubmitted(true)}>
-            📤 Submit to Admin
+          <button className="btn" onClick={() => setSubmitted(true)}>
+            <SendIcon /> Submit to Admin
           </button>
         </div>
       </div>
@@ -70,40 +146,59 @@ export default function MonthlyReport() {
         </div>
       )}
 
-      <div className="stat-row">
-        <div className="card kpi-tile">
-          <div className="kpi-icon kpi-icon-neutral">👤</div>
-          <div>
-            <div className="kpi-label">Total Registered</div>
-            <div className="kpi-value">{loading ? "…" : report?.totalRegistered ?? 0}</div>
+      <div className="indicator-grid">
+        <div className="card indicator-card">
+          <div className="indicator-card-header">
+            <div>
+              <div className="indicator-card-title">Overview</div>
+              <div className="indicator-card-abbr">This Month</div>
+            </div>
+          </div>
+          <div className="indicator-status-row">
+            <span className="indicator-status-label">
+              <UsersIcon /> Total Registered
+            </span>
+            <span className="indicator-status-count">{loading ? "…" : report?.totalRegistered ?? 0}</span>
+          </div>
+          <div className="indicator-status-row">
+            <span className="indicator-status-label">
+              <ClipboardIcon /> Assessed This Month
+            </span>
+            <span className="indicator-status-count">{loading ? "…" : totalAssessed}</span>
           </div>
         </div>
-        <div className="card kpi-tile">
-          <div className="kpi-icon kpi-icon-normal">✓</div>
-          <div>
-            <div className="kpi-label">Normal (All Metrics)</div>
-            <div className="kpi-value">{loading ? "…" : report?.normal ?? 0}</div>
-          </div>
-        </div>
-        <div className="card kpi-tile">
-          <div className="kpi-icon kpi-icon-severe">⚠</div>
-          <div>
-            <div className="kpi-label">Malnourished / Stunted</div>
-            <div className="kpi-value">{loading ? "…" : report?.malnourishedStunted ?? 0}</div>
-          </div>
-        </div>
-        <div className="card kpi-tile">
-          <div className="kpi-icon kpi-icon-over">🍔</div>
-          <div>
-            <div className="kpi-label">Obese</div>
-            <div className="kpi-value">{loading ? "…" : report?.obese ?? 0}</div>
-          </div>
-        </div>
+
+        {INDICATOR_DEFS.map((def) => {
+          const counts = tallyBy(rows, def.key);
+          return (
+            <div className="card indicator-card" key={def.key}>
+              <div className="indicator-card-header">
+                <div>
+                  <div className="indicator-card-title">{def.label}</div>
+                  <div className="indicator-card-abbr">{def.abbr}</div>
+                </div>
+                <div className="indicator-card-total">{loading ? "…" : totalAssessed}</div>
+              </div>
+
+              {def.statuses.map((status) => {
+                const count = counts[status] || 0;
+                return (
+                  <div className="indicator-status-row" key={status}>
+                    <span className="indicator-status-label">{status}</span>
+                    <span className="indicator-status-count" style={{ color: colorVarForStatus(status) }}>
+                      {loading ? "…" : count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       <div className="card">
         <h3>Masterlist Report Data</h3>
-        <div className="table-wrap">
+        <div className="table-wrap paginated-table-wrap">
           <table>
             <thead>
               <tr>
@@ -137,7 +232,7 @@ export default function MonthlyReport() {
                   </td>
                 </tr>
               )}
-              {rows.map((row) => (
+              {pageRows.map((row) => (
                 <tr key={row.assessment_id}>
                   <td>{row.purok}</td>
                   <td>{row.parent_name}</td>
@@ -162,6 +257,33 @@ export default function MonthlyReport() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="pagination-bar">
+          <span className="pagination-info">
+            {rows.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${rows.length}`}
+          </span>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span className="pagination-page">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
