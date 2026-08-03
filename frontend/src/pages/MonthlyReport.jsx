@@ -24,18 +24,39 @@ export default function MonthlyReport() {
   const [month, setMonth] = useState(currentMonth());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
+  const [submission, setSubmission] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   function load() {
     setLoading(true);
-    setSubmitted(false);
-    api
-      .get(`/reports/monthly-masterlist?month=${month}`)
-      .then(setReport)
+    setSubmitError("");
+    Promise.all([
+      api.get(`/reports/monthly-masterlist?month=${month}`),
+      api.get(`/reports/submission-status?month=${month}`),
+    ])
+      .then(([reportData, submissionData]) => {
+        setReport(reportData);
+        setSubmission(submissionData);
+      })
       .finally(() => setLoading(false));
   }
 
   useEffect(load, [month]);
+
+  async function handleSubmit() {
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      await api.post("/reports/submit", { month });
+      const submissionData = await api.get(`/reports/submission-status?month=${month}`);
+      setSubmission(submissionData);
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   const rows = report?.rows || [];
 
@@ -58,15 +79,29 @@ export default function MonthlyReport() {
           <button className="btn btn-info" onClick={() => window.print()}>
             🖨 Print Report
           </button>
-          <button className="btn btn-accent" onClick={() => setSubmitted(true)}>
-            📤 Submit to Admin
+          <button className="btn btn-accent" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "Submitting..." : submission?.submitted ? "✓ Re-submit to Admin" : "📤 Submit to Admin"}
           </button>
         </div>
       </div>
 
-      {submitted && (
+      {submitError && (
+        <p className="error-text" style={{ marginBottom: 12 }}>
+          {submitError}
+        </p>
+      )}
+
+      {submission?.submitted && (
         <div className="banner banner-success" style={{ marginBottom: 20 }}>
-          ✓ Report for {monthLabel(month)} marked as submitted.
+          ✓ Submitted to admin for {monthLabel(month)}
+          {submission.submitted_at ? ` on ${new Date(submission.submitted_at).toLocaleString()}` : ""}. The admin
+          can now view this barangay's {monthLabel(month)} checkup data.
+        </div>
+      )}
+      {submission && !submission.submitted && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          ⚠ Not yet submitted — the admin cannot see this barangay's {monthLabel(month)} checkup data until you
+          submit.
         </div>
       )}
 

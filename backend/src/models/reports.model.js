@@ -53,9 +53,47 @@ async function fetchSupplementsWithBarangay({ start, end }) {
   return data;
 }
 
+const SUBMISSIONS_TABLE = "tbl_report_submissions";
+
+// Returns a Set of "barangay|YYYY-MM" keys that have been submitted to the admin.
+async function fetchSubmittedSet({ barangay } = {}) {
+  requireSupabase();
+  let query = supabase.from(SUBMISSIONS_TABLE).select("barangay, month");
+  if (barangay) query = query.eq("barangay", barangay);
+  const { data, error } = await query;
+  if (error) throw error;
+  return new Set(data.map((row) => `${row.barangay}|${row.month}`));
+}
+
+async function findSubmission({ barangay, month }) {
+  requireSupabase();
+  const { data, error } = await supabase
+    .from(SUBMISSIONS_TABLE)
+    .select("*")
+    .eq("barangay", barangay)
+    .eq("month", month)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function submitReport({ barangay, month, submitted_by }) {
+  requireSupabase();
+  const { data, error } = await supabase
+    .from(SUBMISSIONS_TABLE)
+    .upsert({ barangay, month, submitted_by, submitted_at: new Date().toISOString() }, { onConflict: "barangay,month" })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   fetchAssessmentsWithBarangay,
   fetchAssessmentsWithChildren,
   countChildren,
   fetchSupplementsWithBarangay,
+  fetchSubmittedSet,
+  findSubmission,
+  submitReport,
 };
