@@ -2,10 +2,36 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
-import { ageInMonths } from "../utils/age";
+import { formatAge } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import RegisterChildModal from "../components/RegisterChildModal";
 import ManageChildModal from "../components/ManageChildModal";
+
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      className="search-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="16"
+      height="16"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
 
 export default function Masterlist() {
   const { user } = useAuth();
@@ -13,6 +39,9 @@ export default function Masterlist() {
   const isAdmin = user?.role === "MNAO";
 
   const [barangayFilter, setBarangayFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [purokFilter, setPurokFilter] = useState("");
+  const [checkupFilter, setCheckupFilter] = useState("");
   const [children, setChildren] = useState([]);
   const [checkedChildIds, setCheckedChildIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -36,6 +65,28 @@ export default function Masterlist() {
 
   useEffect(load, [barangayFilter]);
 
+  const purokOptions = [...new Set(children.map((c) => c.purok).filter(Boolean))].sort();
+
+  const filteredChildren = children.filter((child) => {
+    if (search && !child.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (purokFilter && child.purok !== purokFilter) return false;
+    if (checkupFilter) {
+      const isChecked = checkedChildIds.has(child.id);
+      if (checkupFilter === "checked" && !isChecked) return false;
+      if (checkupFilter === "pending" && isChecked) return false;
+    }
+    return true;
+  });
+
+  const checkedCount = children.filter((c) => checkedChildIds.has(c.id)).length;
+  const hasActiveFilters = Boolean(search || purokFilter || checkupFilter);
+
+  function clearFilters() {
+    setSearch("");
+    setPurokFilter("");
+    setCheckupFilter("");
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -45,20 +96,80 @@ export default function Masterlist() {
         </button>
       </div>
 
-      {isAdmin && (
-        <div className="filter-bar">
+      <div className="stat-row">
+        <div className="card stat-tile">
+          <div className="value">{children.length}</div>
+          <div className="label">Registered children</div>
+        </div>
+        <div className="card stat-tile">
+          <div className="value">{checkedCount}</div>
+          <div className="label">Checked this month</div>
+        </div>
+        <div className="card stat-tile">
+          <div className="value">{children.length - checkedCount}</div>
+          <div className="label">Pending this month</div>
+        </div>
+      </div>
+
+      <div className="card filter-card">
+        <div className="filter-bar" style={{ marginBottom: 0 }}>
+          <div className="field search-field">
+            <label>Search</label>
+            <div className="search-input-wrap">
+              <SearchIcon />
+              <input
+                className="input"
+                type="text"
+                placeholder="Search child's name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="field">
-            <label>Barangay</label>
-            <select className="input" value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)}>
-              <option value="">All barangays</option>
-              {barangays.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name}
+            <label>Purok / Sitio</label>
+            <select className="input" value={purokFilter} onChange={(e) => setPurokFilter(e.target.value)}>
+              <option value="">All puroks</option>
+              {purokOptions.map((purok) => (
+                <option key={purok} value={purok}>
+                  {purok}
                 </option>
               ))}
             </select>
           </div>
+          <div className="field">
+            <label>Checkup Status</label>
+            <select className="input" value={checkupFilter} onChange={(e) => setCheckupFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="checked">Checked</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          {isAdmin && (
+            <div className="field">
+              <label>Barangay</label>
+              <select className="input" value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)}>
+                <option value="">All barangays</option>
+                {barangays.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {hasActiveFilters && (
+            <button type="button" className="btn btn-secondary" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
         </div>
+      </div>
+
+      {!loading && (
+        <p className="results-count">
+          Showing {filteredChildren.length} of {children.length} children
+        </p>
       )}
 
       <div className="table-wrap">
@@ -68,7 +179,7 @@ export default function Masterlist() {
               <th>Name of Child</th>
               <th>Parent / Guardian</th>
               <th>Gender</th>
-              <th>Age (mos)</th>
+              <th>Age</th>
               <th>Purok / Sitio</th>
               <th>Checkup Status</th>
               <th>Action</th>
@@ -89,14 +200,29 @@ export default function Masterlist() {
                 </td>
               </tr>
             )}
-            {children.map((child) => {
+            {!loading && children.length > 0 && filteredChildren.length === 0 && (
+              <tr>
+                <td colSpan={7} className="empty-state">
+                  <div>No children match your filters.</div>
+                  <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
+                    Clear filters
+                  </button>
+                </td>
+              </tr>
+            )}
+            {filteredChildren.map((child) => {
               const isChecked = checkedChildIds.has(child.id);
               return (
                 <tr key={child.id}>
-                  <td style={{ fontWeight: 700 }}>{child.name}</td>
+                  <td>
+                    <div className="child-name-cell">
+                      <span className="avatar-circle">{initials(child.name)}</span>
+                      <span style={{ fontWeight: 700 }}>{child.name}</span>
+                    </div>
+                  </td>
                   <td>{child.parent_name}</td>
                   <td>{child.gender}</td>
-                  <td>{ageInMonths(child.dob)}</td>
+                  <td>{formatAge(child.dob)}</td>
                   <td>{child.purok}</td>
                   <td>
                     <span className={`status-pill ${isChecked ? "status-pill-checked" : "status-pill-pending"}`}>
