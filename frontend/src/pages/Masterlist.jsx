@@ -1,28 +1,36 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
-import { formatAge } from "../utils/age";
+import { ageInMonths } from "../utils/age";
+import { currentMonth } from "../utils/month";
 import RegisterChildModal from "../components/RegisterChildModal";
+import ManageChildModal from "../components/ManageChildModal";
 
 export default function Masterlist() {
   const { user } = useAuth();
   const { barangays } = useBarangays();
-  const navigate = useNavigate();
   const isAdmin = user?.role === "MNAO";
 
   const [barangayFilter, setBarangayFilter] = useState("");
   const [children, setChildren] = useState([]);
+  const [checkedChildIds, setCheckedChildIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
+  const [manageChildId, setManageChildId] = useState(null);
 
   function load() {
     setLoading(true);
     const query = isAdmin && barangayFilter ? `?barangay=${encodeURIComponent(barangayFilter)}` : "";
-    api
-      .get(`/children${query}`)
-      .then(setChildren)
+    Promise.all([api.get(`/children${query}`), api.get("/assessments")])
+      .then(([childrenData, assessments]) => {
+        setChildren(childrenData);
+        const month = currentMonth();
+        const checked = new Set(
+          assessments.filter((a) => a.date_measured?.slice(0, 7) === month).map((a) => a.child_id)
+        );
+        setCheckedChildIds(checked);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -57,39 +65,52 @@ export default function Masterlist() {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Age</th>
+              <th>Name of Child</th>
+              <th>Parent / Guardian</th>
               <th>Gender</th>
-              {isAdmin && <th>Barangay</th>}
-              <th>Purok</th>
-              <th>IP</th>
+              <th>Age (mos)</th>
+              <th>Purok / Sitio</th>
+              <th>Checkup Status</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="loading-state">
+                <td colSpan={7} className="loading-state">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && children.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty-state">
+                <td colSpan={7} className="empty-state">
                   No children registered yet.
                 </td>
               </tr>
             )}
-            {children.map((child) => (
-              <tr key={child.id} className="clickable" onClick={() => navigate(`/children/${child.id}`)}>
-                <td>{child.name}</td>
-                <td>{formatAge(child.dob)}</td>
-                <td>{child.gender}</td>
-                {isAdmin && <td>{child.barangay}</td>}
-                <td>{child.purok}</td>
-                <td>{child.is_ip ? "Yes" : "No"}</td>
-              </tr>
-            ))}
+            {children.map((child) => {
+              const isChecked = checkedChildIds.has(child.id);
+              return (
+                <tr key={child.id}>
+                  <td style={{ fontWeight: 700 }}>{child.name}</td>
+                  <td>{child.parent_name}</td>
+                  <td>{child.gender}</td>
+                  <td>{ageInMonths(child.dob)}</td>
+                  <td>{child.purok}</td>
+                  <td>
+                    <span className={`status-pill ${isChecked ? "status-pill-checked" : "status-pill-pending"}`}>
+                      {isChecked ? "✓ Checked" : "Pending"}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary" onClick={() => setManageChildId(child.id)}>
+                      Manage
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -101,6 +122,14 @@ export default function Masterlist() {
             setShowRegister(false);
             load();
           }}
+        />
+      )}
+
+      {manageChildId && (
+        <ManageChildModal
+          childId={manageChildId}
+          onClose={() => setManageChildId(null)}
+          onChanged={load}
         />
       )}
     </div>
