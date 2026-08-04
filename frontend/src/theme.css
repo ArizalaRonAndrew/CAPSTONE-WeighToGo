@@ -823,6 +823,10 @@ tr.clickable:hover {
   position: relative;
 }
 
+.modal-card-xl {
+  max-width: 760px;
+}
+
 .modal-close {
   position: absolute;
   top: 16px;

@@ -3,9 +3,11 @@ import { api } from "../api/client";
 import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import StatusBadge from "./StatusBadge";
+import SupplementTracker from "./SupplementTracker";
 
 const TABS = [
   { key: "info", label: "Personal Info" },
+  { key: "vitamins", label: "Vitamins & Deworming" },
   { key: "assessment", label: "Monthly Assessment" },
   { key: "history", label: "Checkup History" },
 ];
@@ -98,8 +100,8 @@ function InfoCard({ icon, label, value }) {
   );
 }
 
-export default function ManageChildModal({ childId, onClose, onChanged }) {
-  const [tab, setTab] = useState("info");
+export default function ManageChildModal({ childId, onClose, onChanged, initialTab = "info" }) {
+  const [tab, setTab] = useState(initialTab);
   const [child, setChild] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
@@ -189,7 +191,10 @@ export default function ManageChildModal({ childId, onClose, onChanged }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal-card modal-card-lg ${tab === "vitamins" ? "modal-card-xl" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="modal-close" onClick={onClose} aria-label="Close">
           ×
         </button>
@@ -338,6 +343,15 @@ export default function ManageChildModal({ childId, onClose, onChanged }) {
                 </button>
               </div>
             </form>
+          )}
+
+          {tab === "vitamins" && (
+            <div>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                Vitamin A &amp; Deworming Compliance
+              </div>
+              <SupplementTracker childId={childId} onChanged={onChanged} />
+            </div>
           )}
 
           {tab === "assessment" && (
