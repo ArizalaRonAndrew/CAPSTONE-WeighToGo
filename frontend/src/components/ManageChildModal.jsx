@@ -8,9 +8,9 @@ import SupplementTracker from "./SupplementTracker";
 
 const TABS = [
   { key: "info", label: "Personal Info" },
-  { key: "vitamins", label: "Vitamins & Deworming" },
   { key: "assessment", label: "Monthly Assessment" },
   { key: "history", label: "Checkup History" },
+  { key: "vitamins", label: "Vitamins & Deworming" },
 ];
 
 function monthLabel(monthString) {
@@ -113,7 +113,8 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const [assessmentForm, setAssessmentForm] = useState({ weight: "", height: "" });
   const [assessmentError, setAssessmentError] = useState("");
   const [savingAssessment, setSavingAssessment] = useState(false);
-  const [latestResult, setLatestResult] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   function loadChild() {
     api.get(`/children/${childId}`).then((data) => {
@@ -131,6 +132,29 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     loadAssessments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
+
+  // Auto-compute the nutritional status the moment weight and height are
+  // both entered, so the BNS sees it before they even save the checkup.
+  useEffect(() => {
+    const weight = Number(assessmentForm.weight);
+    const height = Number(assessmentForm.height);
+    if (!(weight > 0) || !(height > 0)) {
+      setPreview(null);
+      setPreviewLoading(false);
+      return undefined;
+    }
+
+    setPreviewLoading(true);
+    const timer = setTimeout(() => {
+      api
+        .post("/assessments/preview", { child_id: childId, weight, height })
+        .then(setPreview)
+        .catch(() => setPreview(null))
+        .finally(() => setPreviewLoading(false));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [assessmentForm.weight, assessmentForm.height, childId]);
 
   if (!child) {
     return (
@@ -177,13 +201,12 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     setAssessmentError("");
     setSavingAssessment(true);
     try {
-      const created = await api.post("/assessments", {
+      await api.post("/assessments", {
         child_id: childId,
         date_measured: new Date().toISOString().slice(0, 10),
         weight: Number(assessmentForm.weight),
         height: Number(assessmentForm.height),
       });
-      setLatestResult(created);
       setAssessmentForm({ weight: "", height: "" });
       loadAssessments();
       onChanged?.();
@@ -409,24 +432,27 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 </div>
 
                 <div className="computed-status-box">
-                  <div className="computed-status-title">Computed Nutritional Status</div>
+                  <div className="computed-status-title">
+                    Computed Nutritional Status
+                    {previewLoading && <span className="computed-status-loading"> · computing…</span>}
+                  </div>
                   <div className="computed-status-row">
                     <div className="computed-status-item">
                       <div className="computed-status-label">WFA</div>
                       <div className="computed-status-value">
-                        {latestResult ? <StatusBadge status={latestResult.wfa_status} /> : "--"}
+                        {preview ? <StatusBadge status={preview.wfa_status} /> : "--"}
                       </div>
                     </div>
                     <div className="computed-status-item">
                       <div className="computed-status-label">HFA</div>
                       <div className="computed-status-value">
-                        {latestResult ? <StatusBadge status={latestResult.hfa_status} /> : "--"}
+                        {preview ? <StatusBadge status={preview.hfa_status} /> : "--"}
                       </div>
                     </div>
                     <div className="computed-status-item">
                       <div className="computed-status-label">WFL/H</div>
                       <div className="computed-status-value">
-                        {latestResult ? <StatusBadge status={latestResult.wfl_h_status} /> : "--"}
+                        {preview ? <StatusBadge status={preview.wfl_h_status} /> : "--"}
                       </div>
                     </div>
                   </div>

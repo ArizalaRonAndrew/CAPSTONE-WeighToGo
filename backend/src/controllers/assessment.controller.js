@@ -112,6 +112,34 @@ async function createAssessment(req, res, next) {
   }
 }
 
+// Computes what wfa/hfa/wfl_h status would be for the given measurements
+// without creating a record, so the UI can show a live preview as the BNS
+// types weight/height, before they commit to saving the checkup.
+async function previewAssessment(req, res, next) {
+  try {
+    const { child_id, date_measured, weight, height } = req.body;
+    if (!child_id || weight == null || height == null) {
+      return res.status(400).json({ error: "child_id, weight, and height are required" });
+    }
+
+    const child = await childrenModel.findById(child_id);
+    assertBarangayAccess(req, child);
+
+    const effectiveDate = date_measured || new Date().toISOString().slice(0, 10);
+    const age_in_months = calculateAgeInMonths(child.dob, effectiveDate);
+    const status = classifyNutritionStatus({
+      sex: child.gender,
+      ageInMonths: age_in_months,
+      weightKg: Number(weight),
+      heightCm: Number(height),
+    });
+
+    res.json({ ...status, age_in_months });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function updateAssessment(req, res, next) {
   try {
     const existing = await assessmentModel.findById(req.params.id);
@@ -138,4 +166,11 @@ async function deleteAssessment(req, res, next) {
   }
 }
 
-module.exports = { listAssessments, getAssessment, createAssessment, updateAssessment, deleteAssessment };
+module.exports = {
+  listAssessments,
+  getAssessment,
+  createAssessment,
+  previewAssessment,
+  updateAssessment,
+  deleteAssessment,
+};

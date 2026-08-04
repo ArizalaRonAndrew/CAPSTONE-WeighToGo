@@ -1117,6 +1117,10 @@ tr.clickable:hover {
   margin-bottom: 12px;
 }
 
+.computed-status-loading {
+  font-style: italic;
+}
+
 .computed-status-row {
   display: flex;
   justify-content: space-around;
