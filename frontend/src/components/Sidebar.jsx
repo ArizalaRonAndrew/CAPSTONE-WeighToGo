@@ -65,8 +65,8 @@ function Icon({ name }) {
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
-      width="17"
-      height="17"
+      width="19"
+      height="19"
     >
       {ICON_PATHS[name]}
     </svg>
@@ -84,6 +84,13 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
     navigate("/login", { replace: true });
   }
 
+  function handleNavClick(e) {
+    // Release focus so the desktop rail collapses back once the mouse
+    // leaves, instead of staying pinned open via :focus-within.
+    e.currentTarget.blur();
+    onClose();
+  }
+
   return (
     <>
       <div className={`sidebar-backdrop ${open ? "visible" : ""}`} onClick={onClose} aria-hidden="true" />
@@ -92,21 +99,19 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
           ×
         </button>
 
-        <div className="sidebar-brand">
+        <div className="sidebar-brand" title="WeighToGo">
           <span className="sidebar-brand-mark">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
               <path d="M5 20c9 0 14-5 14-14V5h-1C9 5 4 10 4 19v1Z" />
             </svg>
           </span>
-          WeighToGo
+          <span className="sidebar-label">WeighToGo</span>
         </div>
 
-        <div className="sidebar-user">
+        <div className="sidebar-user" title={user?.email}>
           <span className="sidebar-avatar">{initial}</span>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-email" title={user?.email}>
-              {user?.email}
-            </div>
+            <div className="sidebar-user-email">{user?.email}</div>
             <span className="sidebar-role-pill">
               {user?.role === "MNAO" ? "Administrator" : `BNS · ${user?.assigned_barangay}`}
             </span>
@@ -118,18 +123,20 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
             <NavLink
               key={link.to}
               to={link.to}
-              onClick={onClose}
+              onClick={handleNavClick}
+              title={link.label}
+              aria-label={link.label}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               <Icon name={link.icon} />
-              {link.label}
+              <span className="sidebar-label">{link.label}</span>
             </NavLink>
           ))}
         </nav>
 
-        <button type="button" className="sidebar-logout" onClick={handleLogout}>
+        <button type="button" className="sidebar-logout" onClick={handleLogout} title="Log Out" aria-label="Log Out">
           <Icon name="logout" />
-          Log Out
+          <span className="sidebar-label">Log Out</span>
         </button>
       </aside>
     </>

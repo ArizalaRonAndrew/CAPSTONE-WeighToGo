@@ -1,5 +1,8 @@
 const reportsModel = require("../models/reports.model");
+const assessmentModel = require("../models/assessment.model");
+const childrenModel = require("../models/children.model");
 const { toMonthRange, addMonths, formatMonth, isValidMonthString } = require("../utils/date");
+const { filterSubmittedForRole } = require("../utils/submission");
 
 const INDICATOR_COLUMNS = {
   wfa: "wfa_status",
@@ -27,18 +30,6 @@ function filterByBarangay(rows, barangay) {
   return rows.filter((row) => row.tbl_children?.barangay === barangay);
 }
 
-// Admins only see assessment rows for a barangay+month once the assigned BNS
-// has submitted that month's report. BNS users always see their own data live.
-async function filterSubmittedForRole(req, rows, { barangay } = {}) {
-  if (req.user.role !== "MNAO") return rows;
-  const submittedSet = await reportsModel.fetchSubmittedSet(barangay ? { barangay } : {});
-  return rows.filter((row) => {
-    const rowBarangay = row.tbl_children?.barangay;
-    if (!rowBarangay) return false;
-    return submittedSet.has(`${rowBarangay}|${formatMonth(row.date_measured)}`);
-  });
-}
-
 async function getNutritionReport(req, res, next) {
   try {
     const { month } = req.query;
@@ -49,7 +40,7 @@ async function getNutritionReport(req, res, next) {
     const { start, end } = toMonthRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
-    const rows = await filterSubmittedForRole(req, scopedRows, { barangay });
+    const rows = filterSubmittedForRole(req, scopedRows);
 
     res.json({
       month,
@@ -78,7 +69,7 @@ async function getMonthlyMasterlistReport(req, res, next) {
     const { start, end } = toMonthRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
-    const rawRows = await filterSubmittedForRole(req, scopedRows, { barangay });
+    const rawRows = filterSubmittedForRole(req, scopedRows);
     const totalRegistered = await reportsModel.countChildren({ barangay });
 
     const rows = rawRows
@@ -176,7 +167,7 @@ async function getTrends(req, res, next) {
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
-    const rows = await filterSubmittedForRole(req, scopedRows, { barangay });
+    const rows = filterSubmittedForRole(req, scopedRows);
 
     const buckets = new Map();
     let cursor = from;
@@ -210,7 +201,7 @@ async function getBarangayComparison(req, res, next) {
 
     const { start, end } = toMonthRange(month);
     const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
-    const rows = await filterSubmittedForRole(req, allRows);
+    const rows = filterSubmittedForRole(req, allRows);
 
     const counts = new Map();
     for (const row of rows) {
@@ -238,8 +229,13 @@ async function submitMonthlyReport(req, res, next) {
     if (!barangay) {
       return res.status(400).json({ error: "No barangay is assigned to this account" });
     }
-    const submission = await reportsModel.submitReport({ barangay, month, submitted_by: req.user.id });
-    res.status(201).json(submission);
+
+    const { start, end } = toMonthRange(month);
+    const children = await childrenModel.findAll({ barangay });
+    const childIds = children.map((c) => c.id);
+    const updated = await assessmentModel.submitForChildren({ childIds, start, end });
+
+    res.status(200).json({ barangay, month, submitted: true, count: updated.length });
   } catch (err) {
     next(err);
   }
@@ -255,13 +251,12 @@ async function getSubmissionStatus(req, res, next) {
     if (!barangay) {
       return res.status(400).json({ error: "barangay is required" });
     }
-    const submission = await reportsModel.findSubmission({ barangay, month });
-    res.json({
-      barangay,
-      month,
-      submitted: Boolean(submission),
-      submitted_at: submission?.submitted_at || null,
-    });
+
+    const { start, end } = toMonthRange(month);
+    const rows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const submitted = rows.length > 0 && rows.every((row) => row.submission_status === "submitted");
+
+    res.json({ barangay, month, submitted, total: rows.length });
   } catch (err) {
     next(err);
   }

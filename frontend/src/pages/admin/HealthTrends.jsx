@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   Bar,
   BarChart,
   ResponsiveContainer,
@@ -27,23 +28,35 @@ const STATUS_OPTIONS = {
   wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
 };
 
+function formatMonthLabel(monthString) {
+  const [year, month] = monthString.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default function HealthTrends() {
   const { barangays } = useBarangays();
 
   const [lineIndicator, setLineIndicator] = useState("wfa");
-  const [lineStatus, setLineStatus] = useState("Underweight");
+  const [lineStatus, setLineStatus] = useState("");
   const [lineBarangay, setLineBarangay] = useState("");
   const [trend, setTrend] = useState([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const [trendError, setTrendError] = useState("");
 
   const [barMonth, setBarMonth] = useState(currentMonth());
   const [barIndicator, setBarIndicator] = useState("wfa");
   const [barStatus, setBarStatus] = useState("Underweight");
   const [barData, setBarData] = useState([]);
   const [barLoading, setBarLoading] = useState(true);
+  const [barError, setBarError] = useState("");
 
   useEffect(() => {
     setTrendLoading(true);
+    setTrendError("");
     const from = addMonths(currentMonth(), -5);
     const to = currentMonth();
     const params = new URLSearchParams({ from, to, indicator: lineIndicator, status: lineStatus });
@@ -51,15 +64,18 @@ export default function HealthTrends() {
     api
       .get(`/reports/trends?${params.toString()}`)
       .then(setTrend)
+      .catch((err) => setTrendError(err.message || "Failed to load trend data"))
       .finally(() => setTrendLoading(false));
   }, [lineIndicator, lineStatus, lineBarangay]);
 
   useEffect(() => {
     setBarLoading(true);
+    setBarError("");
     const params = new URLSearchParams({ month: barMonth, indicator: barIndicator, status: barStatus });
     api
       .get(`/reports/barangay-comparison?${params.toString()}`)
       .then((data) => setBarData(data.slice(0, 15)))
+      .catch((err) => setBarError(err.message || "Failed to load barangay comparison data"))
       .finally(() => setBarLoading(false));
   }, [barMonth, barIndicator, barStatus]);
 
@@ -73,7 +89,14 @@ export default function HealthTrends() {
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
-        <h3>{lineStatus} — {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label} (last 6 months)</h3>
+        <div style={{ marginBottom: 4 }}>
+          <h3 style={{ marginBottom: 2 }}>
+            {lineStatus || "All Statuses"} — {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label}
+          </h3>
+          <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: 0 }}>
+            Monthly case count over the last 6 months{lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
+          </p>
+        </div>
         <div className="filter-bar">
           <div className="field">
             <label>Indicator</label>
@@ -82,7 +105,7 @@ export default function HealthTrends() {
               value={lineIndicator}
               onChange={(e) => {
                 setLineIndicator(e.target.value);
-                setLineStatus(STATUS_OPTIONS[e.target.value][0]);
+                setLineStatus("");
               }}
             >
               {INDICATOR_OPTIONS.map((o) => (
@@ -95,6 +118,7 @@ export default function HealthTrends() {
           <div className="field">
             <label>Status</label>
             <select className="input" value={lineStatus} onChange={(e) => setLineStatus(e.target.value)}>
+              <option value="">All Statuses</option>
               {STATUS_OPTIONS[lineIndicator].map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -117,29 +141,56 @@ export default function HealthTrends() {
 
         {trendLoading ? (
           <div className="loading-state">Loading...</div>
+        ) : trendError ? (
+          <div className="empty-state">{trendError}</div>
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={trend} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart data={trend} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <defs>
+                <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={lineColor} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" stroke="var(--color-text-muted)" fontSize={12} />
-              <YAxis allowDecimals={false} stroke="var(--color-text-muted)" fontSize={12} />
+              <XAxis
+                dataKey="month"
+                tickFormatter={formatMonthLabel}
+                stroke="var(--color-text-muted)"
+                fontSize={12.5}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-border)" }}
+              />
+              <YAxis
+                allowDecimals={false}
+                stroke="var(--color-text-muted)"
+                fontSize={12.5}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+              />
               <Tooltip
+                labelFormatter={formatMonthLabel}
+                formatter={(value) => [`${value} child${value === 1 ? "" : "ren"}`, lineStatus || "All statuses"]}
                 contentStyle={{
                   background: "var(--color-surface)",
                   border: "1px solid var(--color-border)",
-                  borderRadius: 8,
+                  borderRadius: 10,
                   color: "var(--color-text)",
+                  boxShadow: "var(--shadow-md)",
                 }}
               />
+              <Area type="monotone" dataKey="count" stroke="none" fill="url(#trendFill)" isAnimationActive={false} />
               <Line
                 type="monotone"
                 dataKey="count"
-                name={lineStatus}
+                name={lineStatus || "All statuses"}
                 stroke={lineColor}
-                strokeWidth={2}
-                dot={{ r: 4, fill: lineColor }}
+                strokeWidth={2.5}
+                dot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
+                activeDot={{ r: 6, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         )}
 
@@ -158,7 +209,7 @@ export default function HealthTrends() {
               <tbody>
                 {trend.map((row) => (
                   <tr key={row.month}>
-                    <td>{row.month}</td>
+                    <td>{formatMonthLabel(row.month)}</td>
                     <td>{row.count}</td>
                   </tr>
                 ))}
@@ -208,6 +259,8 @@ export default function HealthTrends() {
 
         {barLoading ? (
           <div className="loading-state">Loading...</div>
+        ) : barError ? (
+          <div className="empty-state">{barError}</div>
         ) : barData.length === 0 ? (
           <div className="empty-state">No cases recorded for this filter.</div>
         ) : (

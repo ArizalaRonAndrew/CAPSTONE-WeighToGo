@@ -53,7 +53,17 @@ async function create({
   requireSupabase();
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .insert({ child_id, date_measured, weight, height, age_in_months, wfa_status, hfa_status, wfl_h_status })
+    .insert({
+      child_id,
+      date_measured,
+      weight,
+      height,
+      age_in_months,
+      wfa_status,
+      hfa_status,
+      wfl_h_status,
+      submission_status: "draft",
+    })
     .select("*")
     .single();
   if (error) throw error;
@@ -71,4 +81,21 @@ async function softDelete(id) {
   return update(id, { status: "reject" });
 }
 
-module.exports = { findAll, findAllWithBarangay, findById, create, update, softDelete };
+// Marks every draft assessment for the given children within [start, end)
+// as submitted, so the admin side can pick it up.
+async function submitForChildren({ childIds, start, end }) {
+  requireSupabase();
+  if (!childIds.length) return [];
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .update({ submission_status: "submitted" })
+    .in("child_id", childIds)
+    .gte("date_measured", start)
+    .lt("date_measured", end)
+    .eq("status", "active")
+    .select("*");
+  if (error) throw error;
+  return data;
+}
+
+module.exports = { findAll, findAllWithBarangay, findById, create, update, softDelete, submitForChildren };

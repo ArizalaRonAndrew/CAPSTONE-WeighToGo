@@ -99,14 +99,14 @@ export default function MonthlyReport() {
   const [month, setMonth] = useState(currentMonth());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [submission, setSubmission] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
   const [page, setPage] = useState(1);
 
   function load() {
     setLoading(true);
-    setSubmitError("");
+    setError("");
     setPage(1);
     Promise.allSettled([
       api.get(`/reports/monthly-masterlist?month=${month}`),
@@ -116,7 +116,7 @@ export default function MonthlyReport() {
         if (reportResult.status === "fulfilled") {
           setReport(reportResult.value);
         } else {
-          setSubmitError(reportResult.reason?.message || "Failed to load report data");
+          setError(reportResult.reason?.message || "Failed to load report data");
         }
         setSubmission(submissionResult.status === "fulfilled" ? submissionResult.value : null);
       })
@@ -126,14 +126,14 @@ export default function MonthlyReport() {
   useEffect(load, [month]);
 
   async function handleSubmit() {
-    setSubmitError("");
+    setError("");
     setSubmitting(true);
     try {
       await api.post("/reports/submit", { month });
       const submissionData = await api.get(`/reports/submission-status?month=${month}`);
       setSubmission(submissionData);
     } catch (err) {
-      setSubmitError(err.message);
+      setError(err.message || "Failed to submit report");
     } finally {
       setSubmitting(false);
     }
@@ -161,22 +161,31 @@ export default function MonthlyReport() {
             <PrintIcon /> Print Report
           </button>
           <button className="btn btn-accent" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Submitting..." : submission?.submitted ? "✓ Re-submit to Admin" : "📤 Submit to Admin"}
+            {submitting ? (
+              "Submitting..."
+            ) : submission?.submitted ? (
+              <>
+                <SendIcon /> Re-submit to Admin
+              </>
+            ) : (
+              <>
+                <SendIcon /> Submit to Admin
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {submitError && (
+      {error && (
         <p className="error-text" style={{ marginBottom: 12 }}>
-          {submitError}
+          {error}
         </p>
       )}
 
       {submission?.submitted && (
         <div className="banner banner-success" style={{ marginBottom: 20 }}>
-          ✓ Submitted to admin for {monthLabel(month)}
-          {submission.submitted_at ? ` on ${new Date(submission.submitted_at).toLocaleString()}` : ""}. The admin
-          can now view this barangay's {monthLabel(month)} checkup data.
+          ✓ Submitted to admin for {monthLabel(month)}. The admin can now view this barangay's {monthLabel(month)}{" "}
+          checkup data.
         </div>
       )}
       {submission && !submission.submitted && (

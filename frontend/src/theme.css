@@ -30,7 +30,9 @@
 
   --color-row-hover: var(--color-primary-50);
 
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --sidebar-w-collapsed: 76px;
+  --sidebar-w-expanded: 252px;
   color-scheme: light dark;
 }
 
@@ -65,11 +67,25 @@
   box-sizing: border-box;
 }
 
+/* Scroll behavior stays intact everywhere; only the scrollbar chrome is hidden. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 body {
   margin: 0;
-  font: 16px/1.5 var(--sans);
+  font: 16px/1.6 var(--sans);
   color: var(--color-text);
   background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -90,7 +106,13 @@ textarea {
 
 h1, h2, h3, h4 {
   margin: 0 0 0.5em;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-400);
+  outline-offset: 2px;
 }
 
 .app-shell {
@@ -102,35 +124,107 @@ h1, h2, h3, h4 {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 240px;
+  width: var(--sidebar-w-collapsed);
   background: linear-gradient(180deg, var(--color-primary-900), var(--color-primary-800) 60%);
   color: #fff;
   display: flex;
   flex-direction: column;
-  padding: 22px 14px;
+  padding: 20px 14px;
+  overflow-x: hidden;
   overflow-y: auto;
-  z-index: 10;
+  z-index: 30;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
+  transition: width 0.16s ease;
+}
+
+/* Desktop: a slim icon rail that overlays open to a full labeled panel on hover/focus. */
+@media (min-width: 901px) {
+  .sidebar:hover,
+  .sidebar:focus-within {
+    width: var(--sidebar-w-expanded);
+  }
+
+  /* Collapsed rail: center icons and zero the gap so the hidden (zero-width)
+     label doesn't nudge the icon off-center. */
+  .sidebar-brand,
+  .sidebar-user,
+  .sidebar-nav a,
+  .sidebar-logout {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .sidebar:hover .sidebar-brand,
+  .sidebar:focus-within .sidebar-brand,
+  .sidebar:hover .sidebar-user,
+  .sidebar:focus-within .sidebar-user,
+  .sidebar:hover .sidebar-nav a,
+  .sidebar:focus-within .sidebar-nav a,
+  .sidebar:hover .sidebar-logout,
+  .sidebar:focus-within .sidebar-logout {
+    justify-content: flex-start;
+  }
+
+  .sidebar:hover .sidebar-brand,
+  .sidebar:focus-within .sidebar-brand {
+    gap: 12px;
+  }
+
+  .sidebar:hover .sidebar-user,
+  .sidebar:focus-within .sidebar-user {
+    gap: 10px;
+  }
+
+  .sidebar:hover .sidebar-nav a,
+  .sidebar:focus-within .sidebar-nav a,
+  .sidebar:hover .sidebar-logout,
+  .sidebar:focus-within .sidebar-logout {
+    gap: 13px;
+  }
+
+  .sidebar-label,
+  .sidebar-user-info {
+    opacity: 0;
+    max-width: 0;
+  }
+
+  .sidebar:hover .sidebar-label,
+  .sidebar:hover .sidebar-user-info,
+  .sidebar:focus-within .sidebar-label,
+  .sidebar:focus-within .sidebar-user-info {
+    opacity: 1;
+    max-width: 180px;
+  }
+}
+
+.sidebar-label {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.12s ease, max-width 0.16s ease;
+}
+
+.sidebar-close {
+  z-index: 1;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  padding: 0 10px;
-  margin-bottom: 20px;
+  padding: 0 6px;
+  margin-bottom: 22px;
+  height: 34px;
 }
 
 .sidebar-brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.12);
   color: var(--color-primary-200);
   flex-shrink: 0;
@@ -139,11 +233,11 @@ h1, h2, h3, h4 {
 .sidebar-user {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  padding: 8px 6px;
   margin: 0 0 18px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
+  transition: background 0.16s ease;
 }
 
 .sidebar-avatar {
@@ -161,6 +255,7 @@ h1, h2, h3, h4 {
 
 .sidebar-user-info {
   min-width: 0;
+  transition: opacity 0.12s ease, max-width 0.16s ease;
 }
 
 .sidebar-user-email {
@@ -180,25 +275,27 @@ h1, h2, h3, h4 {
   background: rgba(255, 255, 255, 0.12);
   padding: 2px 8px;
   border-radius: 999px;
+  white-space: nowrap;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
 }
 
 .sidebar-nav a {
   display: flex;
   align-items: center;
-  gap: 11px;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 13.5px;
+  padding: 11px 13px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
   border-left: 3px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .sidebar-icon {
@@ -207,12 +304,12 @@ h1, h2, h3, h4 {
 }
 
 .sidebar-nav a:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 
 .sidebar-nav a.active {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-left-color: var(--color-primary-300);
   color: #fff;
   font-weight: 600;
@@ -221,16 +318,17 @@ h1, h2, h3, h4 {
 .sidebar-logout {
   display: flex;
   align-items: center;
-  gap: 11px;
   background: rgba(255, 255, 255, 0.08);
   border: none;
   color: rgba(255, 255, 255, 0.9);
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 11px 13px;
+  border-radius: 9px;
   cursor: pointer;
   text-align: left;
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 500;
   margin-top: 12px;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .sidebar-logout:hover {
@@ -239,8 +337,8 @@ h1, h2, h3, h4 {
 }
 
 .main-content {
-  margin-left: 240px;
-  padding: 32px;
+  margin-left: var(--sidebar-w-collapsed);
+  padding: 32px 36px;
   min-width: 0;
   overflow-x: auto;
 }
@@ -255,13 +353,13 @@ h1, h2, h3, h4 {
 }
 
 .page-header h1 {
-  font-size: 24px;
+  font-size: 25px;
 }
 
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 20px;
   box-shadow: var(--shadow-sm);
 }
@@ -281,7 +379,7 @@ h1, h2, h3, h4 {
 }
 
 .field label {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--color-text-muted);
 }
@@ -289,10 +387,11 @@ h1, h2, h3, h4 {
 .input, select.input, textarea.input {
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   background: var(--color-surface);
   color: var(--color-text);
   min-width: 160px;
+  font-size: 14.5px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -324,12 +423,14 @@ h1, h2, h3, h4 {
   padding: 9px 16px;
   font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 14.5px;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .btn:hover {
   background: var(--color-primary-600);
   border-color: var(--color-primary-600);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn:disabled {
@@ -379,7 +480,7 @@ table {
 
 .table-wrap {
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: auto;
 }
 
@@ -415,16 +516,19 @@ table {
 
 th, td {
   text-align: left;
-  padding: 10px 14px;
+  padding: 12px 15px;
   border-bottom: 1px solid var(--color-border);
-  font-size: 14px;
+  font-size: 14.5px;
   white-space: nowrap;
 }
 
 th {
   background: var(--color-primary-50);
   color: var(--color-primary-800);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   position: sticky;
   top: 0;
 }
@@ -521,8 +625,9 @@ tr.clickable:hover {
 }
 
 .stat-tile .value {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--color-primary-700);
 }
 
@@ -739,7 +844,7 @@ tr.clickable:hover {
 
 .modal-card {
   background: var(--color-surface);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 24px;
   width: 100%;
   max-width: 480px;
@@ -1398,10 +1503,25 @@ tr.clickable:hover {
   }
 
   .sidebar {
+    width: var(--sidebar-w-expanded);
     max-width: 85vw;
     z-index: 20;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
+  }
+
+  /* Off-canvas drawer is always the full labeled layout — no hover on touch. */
+  .sidebar-brand {
+    gap: 12px;
+  }
+
+  .sidebar-user {
+    gap: 10px;
+  }
+
+  .sidebar-nav a,
+  .sidebar-logout {
+    gap: 13px;
   }
 
   .sidebar.sidebar-open {
