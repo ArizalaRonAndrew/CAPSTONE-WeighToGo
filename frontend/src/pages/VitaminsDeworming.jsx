@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import ManageChildModal from "../components/ManageChildModal";
 
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
@@ -8,27 +8,47 @@ function ordinal(n) {
   return ORDINALS[n - 1] || `${n}th`;
 }
 
-function DosePill({ childId, dose, onMark, marking }) {
-  const key = `${childId}-${dose.supplement_type}-${dose.dose_order}`;
-  const variant = dose.supplement_type === "Vitamin A" ? "vitamin" : "deworming";
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+function DueBadge({ dose }) {
   return (
-    <button
-      type="button"
-      className={`dose-btn dose-btn-${variant}`}
-      disabled={marking === key}
-      onClick={() => onMark(childId, dose)}
-      title="Click to mark as given"
+    <span className={`badge ${dose.overdue ? "badge-severe" : "badge-mild"}`}>
+      {dose.supplement_type} — {ordinal(dose.dose_order)} dose{dose.overdue ? " overdue" : ""}
+    </span>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      className="search-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="16"
+      height="16"
     >
-      Mark {dose.supplement_type} — {ordinal(dose.dose_order)} Dose
-    </button>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
   );
 }
 
 export default function VitaminsDeworming() {
-  const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [markingKey, setMarkingKey] = useState(null);
+  const [search, setSearch] = useState("");
+  const [purokFilter, setPurokFilter] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [manageChildId, setManageChildId] = useState(null);
 
   function load() {
     setLoading(true);
@@ -45,22 +65,24 @@ export default function VitaminsDeworming() {
 
   useEffect(load, []);
 
-  async function markGiven(childId, dose) {
-    const key = `${childId}-${dose.supplement_type}-${dose.dose_order}`;
-    setMarkingKey(key);
-    try {
-      await api.post("/supplements", {
-        child_id: childId,
-        supplement_type: dose.supplement_type,
-        dose_order: dose.dose_order,
-      });
-      load();
-    } finally {
-      setMarkingKey(null);
-    }
-  }
+  const purokOptions = [...new Set(entries.map((e) => e.child.purok).filter(Boolean))].sort();
+
+  const filteredEntries = entries.filter(({ child, due }) => {
+    if (search && !child.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (purokFilter && child.purok !== purokFilter) return false;
+    if (overdueOnly && !due.some((d) => d.overdue)) return false;
+    return true;
+  });
 
   const totalDue = entries.reduce((sum, e) => sum + e.due.length, 0);
+  const overdueChildren = entries.filter((e) => e.due.some((d) => d.overdue)).length;
+  const hasActiveFilters = Boolean(search || purokFilter || overdueOnly);
+
+  function clearFilters() {
+    setSearch("");
+    setPurokFilter("");
+    setOverdueOnly(false);
+  }
 
   return (
     <div>
@@ -68,7 +90,7 @@ export default function VitaminsDeworming() {
         <div>
           <h1>Vitamins &amp; Deworming</h1>
           <p className="subtitle" style={{ color: "var(--color-text-muted)", margin: 0 }}>
-            Children whose age means they need a Vitamin A or Deworming dose now.
+            Children appear here the exact day their age reaches a Vitamin A or Deworming dose window.
           </p>
         </div>
       </div>
@@ -82,7 +104,62 @@ export default function VitaminsDeworming() {
           <div className="value">{loading ? "…" : totalDue}</div>
           <div className="label">Total doses due</div>
         </div>
+        <div className="card stat-tile">
+          <div className="value">{loading ? "…" : overdueChildren}</div>
+          <div className="label">Children overdue</div>
+        </div>
       </div>
+
+      <div className="card filter-card">
+        <div className="filter-bar" style={{ marginBottom: 0 }}>
+          <div className="field search-field">
+            <label>Search</label>
+            <div className="search-input-wrap">
+              <SearchIcon />
+              <input
+                className="input"
+                type="text"
+                placeholder="Search child's name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label>Purok / Sitio</label>
+            <select className="input" value={purokFilter} onChange={(e) => setPurokFilter(e.target.value)}>
+              <option value="">All puroks</option>
+              {purokOptions.map((purok) => (
+                <option key={purok} value={purok}>
+                  {purok}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Dose Status</label>
+            <select
+              className="input"
+              value={overdueOnly ? "overdue" : ""}
+              onChange={(e) => setOverdueOnly(e.target.value === "overdue")}
+            >
+              <option value="">All due</option>
+              <option value="overdue">Overdue only</option>
+            </select>
+          </div>
+          {hasActiveFilters && (
+            <button type="button" className="btn btn-secondary" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!loading && (
+        <p className="results-count">
+          Showing {filteredEntries.length} of {entries.length} children
+        </p>
+      )}
 
       {!loading && entries.length === 0 && (
         <div className="banner banner-success" style={{ marginBottom: 20 }}>
@@ -91,60 +168,79 @@ export default function VitaminsDeworming() {
       )}
 
       {(loading || entries.length > 0) && (
-        <div className="card">
-          <div className="table-wrap">
-            <table>
-              <thead>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name of Child</th>
+                <th>Purok / Sitio</th>
+                <th>Age</th>
+                <th>Doses Due</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
                 <tr>
-                  <th>Purok</th>
-                  <th>Name of Child</th>
-                  <th>Age</th>
-                  <th>Doses Due</th>
+                  <td colSpan={5} className="loading-state">
+                    Loading...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={4} className="loading-state">
-                      Loading...
+              )}
+              {!loading && entries.length > 0 && filteredEntries.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="empty-state">
+                    <div>No children match your filters.</div>
+                    <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
+                      Clear filters
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                filteredEntries.map(({ child, ageInMonths, due }) => (
+                  <tr key={child.id} className="clickable" onClick={() => setManageChildId(child.id)}>
+                    <td>
+                      <div className="child-name-cell">
+                        <span className="avatar-circle">{initials(child.name)}</span>
+                        <span style={{ fontWeight: 700 }}>{child.name}</span>
+                      </div>
+                    </td>
+                    <td>{child.purok}</td>
+                    <td>{ageInMonths} mo</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {due.map((dose) => (
+                          <DueBadge key={`${dose.supplement_type}-${dose.dose_order}`} dose={dose} />
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setManageChildId(child.id);
+                        }}
+                      >
+                        Manage Supplements
+                      </button>
                     </td>
                   </tr>
-                )}
-                {!loading &&
-                  entries.map(({ child, ageInMonths, due }) => (
-                    <tr key={child.id}>
-                      <td>{child.purok}</td>
-                      <td style={{ fontWeight: 700 }}>
-                        <a
-                          href={`/children/${child.id}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(`/children/${child.id}`);
-                          }}
-                        >
-                          {child.name}
-                        </a>
-                      </td>
-                      <td>{ageInMonths} mo</td>
-                      <td>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {due.map((dose) => (
-                            <DosePill
-                              key={`${dose.supplement_type}-${dose.dose_order}`}
-                              childId={child.id}
-                              dose={dose}
-                              onMark={markGiven}
-                              marking={markingKey}
-                            />
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+                ))}
+            </tbody>
+          </table>
         </div>
+      )}
+
+      {manageChildId && (
+        <ManageChildModal
+          childId={manageChildId}
+          initialTab="vitamins"
+          onClose={() => setManageChildId(null)}
+          onChanged={load}
+        />
       )}
     </div>
   );

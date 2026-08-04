@@ -69,7 +69,7 @@ function SupplementBlock({ type, doses, onMark, markingKey }) {
   );
 }
 
-export default function SupplementTracker({ childId }) {
+export default function SupplementTracker({ childId, onChanged }) {
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markingKey, setMarkingKey] = useState(null);
@@ -94,6 +94,7 @@ export default function SupplementTracker({ childId }) {
         dose_order: dose.dose_order,
       });
       load();
+      onChanged?.();
     } finally {
       setMarkingKey(null);
     }
