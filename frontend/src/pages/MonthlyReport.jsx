@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { currentMonth } from "../utils/month";
 import { colorVarForStatus } from "../utils/statusGroups";
+import { formatNameForTable } from "../utils/name";
 import StatusBadge from "../components/StatusBadge";
 
 function formatShortDate(dateStr) {
@@ -275,7 +276,7 @@ export default function MonthlyReport() {
                 <tr key={row.assessment_id}>
                   <td>{row.purok}</td>
                   <td>{row.parent_name}</td>
-                  <td style={{ fontWeight: 700 }}>{row.name}</td>
+                  <td style={{ fontWeight: 700 }}>{formatNameForTable(row.name)}</td>
                   <td>{row.is_ip ? "YES" : "NO"}</td>
                   <td>{row.gender?.charAt(0)}</td>
                   <td>{formatShortDate(row.dob)}</td>

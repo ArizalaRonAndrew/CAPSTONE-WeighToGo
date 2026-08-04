@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import ManageChildModal from "../components/ManageChildModal";
+import { formatNameForTable } from "../utils/name";
 
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
@@ -203,7 +204,7 @@ export default function VitaminsDeworming() {
                     <td>
                       <div className="child-name-cell">
                         <span className="avatar-circle">{initials(child.name)}</span>
-                        <span style={{ fontWeight: 700 }}>{child.name}</span>
+                        <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                       </div>
                     </td>
                     <td>{child.purok}</td>

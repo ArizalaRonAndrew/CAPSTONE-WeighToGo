@@ -26,7 +26,6 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={["BNS"]} />}>
                 <Route path="/bns/masterlist" element={<Masterlist />} />
                 <Route path="/bns/vitamins" element={<VitaminsDeworming />} />
-                <Route path="/bns/reports" element={<Reports />} />
                 <Route path="/bns/monthly-report" element={<MonthlyReport />} />
               </Route>
 

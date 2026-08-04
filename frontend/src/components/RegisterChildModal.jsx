@@ -2,9 +2,13 @@ import { useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
+import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
+import { combineChildName } from "../utils/name";
 
 const EMPTY_FORM = {
-  name: "",
+  firstName: "",
+  middleName: "",
+  lastName: "",
   dob: "",
   parent_name: "",
   parent_contact: "",
@@ -28,9 +32,19 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError("First name and last name are required.");
+      return;
+    }
+    if (form.parent_contact && !isValidPhContact(form.parent_contact)) {
+      setError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
+      return;
+    }
     setSubmitting(true);
     try {
-      const child = await api.post("/children", form);
+      const { firstName, middleName, lastName, ...rest } = form;
+      const payload = { ...rest, name: combineChildName({ firstName, middleName, lastName }) };
+      const child = await api.post("/children", payload);
       onRegistered(child);
     } catch (err) {
       setError(err.message);
@@ -41,21 +55,53 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-        <h2>Register a Child</h2>
-        <div className="form-grid">
-          <div className="field">
-            <label>Full Name</label>
-            <input
-              className="input"
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-grid cols-2">
+      <form
+        className="modal-card modal-card-lg"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
+
+        <div className="modal-header">
+          <h2>Register a Child</h2>
+          <p className="modal-subtitle">Add a new child to the barangay masterlist.</p>
+        </div>
+
+        <div className="form-section">
+          <div className="section-title">Child Information</div>
+          <div className="form-grid cols-3">
             <div className="field">
-              <label>Date of Birth</label>
+              <label className="required">First Name</label>
+              <input
+                className="input"
+                value={form.firstName}
+                onChange={(e) => update("firstName", e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Middle Name</label>
+              <input
+                className="input"
+                value={form.middleName}
+                onChange={(e) => update("middleName", e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label className="required">Last Name</label>
+              <input
+                className="input"
+                value={form.lastName}
+                onChange={(e) => update("lastName", e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="form-grid cols-2" style={{ marginTop: 14 }}>
+            <div className="field">
+              <label className="required">Date of Birth</label>
               <input
                 className="input"
                 type="date"
@@ -72,27 +118,41 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
               </select>
             </div>
           </div>
-          <div className="field">
-            <label>Parent / Guardian Name</label>
-            <input
-              className="input"
-              value={form.parent_name}
-              onChange={(e) => update("parent_name", e.target.value)}
-              required
-            />
+        </div>
+
+        <div className="form-section">
+          <div className="section-title">Parent / Guardian</div>
+          <div className="form-grid cols-2">
+            <div className="field">
+              <label className="required">Full Name</label>
+              <input
+                className="input"
+                value={form.parent_name}
+                onChange={(e) => update("parent_name", e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Contact Number</label>
+              <input
+                className="input"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+                placeholder="09XXXXXXXXX"
+                value={form.parent_contact}
+                onChange={(e) => update("parent_contact", sanitizePhoneInput(e.target.value))}
+              />
+            </div>
           </div>
-          <div className="field">
-            <label>Parent Contact Number</label>
-            <input
-              className="input"
-              value={form.parent_contact}
-              onChange={(e) => update("parent_contact", e.target.value)}
-            />
-          </div>
+        </div>
+
+        <div className="form-section">
+          <div className="section-title">Location</div>
           <div className="form-grid cols-2">
             {user?.role === "MNAO" ? (
               <div className="field">
-                <label>Barangay</label>
+                <label className="required">Barangay</label>
                 <select
                   className="input"
                   value={form.barangay}
@@ -116,29 +176,31 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
               </div>
             )}
             <div className="field">
-              <label>Purok</label>
+              <label className="required">Purok</label>
               <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />
             </div>
           </div>
-          <div className="field">
+          <div className="checkbox-card" style={{ marginTop: 14 }}>
             <label>
               <input
                 type="checkbox"
                 checked={form.is_ip}
                 onChange={(e) => update("is_ip", e.target.checked)}
-              />{" "}
+              />
               Indigenous Person (IP)
             </label>
           </div>
-          {error && <p className="error-text">{error}</p>}
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn" disabled={submitting}>
-              {submitting ? "Saving..." : "Register"}
-            </button>
-          </div>
+        </div>
+
+        {error && <div className="banner banner-danger">{error}</div>}
+
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn" disabled={submitting}>
+            {submitting ? "Saving..." : "Register"}
+          </button>
         </div>
       </form>
     </div>

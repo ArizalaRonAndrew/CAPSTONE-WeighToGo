@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 const BNS_LINKS = [
   { to: "/bns/masterlist", label: "Masterlist", icon: "list" },
   { to: "/bns/vitamins", label: "Vitamins & Deworming", icon: "droplet" },
-  { to: "/bns/reports", label: "Reports", icon: "chart" },
   { to: "/bns/monthly-report", label: "Monthly Report", icon: "calendar" },
 ];
 

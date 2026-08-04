@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
 import { formatAge } from "../utils/age";
 import { currentMonth } from "../utils/month";
+import { formatNameForTable } from "../utils/name";
 import RegisterChildModal from "../components/RegisterChildModal";
 import ManageChildModal from "../components/ManageChildModal";
 
@@ -217,7 +218,7 @@ export default function Masterlist() {
                   <td>
                     <div className="child-name-cell">
                       <span className="avatar-circle">{initials(child.name)}</span>
-                      <span style={{ fontWeight: 700 }}>{child.name}</span>
+                      <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                     </div>
                   </td>
                   <td>{child.parent_name}</td>

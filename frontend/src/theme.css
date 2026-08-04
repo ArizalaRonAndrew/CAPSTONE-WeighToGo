@@ -286,6 +286,24 @@ h1, h2, h3, h4 {
   background: var(--color-surface);
   color: var(--color-text);
   min-width: 160px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus, select.input:focus, textarea.input:focus {
+  outline: none;
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px rgba(52, 113, 90, 0.18);
+}
+
+.input:disabled {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.field label.required::after {
+  content: " *";
+  color: var(--status-severe-text);
 }
 
 .btn {
@@ -679,7 +697,21 @@ tr.clickable:hover {
 }
 
 .form-grid.cols-2 {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.form-grid.cols-3 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.form-grid .field,
+.filter-bar .field {
+  min-width: 0;
+}
+
+.form-grid .input {
+  min-width: 0;
+  width: 100%;
 }
 
 .error-text {
@@ -706,6 +738,7 @@ tr.clickable:hover {
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: var(--shadow-md);
 }
 
@@ -714,6 +747,70 @@ tr.clickable:hover {
   font-weight: 700;
   color: var(--color-primary-700);
   margin: 24px 0 12px;
+}
+
+.modal-header {
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+  font-size: 19px;
+  margin-bottom: 4px;
+}
+
+.modal-subtitle {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.form-section {
+  margin-bottom: 22px;
+}
+
+.form-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.form-section .section-title {
+  margin: 0 0 12px;
+}
+
+.checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+}
+
+.checkbox-card label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.checkbox-card input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary-600);
+  cursor: pointer;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 18px;
+  margin-top: 22px;
+  border-top: 1px solid var(--color-border);
 }
 
 .timeline {
@@ -999,6 +1096,11 @@ tr.clickable:hover {
 .banner-success {
   background: var(--status-normal-bg);
   color: var(--status-normal-text);
+}
+
+.banner-danger {
+  background: var(--status-severe-bg);
+  color: var(--status-severe-text);
 }
 
 .computed-status-box {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { formatAge } from "../utils/age";
+import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
 import StatusBadge from "../components/StatusBadge";
 import SupplementTracker from "../components/SupplementTracker";
 
@@ -42,6 +43,10 @@ export default function ChildProfile() {
   async function handleSaveInfo(e) {
     e.preventDefault();
     setInfoError("");
+    if (editForm.parent_contact && !isValidPhContact(editForm.parent_contact)) {
+      setInfoError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
+      return;
+    }
     setSavingInfo(true);
     try {
       const updated = await api.patch(`/children/${id}`, {
@@ -144,8 +149,12 @@ export default function ChildProfile() {
             <label>Parent Contact</label>
             <input
               className="input"
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              placeholder="09XXXXXXXXX"
               value={editForm.parent_contact || ""}
-              onChange={(e) => setEditForm({ ...editForm, parent_contact: e.target.value })}
+              onChange={(e) => setEditForm({ ...editForm, parent_contact: sanitizePhoneInput(e.target.value) })}
             />
           </div>
           <div className="field">

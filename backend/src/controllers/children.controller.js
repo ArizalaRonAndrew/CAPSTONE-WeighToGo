@@ -1,5 +1,6 @@
 const childrenModel = require("../models/children.model");
 const { assertBarangayAccess } = require("../utils/access");
+const { isValidPhContact } = require("../utils/phone");
 
 async function listChildren(req, res, next) {
   try {
@@ -37,6 +38,11 @@ async function createChild(req, res, next) {
         error: "name, dob, parent_name, barangay, purok, and gender are required",
       });
     }
+    if (req.body.parent_contact && !isValidPhContact(req.body.parent_contact)) {
+      return res.status(400).json({
+        error: "parent_contact must be an 11-digit mobile number starting with 09",
+      });
+    }
     const child = await childrenModel.create({ ...req.body, barangay });
     res.status(201).json(child);
   } catch (err) {
@@ -52,6 +58,11 @@ async function updateChild(req, res, next) {
     const fields = { ...req.body };
     if (req.user.role === "BNS") {
       delete fields.barangay;
+    }
+    if (fields.parent_contact && !isValidPhContact(fields.parent_contact)) {
+      return res.status(400).json({
+        error: "parent_contact must be an 11-digit mobile number starting with 09",
+      });
     }
     const child = await childrenModel.update(req.params.id, fields);
     res.json(child);

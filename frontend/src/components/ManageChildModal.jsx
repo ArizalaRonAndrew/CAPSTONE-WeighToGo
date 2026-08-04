@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
+import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
 import StatusBadge from "./StatusBadge";
 import SupplementTracker from "./SupplementTracker";
 
@@ -147,6 +148,10 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   async function handleSaveInfo(e) {
     e.preventDefault();
     setInfoError("");
+    if (editForm.parent_contact && !isValidPhContact(editForm.parent_contact)) {
+      setInfoError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
+      return;
+    }
     setSavingInfo(true);
     try {
       const updated = await api.patch(`/children/${childId}`, {
@@ -257,7 +262,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                   label="Contact Number"
                   value={
                     child.parent_contact ? (
-                      <a href={`tel:${child.parent_contact}`}>{child.parent_contact}</a>
+                      <a href={`tel:${child.parent_contact}`}>{formatPhContact(child.parent_contact)}</a>
                     ) : (
                       "—"
                     )
@@ -312,8 +317,12 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 <label>Parent Contact</label>
                 <input
                   className="input"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder="09XXXXXXXXX"
                   value={editForm.parent_contact || ""}
-                  onChange={(e) => setEditForm({ ...editForm, parent_contact: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, parent_contact: sanitizePhoneInput(e.target.value) })}
                 />
               </div>
               <div className="field">
