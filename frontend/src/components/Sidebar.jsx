@@ -73,7 +73,7 @@ function Icon({ name }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ open = false, onClose = () => {} }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const links = user?.role === "MNAO" ? ADMIN_LINKS : BNS_LINKS;
@@ -85,41 +85,53 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <span className="sidebar-brand-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-            <path d="M5 20c9 0 14-5 14-14V5h-1C9 5 4 10 4 19v1Z" />
-          </svg>
-        </span>
-        WeighToGo
-      </div>
+    <>
+      <div className={`sidebar-backdrop ${open ? "visible" : ""}`} onClick={onClose} aria-hidden="true" />
+      <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
+        <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close menu">
+          ×
+        </button>
 
-      <div className="sidebar-user">
-        <span className="sidebar-avatar">{initial}</span>
-        <div className="sidebar-user-info">
-          <div className="sidebar-user-email" title={user?.email}>
-            {user?.email}
-          </div>
-          <span className="sidebar-role-pill">
-            {user?.role === "MNAO" ? "Administrator" : `BNS · ${user?.assigned_barangay}`}
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+              <path d="M5 20c9 0 14-5 14-14V5h-1C9 5 4 10 4 19v1Z" />
+            </svg>
           </span>
+          WeighToGo
         </div>
-      </div>
 
-      <nav className="sidebar-nav">
-        {links.map((link) => (
-          <NavLink key={link.to} to={link.to} className={({ isActive }) => (isActive ? "active" : "")}>
-            <Icon name={link.icon} />
-            {link.label}
-          </NavLink>
-        ))}
-      </nav>
+        <div className="sidebar-user">
+          <span className="sidebar-avatar">{initial}</span>
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-email" title={user?.email}>
+              {user?.email}
+            </div>
+            <span className="sidebar-role-pill">
+              {user?.role === "MNAO" ? "Administrator" : `BNS · ${user?.assigned_barangay}`}
+            </span>
+          </div>
+        </div>
 
-      <button type="button" className="sidebar-logout" onClick={handleLogout}>
-        <Icon name="logout" />
-        Log Out
-      </button>
-    </aside>
+        <nav className="sidebar-nav">
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              onClick={onClose}
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              <Icon name={link.icon} />
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <button type="button" className="sidebar-logout" onClick={handleLogout}>
+          <Icon name="logout" />
+          Log Out
+        </button>
+      </aside>
+    </>
   );
 }

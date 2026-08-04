@@ -174,6 +174,7 @@ export default function VitaminsDeworming() {
             <thead>
               <tr>
                 <th>Name of Child</th>
+                <th>Parent / Guardian</th>
                 <th>Purok / Sitio</th>
                 <th>Age</th>
                 <th>Doses Due</th>
@@ -183,14 +184,14 @@ export default function VitaminsDeworming() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={5} className="loading-state">
+                  <td colSpan={6} className="loading-state">
                     Loading...
                   </td>
                 </tr>
               )}
               {!loading && entries.length > 0 && filteredEntries.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty-state">
+                  <td colSpan={6} className="empty-state">
                     <div>No children match your filters.</div>
                     <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
                       Clear filters
@@ -201,22 +202,23 @@ export default function VitaminsDeworming() {
               {!loading &&
                 filteredEntries.map(({ child, ageInMonths, due }) => (
                   <tr key={child.id} className="clickable" onClick={() => setManageChildId(child.id)}>
-                    <td>
+                    <td data-label="Name of Child">
                       <div className="child-name-cell">
                         <span className="avatar-circle">{initials(child.name)}</span>
                         <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                       </div>
                     </td>
-                    <td>{child.purok}</td>
-                    <td>{ageInMonths} mo</td>
-                    <td>
+                    <td data-label="Parent / Guardian">{child.parent_name}</td>
+                    <td data-label="Purok / Sitio">{child.purok}</td>
+                    <td data-label="Age">{ageInMonths} mo</td>
+                    <td data-label="Doses Due">
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {due.map((dose) => (
                           <DueBadge key={`${dose.supplement_type}-${dose.dose_order}`} dose={dose} />
                         ))}
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Action">
                       <button
                         type="button"
                         className="btn btn-secondary"

@@ -155,7 +155,7 @@ export default function MonthlyReport() {
             Nutritional status breakdown for {monthLabel(month)}.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="page-header-actions" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
           <button className="btn btn-secondary" onClick={() => window.print()}>
             <PrintIcon /> Print Report
@@ -274,23 +274,23 @@ export default function MonthlyReport() {
               )}
               {pageRows.map((row) => (
                 <tr key={row.assessment_id}>
-                  <td>{row.purok}</td>
-                  <td>{row.parent_name}</td>
-                  <td style={{ fontWeight: 700 }}>{formatNameForTable(row.name)}</td>
-                  <td>{row.is_ip ? "YES" : "NO"}</td>
-                  <td>{row.gender?.charAt(0)}</td>
-                  <td>{formatShortDate(row.dob)}</td>
-                  <td>{formatShortDate(row.date_measured)}</td>
-                  <td>{row.weight}</td>
-                  <td>{row.height}</td>
-                  <td>{row.age_in_months}</td>
-                  <td>
+                  <td data-label="Address / Purok">{row.purok}</td>
+                  <td data-label="Mother / Caregiver">{row.parent_name}</td>
+                  <td data-label="Name of Child" style={{ fontWeight: 700 }}>{formatNameForTable(row.name)}</td>
+                  <td data-label="IP Group">{row.is_ip ? "YES" : "NO"}</td>
+                  <td data-label="Sex">{row.gender?.charAt(0)}</td>
+                  <td data-label="Date of Birth">{formatShortDate(row.dob)}</td>
+                  <td data-label="Date Measured">{formatShortDate(row.date_measured)}</td>
+                  <td data-label="Weight (kg)">{row.weight}</td>
+                  <td data-label="Height (cm)">{row.height}</td>
+                  <td data-label="Age (mos)">{row.age_in_months}</td>
+                  <td data-label="Weight for Age (WFA)">
                     <StatusBadge status={row.wfa_status} compact />
                   </td>
-                  <td>
+                  <td data-label="Height for Age (HFA)">
                     <StatusBadge status={row.hfa_status} compact />
                   </td>
-                  <td>
+                  <td data-label="Weight for Lt/Ht (WFL/H)">
                     <StatusBadge status={row.wfl_h_status} compact />
                   </td>
                 </tr>

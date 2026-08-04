@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
+import { sanitizeDecimalInput } from "../utils/decimal";
 import StatusBadge from "./StatusBadge";
 import SupplementTracker from "./SupplementTracker";
 
@@ -409,11 +410,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                     <label>Weight (kg)</label>
                     <input
                       className="input"
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
+                      maxLength={5}
                       placeholder="e.g. 10.5"
                       value={assessmentForm.weight}
-                      onChange={(e) => setAssessmentForm({ ...assessmentForm, weight: e.target.value })}
+                      onChange={(e) =>
+                        setAssessmentForm({ ...assessmentForm, weight: sanitizeDecimalInput(e.target.value) })
+                      }
                       required
                     />
                   </div>
@@ -421,11 +425,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                     <label>Height (cm)</label>
                     <input
                       className="input"
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
+                      maxLength={5}
                       placeholder="e.g. 75.0"
                       value={assessmentForm.height}
-                      onChange={(e) => setAssessmentForm({ ...assessmentForm, height: e.target.value })}
+                      onChange={(e) =>
+                        setAssessmentForm({ ...assessmentForm, height: sanitizeDecimalInput(e.target.value) })
+                      }
                       required
                     />
                   </div>
@@ -492,17 +499,17 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                     )}
                     {assessments.map((a) => (
                       <tr key={a.id}>
-                        <td>{a.date_measured}</td>
-                        <td>
+                        <td data-label="Month">{a.date_measured}</td>
+                        <td data-label="Weight/Height">
                           {a.weight}kg / {a.height}cm
                         </td>
-                        <td>
+                        <td data-label="WFA">
                           <StatusBadge status={a.wfa_status} />
                         </td>
-                        <td>
+                        <td data-label="HFA">
                           <StatusBadge status={a.hfa_status} />
                         </td>
-                        <td>
+                        <td data-label="WFL/H">
                           <StatusBadge status={a.wfl_h_status} />
                         </td>
                       </tr>

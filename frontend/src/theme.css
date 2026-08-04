@@ -28,6 +28,8 @@
   --shadow-sm: 0 1px 2px rgba(16, 24, 20, 0.05);
   --shadow-md: 0 6px 16px rgba(16, 24, 20, 0.1);
 
+  --color-row-hover: var(--color-primary-50);
+
   --sans: system-ui, "Segoe UI", Roboto, sans-serif;
   color-scheme: light dark;
 }
@@ -51,6 +53,11 @@
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.4);
+
+    /* --color-primary-50 stays a light pastel in dark mode (used elsewhere
+       against explicitly dark text), so row hover needs its own token that
+       actually adapts, or hovered text becomes near-white-on-near-white. */
+    --color-row-hover: rgba(255, 255, 255, 0.07);
   }
 }
 
@@ -431,7 +438,7 @@ tr.clickable {
 }
 
 tr.clickable:hover {
-  background: var(--color-primary-50);
+  background: var(--color-row-hover);
 }
 
 .badge {
@@ -1306,4 +1313,367 @@ tr.clickable:hover {
 
 .legend-dot-upcoming {
   background: var(--color-border);
+}
+
+/* ==========================================================================
+   Responsive / mobile
+   ========================================================================== */
+
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, var(--color-primary-900), var(--color-primary-800) 60%);
+  color: #fff;
+  z-index: 5;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mobile-topbar-brand {
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-close {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+/* Sidebar collapses into an off-canvas drawer below tablet width. */
+@media (max-width: 900px) {
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .sidebar-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar {
+    max-width: 85vw;
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 10, 0.5);
+    z-index: 15;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidebar-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding-top: 76px;
+  }
+}
+
+/* Tighten spacing, stack header actions/filters, shrink modals. */
+@media (max-width: 640px) {
+  .main-content {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 20px;
+  }
+
+  .page-header {
+    align-items: flex-start;
+  }
+
+  .page-header h1 {
+    font-size: 19px;
+  }
+
+  .page-header-actions {
+    width: 100%;
+  }
+
+  .page-header-actions .btn,
+  .page-header-actions .input {
+    flex: 1 1 140px;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-bar .field,
+  .filter-bar .btn {
+    width: 100%;
+  }
+
+  .filter-bar .input,
+  .filter-bar select.input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    padding: 10px 14px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-card {
+    padding: 18px;
+    border-radius: 10px;
+  }
+
+  .manage-modal-header {
+    gap: 12px;
+  }
+
+  .child-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .computed-status-row {
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+  }
+}
+
+/* Collapse multi-column forms and info grids to a single column. */
+@media (max-width: 560px) {
+  .form-grid.cols-2,
+  .form-grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Turn data tables into a stack of tappable cards. The identity column
+   (Name of Child / Month) leads as a bold header, a lone status pill gets
+   its own emphasized line, ordinary fields flow through a compact 2-up
+   grid, related badges (nutritional status) group into a 3-up row, and any
+   action button is pinned full-width at the bottom. Scoped to `screen` so
+   printed reports keep their normal tabular layout. */
+@media screen and (max-width: 700px) {
+  .table-wrap {
+    border: none;
+    overflow: visible;
+  }
+
+  .table-wrap table thead {
+    display: none;
+  }
+
+  .table-wrap table {
+    display: block;
+    background: transparent;
+  }
+
+  .table-wrap tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .table-wrap tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 10px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table-wrap tr.clickable:active {
+    transform: scale(0.99);
+  }
+
+  .table-wrap td {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    border-bottom: none;
+    padding: 0;
+    white-space: normal;
+    font-size: 13.5px;
+  }
+
+  .table-wrap td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+  }
+
+  /* Identity column leads every card as a bold header. */
+  .table-wrap td[data-label="Name of Child"],
+  .table-wrap td[data-label="Month"] {
+    order: -2;
+    flex-basis: 100%;
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .table-wrap td[data-label="Name of Child"]::before,
+  .table-wrap td[data-label="Month"]::before {
+    content: none;
+  }
+
+  /* A lone status pill gets its own emphasized, label-beside-value line. */
+  .table-wrap td[data-label="Checkup Status"] {
+    order: -1;
+    flex-basis: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* Fields with richer content need the full row instead of the 2-up grid.
+     "Age (mos)" is forced full-width too so it closes out the 2-up block
+     cleanly — otherwise its leftover half-row bleeds into the status trio
+     below and throws off the 3-up split. */
+  .table-wrap td[data-label="Doses Due"],
+  .table-wrap td[data-label="Weight/Height"],
+  .table-wrap td[data-label="Age (mos)"] {
+    flex-basis: 100%;
+  }
+
+  /* Nutritional-status badges read best as a compact trio. */
+  .table-wrap td[data-label="Weight for Age (WFA)"],
+  .table-wrap td[data-label="Height for Age (HFA)"],
+  .table-wrap td[data-label="Weight for Lt/Ht (WFL/H)"],
+  .table-wrap td[data-label="WFA"],
+  .table-wrap td[data-label="HFA"],
+  .table-wrap td[data-label="WFL/H"] {
+    flex-basis: calc(33.333% - 8px);
+  }
+
+  /* Action button is pinned full-width at the bottom of the card. */
+  .table-wrap td[data-label="Action"] {
+    order: 99;
+    flex-basis: 100%;
+    padding-top: 12px;
+    margin-top: 2px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .table-wrap td[data-label="Action"]::before {
+    content: none;
+  }
+
+  .table-wrap td[data-label="Action"] .btn {
+    width: 100%;
+  }
+
+  .table-wrap tr:has(td.loading-state),
+  .table-wrap tr:has(td.empty-state) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .table-wrap td.loading-state,
+  .table-wrap td.empty-state {
+    flex-basis: 100%;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .table-wrap td.loading-state::before,
+  .table-wrap td.empty-state::before {
+    content: none;
+  }
+
+  .paginated-table-wrap {
+    height: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 }

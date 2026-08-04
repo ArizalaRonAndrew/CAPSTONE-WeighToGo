@@ -215,22 +215,22 @@ export default function Masterlist() {
               const isChecked = checkedChildIds.has(child.id);
               return (
                 <tr key={child.id}>
-                  <td>
+                  <td data-label="Name of Child">
                     <div className="child-name-cell">
                       <span className="avatar-circle">{initials(child.name)}</span>
                       <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                     </div>
                   </td>
-                  <td>{child.parent_name}</td>
-                  <td>{child.gender}</td>
-                  <td>{formatAge(child.dob)}</td>
-                  <td>{child.purok}</td>
-                  <td>
+                  <td data-label="Parent / Guardian">{child.parent_name}</td>
+                  <td data-label="Gender">{child.gender}</td>
+                  <td data-label="Age">{formatAge(child.dob)}</td>
+                  <td data-label="Purok / Sitio">{child.purok}</td>
+                  <td data-label="Checkup Status">
                     <span className={`status-pill ${isChecked ? "status-pill-checked" : "status-pill-pending"}`}>
                       {isChecked ? "✓ Checked" : "Pending"}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Action">
                     <button className="btn btn-secondary" onClick={() => setManageChildId(child.id)}>
                       Manage
                     </button>
