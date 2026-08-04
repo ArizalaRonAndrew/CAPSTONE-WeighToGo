@@ -18,13 +18,13 @@ const INDICATOR_DEFS = [
     key: "wfa_status",
     label: "Weight-for-Age",
     abbr: "WFA",
-    statuses: ["Normal", "Underweight", "Severely Underweight"],
+    statuses: ["Normal", "Underweight", "Severely Underweight", "Overweight"],
   },
   {
     key: "hfa_status",
     label: "Height-for-Age",
     abbr: "HFA",
-    statuses: ["Normal", "Stunted", "Severely Stunted"],
+    statuses: ["Normal", "Stunted", "Severely Stunted", "Tall"],
   },
   {
     key: "wfl_h_status",
