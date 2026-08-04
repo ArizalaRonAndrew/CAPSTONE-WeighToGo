@@ -1849,3 +1849,114 @@ tr.clickable:hover {
     overflow-y: auto;
   }
 }
+
+/* Growth Summary Report (OPT+ style pivot table). Deliberately kept out of
+   the `.table-wrap` mobile card-stacking behavior above — this is a dense
+   matrix table with merged headers, so it scrolls horizontally instead. */
+.growth-summary-card {
+  margin-bottom: 24px;
+}
+
+.growth-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.growth-summary-totals {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.growth-summary-total-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--color-primary-50);
+  min-width: 150px;
+}
+
+.growth-summary-total-tile .label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.growth-summary-total-tile .value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary-700);
+}
+
+.growth-summary-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: auto;
+}
+
+.growth-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.growth-summary-table th,
+.growth-summary-table td {
+  text-align: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.growth-summary-table thead th {
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.growth-summary-row-head {
+  text-align: left !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.growth-summary-table tbody th.growth-summary-row-head,
+.growth-summary-table tbody td.growth-summary-row-head {
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+
+.growth-summary-table tr[data-indicator="hfa"] {
+  background: var(--color-bg);
+}
+
+.growth-summary-table tr[data-indicator="hfa"] td.growth-summary-row-head {
+  background: var(--color-bg);
+}
+
+.growth-summary-subtotal {
+  font-weight: 600;
+}
+
+.growth-summary-total-row td {
+  background: var(--color-primary-50);
+  font-weight: 700;
+}
+
+.growth-summary-total-row td.growth-summary-row-head {
+  background: var(--color-primary-50);
+}

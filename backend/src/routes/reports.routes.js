@@ -3,6 +3,7 @@ const {
   getNutritionReport,
   getMonthlyMasterlistReport,
   getVitaminReport,
+  getGrowthSummaryReport,
   getTrends,
   getBarangayComparison,
   submitMonthlyReport,
@@ -17,6 +18,7 @@ router.use(authenticate);
 router.get("/nutrition", getNutritionReport);
 router.get("/monthly-masterlist", getMonthlyMasterlistReport);
 router.get("/vitamins", getVitaminReport);
+router.get("/growth-summary", getGrowthSummaryReport);
 router.get("/trends", authorize("MNAO"), getTrends);
 router.get("/barangay-comparison", authorize("MNAO"), getBarangayComparison);
 router.get("/submission-status", getSubmissionStatus);

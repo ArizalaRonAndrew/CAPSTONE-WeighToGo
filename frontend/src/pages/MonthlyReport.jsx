@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { currentMonth } from "../utils/month";
+import { currentMonth, monthLabel } from "../utils/month";
 import { colorVarForStatus } from "../utils/statusGroups";
 import { formatNameForTable } from "../utils/name";
 import StatusBadge from "../components/StatusBadge";
@@ -11,15 +11,6 @@ function formatShortDate(dateStr) {
   const month = d.toLocaleDateString(undefined, { month: "short", timeZone: "UTC" });
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${month}-${day}-${d.getUTCFullYear()}`;
-}
-
-function monthLabel(monthString) {
-  const [year, month] = monthString.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 const INDICATOR_DEFS = [
