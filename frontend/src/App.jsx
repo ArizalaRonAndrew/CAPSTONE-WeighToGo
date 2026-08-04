@@ -10,6 +10,7 @@ import Reports from "./pages/Reports";
 import MonthlyReport from "./pages/MonthlyReport";
 import HealthTrends from "./pages/admin/HealthTrends";
 import BarangayMap from "./pages/admin/BarangayMap";
+import AdminMasterlist from "./pages/admin/AdminMasterlist";
 
 function App() {
   return (
@@ -31,7 +32,7 @@ function App() {
 
               <Route element={<ProtectedRoute allowedRoles={["MNAO"]} />}>
                 <Route path="/admin/trends" element={<HealthTrends />} />
-                <Route path="/admin/masterlist" element={<Masterlist />} />
+                <Route path="/admin/masterlist" element={<AdminMasterlist />} />
                 <Route path="/admin/reports" element={<Reports />} />
                 <Route path="/admin/map" element={<BarangayMap />} />
               </Route>

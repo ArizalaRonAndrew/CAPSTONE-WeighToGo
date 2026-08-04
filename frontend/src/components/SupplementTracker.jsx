@@ -13,8 +13,8 @@ function formatWindow(dose) {
   return `${dose.window_start_month}-${end} mo`;
 }
 
-function DoseChip({ dose, onMark, marking }) {
-  const actionable = dose.status === "due" || dose.status === "overdue";
+function DoseChip({ dose, onMark, marking, readOnly }) {
+  const actionable = !readOnly && (dose.status === "due" || dose.status === "overdue");
   return (
     <div className="dose-chip" title={`Dose ${dose.dose_order} · ${formatWindow(dose)} · ${STATUS_LABEL[dose.status]}`}>
       <div className={`dose-circle dose-${dose.status}`}>
@@ -36,7 +36,7 @@ function DoseChip({ dose, onMark, marking }) {
   );
 }
 
-function SupplementBlock({ type, doses, onMark, markingKey }) {
+function SupplementBlock({ type, doses, onMark, markingKey, readOnly }) {
   const given = doses.filter((d) => d.status === "given").length;
   const overdue = doses.filter((d) => d.status === "overdue").length;
   const pct = doses.length ? Math.round((given / doses.length) * 100) : 0;
@@ -62,6 +62,7 @@ function SupplementBlock({ type, doses, onMark, markingKey }) {
             dose={dose}
             onMark={onMark}
             marking={markingKey === `${type}-${dose.dose_order}`}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -69,7 +70,7 @@ function SupplementBlock({ type, doses, onMark, markingKey }) {
   );
 }
 
-export default function SupplementTracker({ childId, onChanged }) {
+export default function SupplementTracker({ childId, onChanged, readOnly = false }) {
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markingKey, setMarkingKey] = useState(null);
@@ -107,7 +108,14 @@ export default function SupplementTracker({ childId, onChanged }) {
     <div>
       <div className="supplement-grid">
         {Object.entries(schedule).map(([type, doses]) => (
-          <SupplementBlock key={type} type={type} doses={doses} onMark={handleMark} markingKey={markingKey} />
+          <SupplementBlock
+            key={type}
+            type={type}
+            doses={doses}
+            onMark={handleMark}
+            markingKey={markingKey}
+            readOnly={readOnly}
+          />
         ))}
       </div>
       <div className="supplement-legend">

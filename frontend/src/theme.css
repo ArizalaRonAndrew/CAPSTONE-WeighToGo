@@ -636,6 +636,49 @@ tr.clickable:hover {
   color: var(--color-text-muted);
 }
 
+.hero-stat-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-left: 4px solid var(--color-primary-500);
+  margin-bottom: 20px;
+}
+
+.hero-stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.hero-stat-value {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-primary-700);
+  margin-bottom: 6px;
+}
+
+.hero-stat-subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.hero-stat-icon {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .kpi-tile {
   display: flex;
   align-items: center;
@@ -1750,8 +1793,17 @@ tr.clickable:hover {
   .table-wrap td[data-label="Weight for Lt/Ht (WFL/H)"],
   .table-wrap td[data-label="WFA"],
   .table-wrap td[data-label="HFA"],
-  .table-wrap td[data-label="WFL/H"] {
+  .table-wrap td[data-label="WFL/H"],
+  .table-wrap td[data-label="WFA Status"],
+  .table-wrap td[data-label="HFA Status"],
+  .table-wrap td[data-label="WFL/H Status"] {
     flex-basis: calc(33.333% - 8px);
+  }
+
+  /* Address / Purok leads the card like the identity column. */
+  .table-wrap td[data-label="Address / Purok"] {
+    order: -1;
+    flex-basis: 100%;
   }
 
   /* Action button is pinned full-width at the bottom of the card. */
