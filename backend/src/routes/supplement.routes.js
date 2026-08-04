@@ -2,6 +2,7 @@ const { Router } = require("express");
 const {
   listSupplements,
   listDueSupplements,
+  getChildSupplementSchedule,
   getSupplement,
   createSupplement,
   updateSupplement,
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/due", listDueSupplements);
+router.get("/schedule", getChildSupplementSchedule);
 router.get("/", listSupplements);
 router.get("/:id", getSupplement);
 router.post("/", createSupplement);

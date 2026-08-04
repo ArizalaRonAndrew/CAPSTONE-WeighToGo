@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { formatAge } from "../utils/age";
 import StatusBadge from "../components/StatusBadge";
+import SupplementTracker from "../components/SupplementTracker";
 
 const EMPTY_ASSESSMENT = { date_measured: new Date().toISOString().slice(0, 10), weight: "", height: "" };
 
@@ -164,6 +165,11 @@ export default function ChildProfile() {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3>Vitamin A & Deworming Compliance</h3>
+        <SupplementTracker childId={id} />
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>

@@ -999,3 +999,168 @@ tr.clickable:hover {
   display: block;
   width: 100%;
 }
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  border-radius: 6px;
+}
+
+.supplement-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 800px) {
+  .supplement-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.supplement-block {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--color-bg);
+}
+
+.supplement-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.supplement-block-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-primary-700);
+}
+
+.supplement-block-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.supplement-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.supplement-progress-fill {
+  height: 100%;
+  background: var(--color-primary-500);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.supplement-overdue-note {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-severe-text);
+}
+
+.dose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px 8px;
+  margin-top: 16px;
+}
+
+.dose-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+.dose-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+}
+
+.dose-given {
+  background: var(--status-normal-bg);
+  color: var(--status-normal-text);
+  border-color: var(--status-normal-text);
+}
+
+.dose-due {
+  background: var(--status-mild-bg);
+  color: var(--status-mild-text);
+  border-color: var(--status-mild-text);
+}
+
+.dose-overdue {
+  background: var(--status-severe-bg);
+  color: var(--status-severe-text);
+  border-color: var(--status-severe-text);
+}
+
+.dose-upcoming {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.dose-window {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.dose-date {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--status-normal-text);
+}
+
+.supplement-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.legend-dot-given {
+  background: var(--status-normal-text);
+}
+
+.legend-dot-due {
+  background: var(--status-mild-text);
+}
+
+.legend-dot-overdue {
+  background: var(--status-severe-text);
+}
+
+.legend-dot-upcoming {
+  background: var(--color-border);
+}

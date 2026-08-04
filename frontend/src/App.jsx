@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -11,21 +11,16 @@ import MonthlyReport from "./pages/MonthlyReport";
 import HealthTrends from "./pages/admin/HealthTrends";
 import BarangayMap from "./pages/admin/BarangayMap";
 
-function RoleHome() {
-  const { user } = useAuth();
-  return <Navigate to={user.role === "MNAO" ? "/admin/trends" : "/bns/masterlist"} replace />;
-}
-
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<RoleHome />} />
               <Route path="/children/:id" element={<ChildProfile />} />
 
               <Route element={<ProtectedRoute allowedRoles={["BNS"]} />}>

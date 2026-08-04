@@ -1,7 +1,7 @@
 const supplementModel = require("../models/supplement.model");
 const childrenModel = require("../models/children.model");
 const { calculateAgeInMonths } = require("../utils/date");
-const { getDueSupplements } = require("../services/supplementSchedule.service");
+const { getDueSupplements, getSupplementSchedule } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 
 async function visibleChildren(req) {
@@ -47,6 +47,26 @@ async function listDueSupplements(req, res, next) {
     }
 
     res.json(results);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getChildSupplementSchedule(req, res, next) {
+  try {
+    const { childId } = req.query;
+    if (!childId) {
+      return res.status(400).json({ error: "childId is required" });
+    }
+
+    const child = await childrenModel.findById(childId);
+    assertBarangayAccess(req, child);
+
+    const ageInMonths = calculateAgeInMonths(child.dob, new Date());
+    const records = await supplementModel.findAll({ childId });
+    const schedule = getSupplementSchedule(ageInMonths, records);
+
+    res.json({ child, ageInMonths, schedule });
   } catch (err) {
     next(err);
   }
@@ -123,6 +143,7 @@ async function deleteSupplement(req, res, next) {
 module.exports = {
   listSupplements,
   listDueSupplements,
+  getChildSupplementSchedule,
   getSupplement,
   createSupplement,
   updateSupplement,
