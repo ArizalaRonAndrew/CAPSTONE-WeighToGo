@@ -338,6 +338,39 @@ tr.clickable:hover {
   color: var(--color-text-muted);
 }
 
+.dose-btn {
+  display: inline-block;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dose-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dose-btn-vitamin {
+  background: #f0900a;
+}
+
+.dose-btn-vitamin:hover:not(:disabled) {
+  background: #d97c05;
+}
+
+.dose-btn-deworming {
+  background: #b3261e;
+}
+
+.dose-btn-deworming:hover:not(:disabled) {
+  background: #96211a;
+}
+
 .stat-row {
   display: flex;
   gap: 16px;

@@ -51,4 +51,37 @@ function getDueSupplements(ageInMonths, existingRecords = []) {
   return due;
 }
 
-module.exports = { getScheduleWindows, getDueSupplements };
+// Per-type compliance snapshot: the single next dose a child needs (or
+// whether they're not yet age-eligible / already up to date).
+function getComplianceStatus(ageInMonths, existingRecords = []) {
+  const result = {};
+
+  for (const supplementType of ["Vitamin A", "Deworming"]) {
+    const windows = getScheduleWindows(supplementType);
+    const administeredDoseOrders = new Set(
+      existingRecords.filter((r) => r.supplement_type === supplementType).map((r) => r.dose_order)
+    );
+    const eligibleWindows = windows.filter((w) => ageInMonths >= w.start_month);
+
+    if (eligibleWindows.length === 0) {
+      result[supplementType] = { status: "not_eligible" };
+      continue;
+    }
+
+    const nextWindow = eligibleWindows.find((w) => !administeredDoseOrders.has(w.dose_order));
+    if (!nextWindow) {
+      result[supplementType] = { status: "complete" };
+      continue;
+    }
+
+    result[supplementType] = {
+      status: "due",
+      dose_order: nextWindow.dose_order,
+      overdue: ageInMonths > nextWindow.end_month,
+    };
+  }
+
+  return result;
+}
+
+module.exports = { getScheduleWindows, getDueSupplements, getComplianceStatus };

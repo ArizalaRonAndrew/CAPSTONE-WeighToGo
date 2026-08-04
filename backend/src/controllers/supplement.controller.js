@@ -1,14 +1,14 @@
 const supplementModel = require("../models/supplement.model");
 const childrenModel = require("../models/children.model");
 const { calculateAgeInMonths } = require("../utils/date");
-const { getDueSupplements } = require("../services/supplementSchedule.service");
+const { getDueSupplements, getComplianceStatus } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 
 async function visibleChildren(req) {
   if (req.user.role === "BNS") {
     return childrenModel.findAll({ barangay: req.user.assigned_barangay });
   }
-  return childrenModel.findAll({});
+  return childrenModel.findAll({ barangay: req.query.barangay || undefined });
 }
 
 async function listSupplements(req, res, next) {
@@ -47,6 +47,40 @@ async function listDueSupplements(req, res, next) {
     }
 
     res.json(results);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listComplianceMasterlist(req, res, next) {
+  try {
+    const children = await visibleChildren(req);
+    const childIds = children.map((c) => c.id);
+    const supplements = childIds.length ? await supplementModel.findAll({ childIds }) : [];
+
+    const supplementsByChild = new Map();
+    for (const s of supplements) {
+      if (!supplementsByChild.has(s.child_id)) supplementsByChild.set(s.child_id, []);
+      supplementsByChild.get(s.child_id).push(s);
+    }
+
+    const rows = children
+      .map((child) => {
+        const ageInMonths = calculateAgeInMonths(child.dob);
+        const compliance = getComplianceStatus(ageInMonths, supplementsByChild.get(child.id) || []);
+        return {
+          child_id: child.id,
+          name: child.name,
+          purok: child.purok,
+          barangay: child.barangay,
+          age_in_months: ageInMonths,
+          vitaminA: compliance["Vitamin A"],
+          deworming: compliance["Deworming"],
+        };
+      })
+      .sort((a, b) => a.purok?.localeCompare(b.purok) || a.name.localeCompare(b.name));
+
+    res.json(rows);
   } catch (err) {
     next(err);
   }
@@ -123,6 +157,7 @@ async function deleteSupplement(req, res, next) {
 module.exports = {
   listSupplements,
   listDueSupplements,
+  listComplianceMasterlist,
   getSupplement,
   createSupplement,
   updateSupplement,
