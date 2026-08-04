@@ -36,6 +36,107 @@ function filterByBarangay(rows, barangay) {
   return rows.filter((row) => row.tbl_children?.barangay === barangay);
 }
 
+// Operation Timbang Plus (OPT+) style age brackets, birth to 5 years.
+const AGE_BRACKETS = [
+  { key: "0-5", label: "0-5 Months", min: 0, max: 5 },
+  { key: "6-11", label: "6-11 Months", min: 6, max: 11 },
+  { key: "12-23", label: "12-23 Months", min: 12, max: 23 },
+  { key: "24-35", label: "24-35 Months", min: 24, max: 35 },
+  { key: "36-47", label: "36-47 Months", min: 36, max: 47 },
+  { key: "48-59", label: "48-59 Months", min: 48, max: 59 },
+];
+
+function bracketForAge(ageInMonths) {
+  return AGE_BRACKETS.find((b) => ageInMonths >= b.min && ageInMonths <= b.max) || null;
+}
+
+function genderKey(gender) {
+  return String(gender || "").trim().toLowerCase().startsWith("f") ? "girls" : "boys";
+}
+
+function emptyBracketCounts() {
+  const counts = {};
+  for (const b of AGE_BRACKETS) counts[b.key] = { boys: 0, girls: 0, total: 0 };
+  return counts;
+}
+
+function sumBracketCounts(counts) {
+  return AGE_BRACKETS.reduce(
+    (acc, b) => ({
+      boys: acc.boys + counts[b.key].boys,
+      girls: acc.girls + counts[b.key].girls,
+      total: acc.total + counts[b.key].total,
+    }),
+    { boys: 0, girls: 0, total: 0 }
+  );
+}
+
+async function getGrowthSummaryReport(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    const barangay = effectiveBarangay(req);
+    const { start, end } = toMonthRange(month);
+
+    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
+    const rows = filterSubmittedForRole(req, scopedRows).filter(
+      (row) => row.tbl_children && bracketForAge(row.age_in_months)
+    );
+
+    const overall = emptyBracketCounts();
+    const indicators = {};
+    for (const key of Object.keys(STATUS_VALUES)) {
+      indicators[key] = {
+        totalAssessed: 0,
+        statuses: Object.fromEntries(STATUS_VALUES[key].map((s) => [s, emptyBracketCounts()])),
+      };
+    }
+
+    for (const row of rows) {
+      const bracket = bracketForAge(row.age_in_months);
+      const gKey = genderKey(row.tbl_children.gender);
+
+      overall[bracket.key][gKey] += 1;
+      overall[bracket.key].total += 1;
+
+      for (const [indicatorKey, column] of Object.entries(INDICATOR_COLUMNS)) {
+        const status = row[column];
+        const bucket = indicators[indicatorKey].statuses[status];
+        if (!bucket) continue;
+        indicators[indicatorKey].totalAssessed += 1;
+        bucket[bracket.key][gKey] += 1;
+        bucket[bracket.key].total += 1;
+      }
+    }
+
+    const indicatorSummaries = {};
+    for (const [indicatorKey, data] of Object.entries(indicators)) {
+      const statuses = {};
+      for (const [status, counts] of Object.entries(data.statuses)) {
+        const total = sumBracketCounts(counts);
+        statuses[status] = {
+          byBracket: counts,
+          total: total.total,
+          prevPct: data.totalAssessed ? (total.total / data.totalAssessed) * 100 : 0,
+        };
+      }
+      indicatorSummaries[indicatorKey] = { totalAssessed: data.totalAssessed, statuses };
+    }
+
+    res.json({
+      month,
+      barangay: barangay || "All Barangays",
+      ageBrackets: AGE_BRACKETS.map(({ key, label }) => ({ key, label })),
+      overall: { byBracket: overall, total: sumBracketCounts(overall) },
+      indicators: indicatorSummaries,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getNutritionReport(req, res, next) {
   try {
     const { month } = req.query;
@@ -285,6 +386,7 @@ module.exports = {
   getNutritionReport,
   getMonthlyMasterlistReport,
   getVitaminReport,
+  getGrowthSummaryReport,
   getTrends,
   getBarangayComparison,
   submitMonthlyReport,

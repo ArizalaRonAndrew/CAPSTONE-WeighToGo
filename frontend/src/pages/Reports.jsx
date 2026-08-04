@@ -2,13 +2,158 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
+import { currentMonth, monthLabel } from "../utils/month";
 import StatusBadge from "../components/StatusBadge";
 
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
+const INDICATOR_LABELS = { wfa: "Weight-for-Age", hfa: "Height-for-Age", wfl_h: "Weight-for-Height" };
+
+// Operation Timbang Plus (OPT+) style summary rows. Only statuses the system
+// actually classifies are listed — WFA has no "Overweight" bucket and HFA
+// has no "Tall" bucket in this app's WHO z-score classification, so those
+// OPT+ rows are omitted rather than shown as a fake zero.
+const GROWTH_SUMMARY_SECTIONS = [
+  {
+    indicator: "wfa",
+    rows: [
+      { status: "Normal", label: "WFA - Normal" },
+      { status: "Underweight", label: "WFA - UW" },
+      { status: "Severely Underweight", label: "WFA - SUW" },
+    ],
+  },
+  {
+    indicator: "hfa",
+    rows: [
+      { status: "Normal", label: "HFA - Normal" },
+      { status: "Stunted", label: "HFA - St" },
+      { status: "Severely Stunted", label: "HFA - SSt" },
+    ],
+  },
+  {
+    indicator: "wfl_h",
+    rows: [
+      { status: "Normal", label: "WFL/H - Normal" },
+      { status: "Wasted", label: "WFL/H - MW" },
+      { status: "Severely Wasted", label: "WFL/H - SW" },
+      { status: "Overweight", label: "WFL/H - OW" },
+      { status: "Obese", label: "WFL/H - Ob" },
+    ],
+  },
+];
+
+function pct(value) {
+  return `${value.toFixed(1)}%`;
 }
 
-const INDICATOR_LABELS = { wfa: "Weight-for-Age", hfa: "Height-for-Age", wfl_h: "Weight-for-Height" };
+function PrintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M6 9V3h12v6" />
+      <rect x="4" y="9" width="16" height="8" rx="1.5" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
+  );
+}
+
+function GrowthSummaryReport({ summary }) {
+  if (!summary) return null;
+
+  const { ageBrackets, overall, indicators } = summary;
+
+  return (
+    <div className="card growth-summary-card">
+      <div className="growth-summary-header">
+        <div>
+          <h3 className="section-title" style={{ margin: 0 }}>
+            Growth Summary Report (OPT+) — {summary.barangay}
+          </h3>
+          <p className="subtitle" style={{ color: "var(--color-text-muted)", margin: "4px 0 0" }}>
+            Nutritional status by age bracket and sex, birth to 5 years, for {monthLabel(summary.month)}.
+          </p>
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+          <PrintIcon /> Print
+        </button>
+      </div>
+
+      <div className="growth-summary-totals">
+        {GROWTH_SUMMARY_SECTIONS.map((section) => (
+          <div className="growth-summary-total-tile" key={section.indicator}>
+            <span className="label">Total {section.indicator.toUpperCase().replace("_", "/")}</span>
+            <span className="value">{indicators[section.indicator]?.totalAssessed ?? 0}</span>
+          </div>
+        ))}
+        <div className="growth-summary-total-tile">
+          <span className="label">Birth to 5 Years (0-59 Mos)</span>
+          <span className="value">{overall.total.total}</span>
+        </div>
+      </div>
+
+      <div className="growth-summary-wrap">
+        <table className="growth-summary-table">
+          <thead>
+            <tr>
+              <th rowSpan={2} className="growth-summary-row-head">
+                Indicator
+              </th>
+              {ageBrackets.map((bracket) => (
+                <th colSpan={3} key={bracket.key}>
+                  {bracket.label}
+                </th>
+              ))}
+              <th colSpan={2}>Birth to 5 Years (0-59 Mos)</th>
+            </tr>
+            <tr>
+              {ageBrackets.flatMap((bracket) => [
+                <th key={`${bracket.key}-boys`}>Boys</th>,
+                <th key={`${bracket.key}-girls`}>Girls</th>,
+                <th key={`${bracket.key}-total`}>Total</th>,
+              ])}
+              <th>Total</th>
+              <th>Prev.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {GROWTH_SUMMARY_SECTIONS.map((section) =>
+              section.rows.map((row) => {
+                const data = indicators[section.indicator]?.statuses[row.status];
+                return (
+                  <tr key={`${section.indicator}-${row.status}`} data-indicator={section.indicator}>
+                    <td className="growth-summary-row-head">{row.label}</td>
+                    {ageBrackets.flatMap((bracket) => {
+                      const counts = data?.byBracket[bracket.key] || { boys: 0, girls: 0, total: 0 };
+                      return [
+                        <td key={`${bracket.key}-boys`}>{counts.boys}</td>,
+                        <td key={`${bracket.key}-girls`}>{counts.girls}</td>,
+                        <td key={`${bracket.key}-total`} className="growth-summary-subtotal">
+                          {counts.total}
+                        </td>,
+                      ];
+                    })}
+                    <td className="growth-summary-subtotal">{data?.total ?? 0}</td>
+                    <td>{pct(data?.prevPct ?? 0)}</td>
+                  </tr>
+                );
+              })
+            )}
+            <tr className="growth-summary-total-row">
+              <td className="growth-summary-row-head">Total</td>
+              {ageBrackets.flatMap((bracket) => {
+                const counts = overall.byBracket[bracket.key];
+                return [
+                  <td key={`${bracket.key}-boys`}>{counts.boys}</td>,
+                  <td key={`${bracket.key}-girls`}>{counts.girls}</td>,
+                  <td key={`${bracket.key}-total`}>{counts.total}</td>,
+                ];
+              })}
+              <td>{overall.total.total}</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export default function Reports() {
   const { user } = useAuth();
@@ -19,6 +164,7 @@ export default function Reports() {
   const [barangay, setBarangay] = useState("");
   const [nutrition, setNutrition] = useState(null);
   const [vitamins, setVitamins] = useState(null);
+  const [growth, setGrowth] = useState(null);
   const [loading, setLoading] = useState(true);
 
   function load() {
@@ -27,10 +173,15 @@ export default function Reports() {
     if (isAdmin && barangay) params.set("barangay", barangay);
     const query = `?${params.toString()}`;
 
-    Promise.all([api.get(`/reports/nutrition${query}`), api.get(`/reports/vitamins${query}`)])
-      .then(([n, v]) => {
+    Promise.all([
+      api.get(`/reports/nutrition${query}`),
+      api.get(`/reports/vitamins${query}`),
+      api.get(`/reports/growth-summary${query}`),
+    ])
+      .then(([n, v, g]) => {
         setNutrition(n);
         setVitamins(v);
+        setGrowth(g);
       })
       .finally(() => setLoading(false));
   }
@@ -107,7 +258,7 @@ export default function Reports() {
       {!loading && vitamins && (
         <>
           <h3 className="section-title">Vitamin Report — {vitamins.barangay}</h3>
-          <div className="stat-row">
+          <div className="stat-row" style={{ marginBottom: 24 }}>
             <div className="card stat-tile">
               <div className="value">{vitamins.vitaminA}</div>
               <div className="label">Vitamin A doses given</div>
@@ -123,6 +274,8 @@ export default function Reports() {
           </div>
         </>
       )}
+
+      {!loading && growth && <GrowthSummaryReport summary={growth} />}
     </div>
   );
 }
