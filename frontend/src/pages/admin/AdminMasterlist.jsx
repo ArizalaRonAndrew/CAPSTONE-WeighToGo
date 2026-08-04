@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { useBarangays } from "../../hooks/useBarangays";
 import { currentMonth } from "../../utils/month";
 import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
+import ManageChildModal from "../../components/ManageChildModal";
 
 function formatShortDate(dateStr) {
   if (!dateStr) return "--";
@@ -56,7 +56,6 @@ function PeopleIcon() {
 const PAGE_SIZE = 10;
 
 export default function AdminMasterlist() {
-  const navigate = useNavigate();
   const { barangays } = useBarangays();
 
   const [month, setMonth] = useState(currentMonth());
@@ -66,6 +65,7 @@ export default function AdminMasterlist() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [viewChildId, setViewChildId] = useState(null);
 
   function load() {
     setLoading(true);
@@ -249,7 +249,7 @@ export default function AdminMasterlist() {
                     <StatusBadge status={row.wfl_h_status} compact />
                   </td>
                   <td data-label="Action">
-                    <button className="btn btn-secondary" onClick={() => navigate(`/children/${row.child_id}`)}>
+                    <button className="btn btn-secondary" onClick={() => setViewChildId(row.child_id)}>
                       Profile
                     </button>
                   </td>
@@ -286,6 +286,10 @@ export default function AdminMasterlist() {
           </div>
         </div>
       </div>
+
+      {viewChildId && (
+        <ManageChildModal childId={viewChildId} onClose={() => setViewChildId(null)} readOnly />
+      )}
     </div>
   );
 }

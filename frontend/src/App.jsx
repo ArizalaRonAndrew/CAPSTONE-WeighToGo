@@ -4,7 +4,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Masterlist from "./pages/Masterlist";
-import ChildProfile from "./pages/ChildProfile";
 import VitaminsDeworming from "./pages/VitaminsDeworming";
 import Reports from "./pages/Reports";
 import MonthlyReport from "./pages/MonthlyReport";
@@ -22,8 +21,6 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/children/:id" element={<ChildProfile />} />
-
               <Route element={<ProtectedRoute allowedRoles={["BNS"]} />}>
                 <Route path="/bns/masterlist" element={<Masterlist />} />
                 <Route path="/bns/vitamins" element={<VitaminsDeworming />} />

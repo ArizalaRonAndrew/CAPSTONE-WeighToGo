@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
@@ -7,7 +8,7 @@ import { sanitizeDecimalInput } from "../utils/decimal";
 import StatusBadge from "./StatusBadge";
 import SupplementTracker from "./SupplementTracker";
 
-const TABS = [
+const ALL_TABS = [
   { key: "info", label: "Personal Info" },
   { key: "assessment", label: "Monthly Assessment" },
   { key: "history", label: "Checkup History" },
@@ -102,8 +103,10 @@ function InfoCard({ icon, label, value }) {
   );
 }
 
-export default function ManageChildModal({ childId, onClose, onChanged, initialTab = "info" }) {
-  const [tab, setTab] = useState(initialTab);
+export default function ManageChildModal({ childId, onClose, onChanged, initialTab = "info", readOnly = false }) {
+  useLockBodyScroll();
+  const TABS = readOnly ? ALL_TABS.filter((t) => t.key !== "assessment") : ALL_TABS;
+  const [tab, setTab] = useState(initialTab === "assessment" && readOnly ? "info" : initialTab);
   const [child, setChild] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
@@ -294,13 +297,15 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 />
               </div>
 
-              <button className="btn" style={{ marginTop: 20 }} onClick={() => setEditing(true)}>
-                ✎ Edit Profile
-              </button>
+              {!readOnly && (
+                <button className="btn" style={{ marginTop: 20 }} onClick={() => setEditing(true)}>
+                  ✎ Edit Profile
+                </button>
+              )}
             </div>
           )}
 
-          {tab === "info" && editing && (
+          {tab === "info" && editing && !readOnly && (
             <form className="form-grid cols-2" onSubmit={handleSaveInfo}>
               <div className="field">
                 <label>Full Name</label>
@@ -383,11 +388,11 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
               <div className="section-title" style={{ marginTop: 0 }}>
                 Vitamin A &amp; Deworming Compliance
               </div>
-              <SupplementTracker childId={childId} onChanged={onChanged} />
+              <SupplementTracker childId={childId} onChanged={onChanged} readOnly={readOnly} />
             </div>
           )}
 
-          {tab === "assessment" && (
+          {tab === "assessment" && !readOnly && (
             <div>
               {isCheckedThisMonth ? (
                 <div className="banner banner-success">✓ Checked for {monthLabel(month)}</div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useBarangays } from "../hooks/useBarangays";
+import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
 import { combineChildName } from "../utils/name";
 
@@ -19,6 +20,7 @@ const EMPTY_FORM = {
 };
 
 export default function RegisterChildModal({ onClose, onRegistered }) {
+  useLockBodyScroll();
   const { user } = useAuth();
   const { barangays } = useBarangays();
   const [form, setForm] = useState(EMPTY_FORM);
