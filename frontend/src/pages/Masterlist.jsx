@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { useBarangays } from "../hooks/useBarangays";
 import { formatAge } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
@@ -36,10 +35,7 @@ function SearchIcon() {
 
 export default function Masterlist() {
   const { user } = useAuth();
-  const { barangays } = useBarangays();
-  const isAdmin = user?.role === "MNAO";
 
-  const [barangayFilter, setBarangayFilter] = useState("");
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
   const [checkupFilter, setCheckupFilter] = useState("");
@@ -51,8 +47,7 @@ export default function Masterlist() {
 
   function load() {
     setLoading(true);
-    const query = isAdmin && barangayFilter ? `?barangay=${encodeURIComponent(barangayFilter)}` : "";
-    Promise.all([api.get(`/children${query}`), api.get("/assessments")])
+    Promise.all([api.get("/children"), api.get("/assessments")])
       .then(([childrenData, assessments]) => {
         setChildren(childrenData);
         const month = currentMonth();
@@ -64,7 +59,7 @@ export default function Masterlist() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [barangayFilter]);
+  useEffect(load, []);
 
   const purokOptions = [...new Set(children.map((c) => c.purok).filter(Boolean))].sort();
 
@@ -91,7 +86,7 @@ export default function Masterlist() {
   return (
     <div>
       <div className="page-header">
-        <h1>{isAdmin ? "Masterlist — All Barangays" : `${user.assigned_barangay} Masterlist`}</h1>
+        <h1>{user.assigned_barangay} Masterlist</h1>
         <button className="btn" onClick={() => setShowRegister(true)}>
           + Register Child
         </button>
@@ -146,19 +141,6 @@ export default function Masterlist() {
               <option value="pending">Pending</option>
             </select>
           </div>
-          {isAdmin && (
-            <div className="field">
-              <label>Barangay</label>
-              <select className="input" value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)}>
-                <option value="">All barangays</option>
-                {barangays.map((b) => (
-                  <option key={b.name} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           {hasActiveFilters && (
             <button type="button" className="btn btn-secondary" onClick={clearFilters}>
               Clear filters
