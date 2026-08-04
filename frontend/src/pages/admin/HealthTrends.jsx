@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -35,6 +35,15 @@ const STATUS_OPTIONS = {
 function lineSeriesColor(status) {
   if (status === "Obese") return "#7c3aed";
   return colorVarForStatus(status);
+}
+
+// The trend endpoint returns { month, count } when a status filter is
+// applied, or { month, [status]: count, ... } per status otherwise —
+// this normalizes either shape to a single per-month total.
+function trendRowTotal(row, statuses) {
+  if (!row) return 0;
+  if (typeof row.count === "number") return row.count;
+  return statuses.reduce((sum, s) => sum + (row[s] || 0), 0);
 }
 
 function formatMonthLabel(monthString) {
@@ -91,6 +100,12 @@ export default function HealthTrends() {
   const lineColor = colorVarForStatus(lineStatus);
   const barColor = colorVarForStatus(barStatus);
 
+  const trendStatuses = STATUS_OPTIONS[lineIndicator];
+  const currentMonthCount = useMemo(
+    () => trendRowTotal(trend[trend.length - 1], trendStatuses),
+    [trend, trendStatuses]
+  );
+
   return (
     <div>
       <div className="page-header">
@@ -98,13 +113,23 @@ export default function HealthTrends() {
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 4 }}>
-          <h3 style={{ marginBottom: 2 }}>
-            {lineStatus || "All Statuses"} — {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label}
-          </h3>
-          <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: 0 }}>
-            Monthly case count over the last 6 months{lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
-          </p>
+        <div
+          style={{ marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}
+        >
+          <div>
+            <h3 style={{ marginBottom: 2 }}>
+              {lineStatus || "All Statuses"} — {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label}
+            </h3>
+            <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: 0 }}>
+              Monthly case count over the last 6 months{lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
+            </p>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "var(--color-primary-700)", lineHeight: 1.2 }}>
+              {trendLoading ? "…" : currentMonthCount}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>assessed this month</div>
+          </div>
         </div>
         <div className="filter-bar">
           <div className="field">
