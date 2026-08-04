@@ -25,7 +25,11 @@ function getScheduleWindows(supplementType) {
   throw new Error(`Unknown supplement type: ${supplementType}`);
 }
 
-function getDueSupplements(ageInMonths, existingRecords = []) {
+// `ageAtRegistration` is the child's age (in months) when they were added to
+// this system. Defaults to their current age, which grandfathers every dose
+// window that isn't the one currently in progress — the right assumption for
+// callers that don't track registration age separately.
+function getDueSupplements(ageInMonths, existingRecords = [], ageAtRegistration = ageInMonths) {
   const due = [];
 
   for (const supplementType of ["Vitamin A", "Deworming"]) {
@@ -35,9 +39,20 @@ function getDueSupplements(ageInMonths, existingRecords = []) {
     );
 
     for (const window of windows) {
-      if (ageInMonths < window.start_month) continue;
+      // Windows are in ascending order, so once one hasn't opened yet,
+      // none after it have either — a dose appears the exact day the
+      // child's age reaches window.start_month, not before.
+      if (ageInMonths < window.start_month) break;
       if (administeredDoseOrders.has(window.dose_order)) continue;
 
+      // A window that had already fully closed before this child was
+      // registered is assumed to have been handled before this system
+      // existed to record it, so it isn't resurfaced as a backlog item.
+      if (window.end_month < ageAtRegistration) continue;
+
+      // First outstanding, trackable dose for this supplement type: it
+      // stays due — no matter how much further the child ages — until BNS
+      // records it as given.
       due.push({
         supplement_type: supplementType,
         dose_order: window.dose_order,
@@ -45,6 +60,7 @@ function getDueSupplements(ageInMonths, existingRecords = []) {
         window_end_month: window.end_month,
         overdue: ageInMonths > window.end_month,
       });
+      break;
     }
   }
 
@@ -84,4 +100,46 @@ function getComplianceStatus(ageInMonths, existingRecords = []) {
   return result;
 }
 
-module.exports = { getScheduleWindows, getDueSupplements, getComplianceStatus };
+// Full dose-by-dose timeline for one child, merging the standard schedule
+// windows with whatever has actually been recorded in tbl_supplements, so the
+// UI can show every dose's state instead of only the ones still outstanding.
+function getSupplementSchedule(ageInMonths, existingRecords = []) {
+  const schedule = {};
+
+  for (const supplementType of ["Vitamin A", "Deworming"]) {
+    const windows = getScheduleWindows(supplementType);
+    const recordsByDose = new Map(
+      existingRecords
+        .filter((r) => r.supplement_type === supplementType)
+        .map((r) => [r.dose_order, r])
+    );
+
+    schedule[supplementType] = windows.map((window) => {
+      const record = recordsByDose.get(window.dose_order);
+      let status;
+      if (record) {
+        status = "given";
+      } else if (ageInMonths < window.start_month) {
+        status = "upcoming";
+      } else if (ageInMonths > window.end_month) {
+        status = "overdue";
+      } else {
+        status = "due";
+      }
+
+      return {
+        supplement_type: supplementType,
+        dose_order: window.dose_order,
+        window_start_month: window.start_month,
+        window_end_month: window.end_month,
+        status,
+        date_administered: record ? record.date_administered : null,
+        record_id: record ? record.id : null,
+      };
+    });
+  }
+
+  return schedule;
+}
+
+module.exports = { getScheduleWindows, getDueSupplements, getComplianceStatus, getSupplementSchedule };

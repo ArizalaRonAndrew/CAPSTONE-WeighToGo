@@ -101,17 +101,23 @@ export default function MonthlyReport() {
   const [submission, setSubmission] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [page, setPage] = useState(1);
 
   function load() {
     setLoading(true);
     setSubmitError("");
-    Promise.all([
+    setPage(1);
+    Promise.allSettled([
       api.get(`/reports/monthly-masterlist?month=${month}`),
       api.get(`/reports/submission-status?month=${month}`),
     ])
-      .then(([reportData, submissionData]) => {
-        setReport(reportData);
-        setSubmission(submissionData);
+      .then(([reportResult, submissionResult]) => {
+        if (reportResult.status === "fulfilled") {
+          setReport(reportResult.value);
+        } else {
+          setSubmitError(reportResult.reason?.message || "Failed to load report data");
+        }
+        setSubmission(submissionResult.status === "fulfilled" ? submissionResult.value : null);
       })
       .finally(() => setLoading(false));
   }

@@ -1,7 +1,7 @@
 const supplementModel = require("../models/supplement.model");
 const childrenModel = require("../models/children.model");
 const { calculateAgeInMonths } = require("../utils/date");
-const { getDueSupplements, getComplianceStatus } = require("../services/supplementSchedule.service");
+const { getDueSupplements, getComplianceStatus, getSupplementSchedule } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 
 async function visibleChildren(req) {
@@ -39,8 +39,9 @@ async function listDueSupplements(req, res, next) {
     const results = [];
     for (const child of children) {
       const ageInMonths = calculateAgeInMonths(child.dob, today);
+      const ageAtRegistration = calculateAgeInMonths(child.dob, child.created_at);
       const records = await supplementModel.findAll({ childId: child.id });
-      const due = getDueSupplements(ageInMonths, records);
+      const due = getDueSupplements(ageInMonths, records, ageAtRegistration);
       if (due.length) {
         results.push({ child, ageInMonths, due });
       }
@@ -81,6 +82,26 @@ async function listComplianceMasterlist(req, res, next) {
       .sort((a, b) => a.purok?.localeCompare(b.purok) || a.name.localeCompare(b.name));
 
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getChildSupplementSchedule(req, res, next) {
+  try {
+    const { childId } = req.query;
+    if (!childId) {
+      return res.status(400).json({ error: "childId is required" });
+    }
+
+    const child = await childrenModel.findById(childId);
+    assertBarangayAccess(req, child);
+
+    const ageInMonths = calculateAgeInMonths(child.dob, new Date());
+    const records = await supplementModel.findAll({ childId });
+    const schedule = getSupplementSchedule(ageInMonths, records);
+
+    res.json({ child, ageInMonths, schedule });
   } catch (err) {
     next(err);
   }
@@ -158,6 +179,7 @@ module.exports = {
   listSupplements,
   listDueSupplements,
   listComplianceMasterlist,
+  getChildSupplementSchedule,
   getSupplement,
   createSupplement,
   updateSupplement,
