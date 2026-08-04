@@ -1,6 +1,6 @@
 export const SEVERE_STATUSES = new Set(["Severely Underweight", "Severely Stunted", "Severely Wasted"]);
 export const MILD_STATUSES = new Set(["Underweight", "Stunted", "Wasted"]);
-export const OVER_STATUSES = new Set(["Overweight", "Obese"]);
+export const OVER_STATUSES = new Set(["Overweight", "Obese", "Tall"]);
 
 export const STATUS_ABBREVIATIONS = {
   Normal: "N",
@@ -8,6 +8,7 @@ export const STATUS_ABBREVIATIONS = {
   "Severely Underweight": "SUW",
   Stunted: "ST",
   "Severely Stunted": "SST",
+  Tall: "TALL",
   Wasted: "W",
   "Severely Wasted": "SW",
   Overweight: "OW",

@@ -24,8 +24,8 @@ const INDICATOR_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = {
-  wfa: ["Normal", "Underweight", "Severely Underweight"],
-  hfa: ["Normal", "Stunted", "Severely Stunted"],
+  wfa: ["Normal", "Underweight", "Severely Underweight", "Overweight"],
+  hfa: ["Normal", "Stunted", "Severely Stunted", "Tall"],
   wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
 };
 

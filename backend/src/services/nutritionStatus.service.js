@@ -9,12 +9,14 @@ const { weightForAgeZ, heightForAgeZ, weightForHeightZ } = require("./growthRefe
 function classifyWeightForAge(z) {
   if (z < -3) return "Severely Underweight";
   if (z < -2) return "Underweight";
+  if (z > 2) return "Overweight";
   return "Normal";
 }
 
 function classifyHeightForAge(z) {
   if (z < -3) return "Severely Stunted";
   if (z < -2) return "Stunted";
+  if (z > 2) return "Tall";
   return "Normal";
 }
 

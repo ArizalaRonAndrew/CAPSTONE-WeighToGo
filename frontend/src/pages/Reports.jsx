@@ -7,15 +7,14 @@ import StatusBadge from "../components/StatusBadge";
 
 const INDICATOR_LABELS = { wfa: "Weight-for-Age", hfa: "Height-for-Age", wfl_h: "Weight-for-Height" };
 
-// Operation Timbang Plus (OPT+) style summary rows. Only statuses the system
-// actually classifies are listed — WFA has no "Overweight" bucket and HFA
-// has no "Tall" bucket in this app's WHO z-score classification, so those
-// OPT+ rows are omitted rather than shown as a fake zero.
+// Operation Timbang Plus (OPT+) style summary rows, in the DOH form's
+// standard row order for each indicator.
 const GROWTH_SUMMARY_SECTIONS = [
   {
     indicator: "wfa",
     rows: [
       { status: "Normal", label: "WFA - Normal" },
+      { status: "Overweight", label: "WFA - OW" },
       { status: "Underweight", label: "WFA - UW" },
       { status: "Severely Underweight", label: "WFA - SUW" },
     ],
@@ -24,6 +23,7 @@ const GROWTH_SUMMARY_SECTIONS = [
     indicator: "hfa",
     rows: [
       { status: "Normal", label: "HFA - Normal" },
+      { status: "Tall", label: "HFA - Tall" },
       { status: "Stunted", label: "HFA - St" },
       { status: "Severely Stunted", label: "HFA - SSt" },
     ],
@@ -32,10 +32,10 @@ const GROWTH_SUMMARY_SECTIONS = [
     indicator: "wfl_h",
     rows: [
       { status: "Normal", label: "WFL/H - Normal" },
-      { status: "Wasted", label: "WFL/H - MW" },
-      { status: "Severely Wasted", label: "WFL/H - SW" },
       { status: "Overweight", label: "WFL/H - OW" },
       { status: "Obese", label: "WFL/H - Ob" },
+      { status: "Wasted", label: "WFL/H - MW" },
+      { status: "Severely Wasted", label: "WFL/H - SW" },
     ],
   },
 ];
