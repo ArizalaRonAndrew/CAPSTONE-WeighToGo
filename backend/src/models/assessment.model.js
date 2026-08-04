@@ -22,6 +22,17 @@ async function findAll({ childId, childIds, status } = {}) {
   return data;
 }
 
+async function findAllWithBarangay({ childId, childIds, status } = {}) {
+  requireSupabase();
+  let query = supabase.from(TABLE_NAME).select("*, tbl_children(barangay)");
+  if (childId) query = query.eq("child_id", childId);
+  if (childIds) query = query.in("child_id", childIds);
+  query = applyStatusFilter(query, status);
+  const { data, error } = await query.order("date_measured", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
 async function findById(id) {
   requireSupabase();
   const { data, error } = await supabase.from(TABLE_NAME).select("*").eq("id", id).single();
@@ -60,4 +71,4 @@ async function softDelete(id) {
   return update(id, { status: "reject" });
 }
 
-module.exports = { findAll, findById, create, update, softDelete };
+module.exports = { findAll, findAllWithBarangay, findById, create, update, softDelete };

@@ -51,46 +51,37 @@ function getDueSupplements(ageInMonths, existingRecords = []) {
   return due;
 }
 
-// Full dose-by-dose timeline for one child, merging the standard schedule
-// windows with whatever has actually been recorded in tbl_supplements, so the
-// UI can show every dose's state instead of only the ones still outstanding.
-function getSupplementSchedule(ageInMonths, existingRecords = []) {
-  const schedule = {};
+// Per-type compliance snapshot: the single next dose a child needs (or
+// whether they're not yet age-eligible / already up to date).
+function getComplianceStatus(ageInMonths, existingRecords = []) {
+  const result = {};
 
   for (const supplementType of ["Vitamin A", "Deworming"]) {
     const windows = getScheduleWindows(supplementType);
-    const recordsByDose = new Map(
-      existingRecords
-        .filter((r) => r.supplement_type === supplementType)
-        .map((r) => [r.dose_order, r])
+    const administeredDoseOrders = new Set(
+      existingRecords.filter((r) => r.supplement_type === supplementType).map((r) => r.dose_order)
     );
+    const eligibleWindows = windows.filter((w) => ageInMonths >= w.start_month);
 
-    schedule[supplementType] = windows.map((window) => {
-      const record = recordsByDose.get(window.dose_order);
-      let status;
-      if (record) {
-        status = "given";
-      } else if (ageInMonths < window.start_month) {
-        status = "upcoming";
-      } else if (ageInMonths > window.end_month) {
-        status = "overdue";
-      } else {
-        status = "due";
-      }
+    if (eligibleWindows.length === 0) {
+      result[supplementType] = { status: "not_eligible" };
+      continue;
+    }
 
-      return {
-        supplement_type: supplementType,
-        dose_order: window.dose_order,
-        window_start_month: window.start_month,
-        window_end_month: window.end_month,
-        status,
-        date_administered: record ? record.date_administered : null,
-        record_id: record ? record.id : null,
-      };
-    });
+    const nextWindow = eligibleWindows.find((w) => !administeredDoseOrders.has(w.dose_order));
+    if (!nextWindow) {
+      result[supplementType] = { status: "complete" };
+      continue;
+    }
+
+    result[supplementType] = {
+      status: "due",
+      dose_order: nextWindow.dose_order,
+      overdue: ageInMonths > nextWindow.end_month,
+    };
   }
 
-  return schedule;
+  return result;
 }
 
-module.exports = { getScheduleWindows, getDueSupplements, getSupplementSchedule };
+module.exports = { getScheduleWindows, getDueSupplements, getComplianceStatus };

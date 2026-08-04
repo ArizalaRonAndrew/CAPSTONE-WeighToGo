@@ -27,6 +27,18 @@ function filterByBarangay(rows, barangay) {
   return rows.filter((row) => row.tbl_children?.barangay === barangay);
 }
 
+// Admins only see assessment rows for a barangay+month once the assigned BNS
+// has submitted that month's report. BNS users always see their own data live.
+async function filterSubmittedForRole(req, rows, { barangay } = {}) {
+  if (req.user.role !== "MNAO") return rows;
+  const submittedSet = await reportsModel.fetchSubmittedSet(barangay ? { barangay } : {});
+  return rows.filter((row) => {
+    const rowBarangay = row.tbl_children?.barangay;
+    if (!rowBarangay) return false;
+    return submittedSet.has(`${rowBarangay}|${formatMonth(row.date_measured)}`);
+  });
+}
+
 async function getNutritionReport(req, res, next) {
   try {
     const { month } = req.query;
@@ -36,7 +48,8 @@ async function getNutritionReport(req, res, next) {
     const barangay = effectiveBarangay(req);
     const { start, end } = toMonthRange(month);
 
-    const rows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const rows = await filterSubmittedForRole(req, scopedRows, { barangay });
 
     res.json({
       month,
@@ -64,7 +77,8 @@ async function getMonthlyMasterlistReport(req, res, next) {
     const barangay = effectiveBarangay(req);
     const { start, end } = toMonthRange(month);
 
-    const rawRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
+    const rawRows = await filterSubmittedForRole(req, scopedRows, { barangay });
     const totalRegistered = await reportsModel.countChildren({ barangay });
 
     const rows = rawRows
@@ -161,7 +175,8 @@ async function getTrends(req, res, next) {
 
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
-    const rows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const rows = await filterSubmittedForRole(req, scopedRows, { barangay });
 
     const buckets = new Map();
     let cursor = from;
@@ -194,7 +209,8 @@ async function getBarangayComparison(req, res, next) {
     }
 
     const { start, end } = toMonthRange(month);
-    const rows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
+    const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
+    const rows = await filterSubmittedForRole(req, allRows);
 
     const counts = new Map();
     for (const row of rows) {
@@ -212,10 +228,51 @@ async function getBarangayComparison(req, res, next) {
   }
 }
 
+async function submitMonthlyReport(req, res, next) {
+  try {
+    const { month } = req.body;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    const barangay = req.user.assigned_barangay;
+    if (!barangay) {
+      return res.status(400).json({ error: "No barangay is assigned to this account" });
+    }
+    const submission = await reportsModel.submitReport({ barangay, month, submitted_by: req.user.id });
+    res.status(201).json(submission);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getSubmissionStatus(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    const barangay = req.user.role === "BNS" ? req.user.assigned_barangay : req.query.barangay;
+    if (!barangay) {
+      return res.status(400).json({ error: "barangay is required" });
+    }
+    const submission = await reportsModel.findSubmission({ barangay, month });
+    res.json({
+      barangay,
+      month,
+      submitted: Boolean(submission),
+      submitted_at: submission?.submitted_at || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getNutritionReport,
   getMonthlyMasterlistReport,
   getVitaminReport,
   getTrends,
   getBarangayComparison,
+  submitMonthlyReport,
+  getSubmissionStatus,
 };

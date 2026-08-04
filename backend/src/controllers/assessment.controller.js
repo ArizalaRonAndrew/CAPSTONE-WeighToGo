@@ -1,8 +1,25 @@
 const assessmentModel = require("../models/assessment.model");
 const childrenModel = require("../models/children.model");
-const { calculateAgeInMonths } = require("../utils/date");
+const reportsModel = require("../models/reports.model");
+const { calculateAgeInMonths, formatMonth } = require("../utils/date");
 const { classifyNutritionStatus } = require("../services/nutritionStatus.service");
 const { assertBarangayAccess } = require("../utils/access");
+
+// Admins only see assessments for a barangay+month once the assigned BNS has
+// submitted that month's report. BNS users always see their own data live.
+async function filterSubmittedForRole(req, assessments, { barangay } = {}) {
+  if (req.user.role !== "MNAO") return assessments;
+  const submittedSet = await reportsModel.fetchSubmittedSet(barangay ? { barangay } : {});
+  return assessments.filter((a) => {
+    const rowBarangay = barangay || a.tbl_children?.barangay;
+    if (!rowBarangay) return false;
+    return submittedSet.has(`${rowBarangay}|${formatMonth(a.date_measured)}`);
+  });
+}
+
+function stripBarangay({ tbl_children: _tbl_children, ...rest }) {
+  return rest;
+}
 
 async function listAssessments(req, res, next) {
   try {
@@ -12,7 +29,8 @@ async function listAssessments(req, res, next) {
       const child = await childrenModel.findById(childId);
       assertBarangayAccess(req, child);
       const assessments = await assessmentModel.findAll({ childId, status });
-      return res.json(assessments);
+      const visible = await filterSubmittedForRole(req, assessments, { barangay: child.barangay });
+      return res.json(visible);
     }
 
     if (req.user.role === "BNS") {
@@ -22,8 +40,9 @@ async function listAssessments(req, res, next) {
       return res.json(assessments);
     }
 
-    const assessments = await assessmentModel.findAll({ status });
-    res.json(assessments);
+    const assessments = await assessmentModel.findAllWithBarangay({ status });
+    const visible = await filterSubmittedForRole(req, assessments);
+    res.json(visible.map(stripBarangay));
   } catch (err) {
     next(err);
   }
@@ -34,7 +53,13 @@ async function getAssessment(req, res, next) {
     const assessment = await assessmentModel.findById(req.params.id);
     const child = await childrenModel.findById(assessment.child_id);
     assertBarangayAccess(req, child);
-    res.json(assessment);
+    const [visible] = await filterSubmittedForRole(req, [assessment], { barangay: child.barangay });
+    if (!visible) {
+      const err = new Error("This checkup has not been submitted to the admin yet");
+      err.status = 404;
+      throw err;
+    }
+    res.json(visible);
   } catch (err) {
     next(err);
   }
