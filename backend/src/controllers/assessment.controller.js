@@ -77,6 +77,17 @@ async function createAssessment(req, res, next) {
     const child = await childrenModel.findById(child_id);
     assertBarangayAccess(req, child);
 
+    const existingAssessments = await assessmentModel.findAll({ childId: child_id });
+    const targetMonth = date_measured.slice(0, 7);
+    const alreadyAssessed = existingAssessments.some(
+      (a) => a.date_measured?.slice(0, 7) === targetMonth
+    );
+    if (alreadyAssessed) {
+      return res.status(409).json({
+        error: "This child has already been assessed for this month.",
+      });
+    }
+
     const age_in_months = calculateAgeInMonths(child.dob, date_measured);
     const { wfa_status, hfa_status, wfl_h_status } = classifyNutritionStatus({
       sex: child.gender,
