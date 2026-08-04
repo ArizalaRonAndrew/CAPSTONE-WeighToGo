@@ -3,6 +3,7 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
+  Legend,
   Line,
   Bar,
   BarChart,
@@ -27,6 +28,14 @@ const STATUS_OPTIONS = {
   hfa: ["Normal", "Stunted", "Severely Stunted"],
   wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
 };
+
+// colorVarForStatus buckets Overweight and Obese under the same "over"
+// color since they share a severity group; give Obese its own hue so both
+// are still distinguishable when both lines are on the chart at once.
+function lineSeriesColor(status) {
+  if (status === "Obese") return "#7c3aed";
+  return colorVarForStatus(status);
+}
 
 function formatMonthLabel(monthString) {
   const [year, month] = monthString.split("-").map(Number);
@@ -144,14 +153,16 @@ export default function HealthTrends() {
         ) : trendError ? (
           <div className="empty-state">{trendError}</div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={lineStatus ? 300 : 320}>
             <ComposedChart data={trend} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <defs>
-                <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={lineColor} stopOpacity={0.22} />
-                  <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+              {lineStatus && (
+                <defs>
+                  <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.22} />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+              )}
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="month"
@@ -171,7 +182,7 @@ export default function HealthTrends() {
               />
               <Tooltip
                 labelFormatter={formatMonthLabel}
-                formatter={(value) => [`${value} child${value === 1 ? "" : "ren"}`, lineStatus || "All statuses"]}
+                formatter={(value, name) => [`${value} child${value === 1 ? "" : "ren"}`, name]}
                 contentStyle={{
                   background: "var(--color-surface)",
                   border: "1px solid var(--color-border)",
@@ -180,43 +191,42 @@ export default function HealthTrends() {
                   boxShadow: "var(--shadow-md)",
                 }}
               />
-              <Area type="monotone" dataKey="count" stroke="none" fill="url(#trendFill)" isAnimationActive={false} />
-              <Line
-                type="monotone"
-                dataKey="count"
-                name={lineStatus || "All statuses"}
-                stroke={lineColor}
-                strokeWidth={2.5}
-                dot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
-                activeDot={{ r: 6, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
-              />
+              {lineStatus ? (
+                <>
+                  <Area type="monotone" dataKey="count" stroke="none" fill="url(#trendFill)" isAnimationActive={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    name={lineStatus}
+                    stroke={lineColor}
+                    strokeWidth={2.5}
+                    dot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Legend verticalAlign="top" height={32} iconType="circle" wrapperStyle={{ fontSize: 12.5 }} />
+                  {STATUS_OPTIONS[lineIndicator].map((s) => {
+                    const color = lineSeriesColor(s);
+                    return (
+                      <Line
+                        key={s}
+                        type="monotone"
+                        dataKey={s}
+                        name={s}
+                        stroke={color}
+                        strokeWidth={2.5}
+                        dot={{ r: 3.5, strokeWidth: 2, stroke: "var(--color-surface)", fill: color }}
+                        activeDot={{ r: 5.5, strokeWidth: 2, stroke: "var(--color-surface)", fill: color }}
+                      />
+                    );
+                  })}
+                </>
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         )}
-
-        <details style={{ marginTop: 12 }}>
-          <summary style={{ cursor: "pointer", fontSize: 13, color: "var(--color-text-muted)" }}>
-            View as table
-          </summary>
-          <div className="table-wrap" style={{ marginTop: 8 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trend.map((row) => (
-                  <tr key={row.month}>
-                    <td>{formatMonthLabel(row.month)}</td>
-                    <td>{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
       </div>
 
       <div className="card">

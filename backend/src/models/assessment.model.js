@@ -98,4 +98,29 @@ async function submitForChildren({ childIds, start, end }) {
   return data;
 }
 
-module.exports = { findAll, findAllWithBarangay, findById, create, update, softDelete, submitForChildren };
+// Returns the subset of childIds that have at least one submitted, active
+// assessment. Used to keep admins from seeing a child at all until the
+// assigned BNS has submitted a checkup for them.
+async function findSubmittedChildIds(childIds) {
+  requireSupabase();
+  if (!childIds.length) return new Set();
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("child_id")
+    .in("child_id", childIds)
+    .eq("submission_status", "submitted")
+    .eq("status", "active");
+  if (error) throw error;
+  return new Set(data.map((row) => row.child_id));
+}
+
+module.exports = {
+  findAll,
+  findAllWithBarangay,
+  findById,
+  create,
+  update,
+  softDelete,
+  submitForChildren,
+  findSubmittedChildIds,
+};

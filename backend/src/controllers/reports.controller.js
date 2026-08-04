@@ -4,6 +4,12 @@ const childrenModel = require("../models/children.model");
 const { toMonthRange, addMonths, formatMonth, isValidMonthString } = require("../utils/date");
 const { filterSubmittedForRole } = require("../utils/submission");
 
+const STATUS_VALUES = {
+  wfa: ["Normal", "Underweight", "Severely Underweight"],
+  hfa: ["Normal", "Stunted", "Severely Stunted"],
+  wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
+};
+
 const INDICATOR_COLUMNS = {
   wfa: "wfa_status",
   hfa: "hfa_status",
@@ -169,22 +175,35 @@ async function getTrends(req, res, next) {
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
     const rows = filterSubmittedForRole(req, scopedRows);
 
-    const buckets = new Map();
+    const months = [];
     let cursor = from;
     while (cursor <= to) {
-      buckets.set(cursor, 0);
+      months.push(cursor);
       cursor = addMonths(cursor, 1);
     }
 
-    for (const row of rows) {
-      if (status && row[column] !== status) continue;
-      const month = formatMonth(row.date_measured);
-      if (buckets.has(month)) {
-        buckets.set(month, buckets.get(month) + 1);
+    if (status) {
+      const buckets = new Map(months.map((m) => [m, 0]));
+      for (const row of rows) {
+        if (row[column] !== status) continue;
+        const month = formatMonth(row.date_measured);
+        if (buckets.has(month)) buckets.set(month, buckets.get(month) + 1);
       }
+      return res.json(months.map((month) => ({ month, count: buckets.get(month) })));
     }
 
-    res.json(Array.from(buckets, ([month, count]) => ({ month, count })));
+    // No status filter: break each month down by every status for this
+    // indicator, so the caller can plot one line per status.
+    const statuses = STATUS_VALUES[indicatorKey] || [];
+    const buckets = new Map(months.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
+    for (const row of rows) {
+      const value = row[column];
+      if (!statuses.includes(value)) continue;
+      const month = formatMonth(row.date_measured);
+      if (buckets.has(month)) buckets.get(month)[value] += 1;
+    }
+
+    res.json(months.map((month) => ({ month, ...buckets.get(month) })));
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,5 @@
 const childrenModel = require("../models/children.model");
+const assessmentModel = require("../models/assessment.model");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
 
@@ -9,7 +10,16 @@ async function listChildren(req, res, next) {
     if (req.user.role === "BNS") {
       barangay = req.user.assigned_barangay;
     }
-    const children = await childrenModel.findAll({ barangay, status });
+    let children = await childrenModel.findAll({ barangay, status });
+
+    // Admins only see a child once the assigned BNS has submitted at least
+    // one checked-up assessment for them. BNS users always see their own
+    // full roster, checked or still pending.
+    if (req.user.role === "MNAO") {
+      const submittedChildIds = await assessmentModel.findSubmittedChildIds(children.map((c) => c.id));
+      children = children.filter((c) => submittedChildIds.has(c.id));
+    }
+
     res.json(children);
   } catch (err) {
     next(err);
@@ -20,6 +30,16 @@ async function getChild(req, res, next) {
   try {
     const child = await childrenModel.findById(req.params.id);
     assertBarangayAccess(req, child);
+
+    if (req.user.role === "MNAO") {
+      const submittedChildIds = await assessmentModel.findSubmittedChildIds([child.id]);
+      if (!submittedChildIds.has(child.id)) {
+        const err = new Error("This child has no submitted checkups yet");
+        err.status = 404;
+        throw err;
+      }
+    }
+
     res.json(child);
   } catch (err) {
     next(err);
