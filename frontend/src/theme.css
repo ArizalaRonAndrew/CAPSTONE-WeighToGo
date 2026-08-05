@@ -2126,3 +2126,51 @@ tr.clickable:hover {
   font-weight: 700;
   color: var(--color-text);
 }
+
+/* Print: the app chrome (nav rail, top bar, filters, the Print button itself)
+   has no business on a printed page, and the OPT+ matrix is wide enough that
+   portrait clips it — so printing goes full-width landscape with just the
+   report content. `@page` is document-wide, not scopable to one route, but
+   the only two "Print" buttons in the app (here and the BNS Monthly Report)
+   both print a wide table, so landscape suits both. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  .sidebar,
+  .sidebar-backdrop,
+  .mobile-topbar {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .reports-page .page-header,
+  .reports-page .filter-bar {
+    display: none !important;
+  }
+
+  .reports-page .growth-summary-card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .growth-summary-total-tile,
+  .growth-summary-table thead th,
+  .growth-summary-total-row td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

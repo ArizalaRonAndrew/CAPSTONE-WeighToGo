@@ -66,7 +66,7 @@ function GrowthSummaryReport({ summary }) {
             Nutritional status by age bracket and sex, birth to 5 years, for {monthLabel(summary.month)}.
           </p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+        <button type="button" className="btn btn-secondary print-hide" onClick={() => window.print()}>
           <PrintIcon /> Print
         </button>
       </div>
@@ -187,7 +187,7 @@ export default function Reports() {
   useEffect(load, [month, barangay]);
 
   return (
-    <div>
+    <div className="reports-page">
       <div className="page-header">
         <h1>Consolidated Reports</h1>
       </div>
