@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { formatAge } from "../utils/age";
+import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 import RegisterChildModal from "../components/RegisterChildModal";
@@ -162,7 +162,7 @@ export default function Masterlist() {
               <th>Name of Child</th>
               <th>Parent / Guardian</th>
               <th>Gender</th>
-              <th>Age</th>
+              <th>Age (mos)</th>
               <th>Purok / Sitio</th>
               <th>Checkup Status</th>
               <th>Action</th>
@@ -203,9 +203,9 @@ export default function Masterlist() {
                       <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                     </div>
                   </td>
-                  <td data-label="Parent / Guardian">{child.parent_name}</td>
+                  <td data-label="Parent / Guardian">{formatNameForTable(child.parent_name)}</td>
                   <td data-label="Gender">{child.gender}</td>
-                  <td data-label="Age">{formatAge(child.dob)}</td>
+                  <td data-label="Age (mos)">{ageInMonths(child.dob)}</td>
                   <td data-label="Purok / Sitio">{child.purok}</td>
                   <td data-label="Checkup Status">
                     <span className={`status-pill ${isChecked ? "status-pill-checked" : "status-pill-pending"}`}>
