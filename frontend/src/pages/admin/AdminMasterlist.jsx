@@ -228,7 +228,7 @@ export default function AdminMasterlist() {
                     <div style={{ color: "var(--color-text-muted)", fontSize: 12 }}>{row.barangay}</div>
                     <div style={{ fontWeight: 700 }}>{row.purok}</div>
                   </td>
-                  <td data-label="Mother / Caregiver">{row.parent_name}</td>
+                  <td data-label="Mother / Caregiver">{formatNameForTable(row.parent_name)}</td>
                   <td data-label="Name of Child" style={{ fontWeight: 700 }}>
                     {formatNameForTable(row.name)}
                   </td>
