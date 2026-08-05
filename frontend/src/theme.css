@@ -511,6 +511,22 @@ table {
   font-size: 12.5px;
 }
 
+/* Checkup History tab (ManageChildModal): same nowrap-forces-scroll issue,
+   cramped further by the modal's narrower width. Compact status badges plus
+   a fixed layout keep it inside the modal without a horizontal scrollbar. */
+.history-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.history-table th,
+.history-table td {
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 .pagination-bar {
   display: flex;
   align-items: center;

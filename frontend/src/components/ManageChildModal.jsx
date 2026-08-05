@@ -484,7 +484,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
             <div>
               <h3>Past Monthly Reports</h3>
               <div className="table-wrap">
-                <table>
+                <table className="history-table">
+                  <colgroup>
+                    <col style={{ width: "24%" }} />
+                    <col style={{ width: "30%" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "16%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Month</th>
@@ -509,13 +516,13 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                           {a.weight}kg / {a.height}cm
                         </td>
                         <td data-label="WFA">
-                          <StatusBadge status={a.wfa_status} />
+                          <StatusBadge status={a.wfa_status} compact />
                         </td>
                         <td data-label="HFA">
-                          <StatusBadge status={a.hfa_status} />
+                          <StatusBadge status={a.hfa_status} compact />
                         </td>
                         <td data-label="WFL/H">
-                          <StatusBadge status={a.wfl_h_status} />
+                          <StatusBadge status={a.wfl_h_status} compact />
                         </td>
                       </tr>
                     ))}
