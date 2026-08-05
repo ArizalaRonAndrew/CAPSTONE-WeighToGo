@@ -55,4 +55,33 @@ async function updateStatus(id, status) {
   return data;
 }
 
-module.exports = { findAll, findById, findByEmail, create, updateStatus };
+// JWTs are stateless, so there's no server-side session row to delete on
+// logout. token_version is the DB-backed equivalent: every token embeds the
+// version it was issued under, and `authenticate` rejects any token whose
+// version doesn't match the current one. Bumping it on logout invalidates
+// that token (and any other still-valid token for that user) immediately,
+// without waiting for its natural JWT expiry.
+// Returns undefined if the token_version column hasn't been migrated in yet,
+// so callers can fail open instead of locking every user out.
+async function getTokenVersion(id) {
+  requireSupabase();
+  const { data, error } = await supabase.from(TABLE_NAME).select("token_version").eq("id", id).single();
+  if (error) {
+    if (error.code === "42703") return undefined; // column not migrated yet
+    throw error;
+  }
+  return data?.token_version ?? 0;
+}
+
+async function bumpTokenVersion(id) {
+  requireSupabase();
+  const current = await getTokenVersion(id);
+  if (current === undefined) return; // column not migrated yet — nothing to bump
+  const { error } = await supabase
+    .from(TABLE_NAME)
+    .update({ token_version: current + 1 })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+module.exports = { findAll, findById, findByEmail, create, updateStatus, getTokenVersion, bumpTokenVersion };
