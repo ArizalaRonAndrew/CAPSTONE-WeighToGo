@@ -488,6 +488,29 @@ table {
   height: 500px;
 }
 
+/* Admin Masterlist: 14 columns of nowrap text used to force this table wider
+   than its card, so .table-wrap's overflow:auto turned into a permanent
+   horizontal scrollbar. A fixed layout + explicit colgroup widths (see
+   AdminMasterlist.jsx) keeps it pinned to the card's width instead — text
+   wraps within its column rather than pushing the table wider. */
+.masterlist-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.masterlist-table th,
+.masterlist-table td {
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+.masterlist-table td[data-label="Action"] .btn {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
 .pagination-bar {
   display: flex;
   align-items: center;

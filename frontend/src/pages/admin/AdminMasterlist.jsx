@@ -178,7 +178,23 @@ export default function AdminMasterlist() {
 
       <div className="card">
         <div className="table-wrap paginated-table-wrap">
-          <table>
+          <table className="masterlist-table">
+            <colgroup>
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "4%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "8%" }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Address / Purok</th>
