@@ -1954,9 +1954,20 @@ tr.clickable:hover {
 
 .growth-summary-total-row td {
   background: var(--color-primary-50);
+  color: var(--color-primary-800);
   font-weight: 700;
 }
 
 .growth-summary-total-row td.growth-summary-row-head {
   background: var(--color-primary-50);
+}
+
+/* Leaflet's own panes/controls use z-index up to 1000, and .leaflet-container
+   never sets its own — so without this, that z-index escapes into the page's
+   root stacking context and paints over the fixed sidebar (z-index: 30)
+   wherever the sidebar's hover-expanded panel overlaps the map. Scoping it
+   here keeps Leaflet's internal stacking self-contained and below the sidebar. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
 }
