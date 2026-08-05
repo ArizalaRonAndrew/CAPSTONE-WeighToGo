@@ -24,9 +24,13 @@ function sleep(ms) {
 }
 
 function poblacionQuery(name) {
-  // The 12 "Barangay N (Poblacion)" entries don't geocode well individually;
-  // fall back to the shared Poblacion, Balayan town center for those.
-  if (name.includes("Poblacion")) return "Poblacion, Balayan, Batangas, Philippines";
+  // Nominatim can't resolve the 12 "Barangay N (Poblacion)" entries
+  // individually, so this used to fall back to one shared Poblacion town
+  // center coordinate for all of them — which collapsed every Poblacion
+  // marker on the map into a single stacked point. Their entries in
+  // barangays.json have since been hand-corrected with distinct per-barangay
+  // centroids from PhilAtlas; re-running this script would silently
+  // reintroduce that bug, so it now just passes the plain query through.
   return `${name}, Balayan, Batangas, Philippines`;
 }
 

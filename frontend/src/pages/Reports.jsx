@@ -78,14 +78,28 @@ function GrowthSummaryReport({ summary }) {
             <span className="value">{indicators[section.indicator]?.totalAssessed ?? 0}</span>
           </div>
         ))}
-        <div className="growth-summary-total-tile">
-          <span className="label">Birth to 5 Years (0-59 Mos)</span>
+        <div className="growth-summary-total-tile growth-summary-total-tile-overview">
+          <span className="label">Total Registered</span>
+          <span className="value">{summary.totalRegistered ?? 0}</span>
+        </div>
+        <div className="growth-summary-total-tile growth-summary-total-tile-overview">
+          <span className="label">Total Assessed</span>
           <span className="value">{overall.total.total}</span>
         </div>
       </div>
 
       <div className="growth-summary-wrap">
         <table className="growth-summary-table">
+          <colgroup>
+            <col className="growth-summary-indicator-col" />
+            {ageBrackets.flatMap((bracket) => [
+              <col key={`${bracket.key}-boys-col`} />,
+              <col key={`${bracket.key}-girls-col`} />,
+              <col key={`${bracket.key}-total-col`} />,
+            ])}
+            <col />
+            <col />
+          </colgroup>
           <thead>
             <tr>
               <th rowSpan={2} className="growth-summary-row-head">

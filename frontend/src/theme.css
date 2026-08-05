@@ -1867,9 +1867,9 @@ tr.clickable:hover {
 }
 
 .growth-summary-totals {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
-  flex-wrap: wrap;
   margin-bottom: 18px;
 }
 
@@ -1877,10 +1877,16 @@ tr.clickable:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 10px 16px;
-  border-radius: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
   background: var(--color-primary-50);
-  min-width: 150px;
+  border: 1px solid var(--color-primary-100);
+}
+
+.growth-summary-total-tile-overview {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .growth-summary-total-tile .label {
@@ -1892,59 +1898,57 @@ tr.clickable:hover {
 }
 
 .growth-summary-total-tile .value {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--color-primary-700);
 }
 
+/* Dense OPT+ matrix (21 columns). table-layout: fixed + an explicit colgroup
+   keep the table pinned to the card's own width no matter how narrow the
+   viewport is, so it never needs horizontal scrolling — columns shrink and
+   their text wraps instead of pushing the table wider than its container. */
 .growth-summary-wrap {
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .growth-summary-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
+}
+
+.growth-summary-indicator-col {
+  width: 120px;
 }
 
 .growth-summary-table th,
 .growth-summary-table td {
   text-align: center;
-  padding: 8px 12px;
+  padding: 6px 4px;
   border: 1px solid var(--color-border);
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 12px;
+  overflow-wrap: break-word;
 }
 
 .growth-summary-table thead th {
   background: var(--color-primary-50);
   color: var(--color-primary-800);
   font-weight: 700;
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
+  line-height: 1.3;
 }
 
 .growth-summary-row-head {
   text-align: left !important;
   font-weight: 600;
-  white-space: nowrap;
-}
-
-.growth-summary-table tbody th.growth-summary-row-head,
-.growth-summary-table tbody td.growth-summary-row-head {
-  position: sticky;
-  left: 0;
-  background: var(--color-surface);
-  z-index: 1;
+  padding-left: 10px !important;
 }
 
 .growth-summary-table tr[data-indicator="hfa"] {
-  background: var(--color-bg);
-}
-
-.growth-summary-table tr[data-indicator="hfa"] td.growth-summary-row-head {
   background: var(--color-bg);
 }
 
@@ -1970,4 +1974,155 @@ tr.clickable:hover {
 .leaflet-container {
   position: relative;
   z-index: 0;
+}
+
+/* Barangay Map: colored severity pins + name labels + legend. Colors reuse
+   the same status tokens as the rest of the app (StatusBadge) so "green =
+   Normal-ish" reads consistently everywhere. */
+.map-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.map-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.barangay-pin-wrap {
+  background: transparent !important;
+  border: none !important;
+}
+
+.barangay-pin {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  cursor: pointer;
+}
+
+.barangay-pin-low {
+  color: var(--status-normal-text);
+}
+
+.barangay-pin-medium {
+  color: var(--status-mild-text);
+}
+
+.barangay-pin-high {
+  color: var(--status-severe-text);
+}
+
+.barangay-pin-no-data {
+  color: var(--color-text-muted);
+}
+
+/* Permanent name tooltip above each pin: replace Leaflet's default
+   white-box-with-arrow with a small rounded label matching the app's cards. */
+.leaflet-tooltip.barangay-label {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.barangay-label:before {
+  display: none;
+}
+
+.map-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.map-prevalence-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.map-prevalence-row > div {
+  flex: 1;
+  text-align: center;
+}
+
+.map-prevalence-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary-700);
+}
+
+.map-prevalence-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.map-indicator-block {
+  margin-bottom: 14px;
+}
+
+.map-indicator-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.map-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+.map-status-row:nth-child(odd) {
+  background: var(--color-bg);
+}
+
+.map-status-count {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-text);
 }

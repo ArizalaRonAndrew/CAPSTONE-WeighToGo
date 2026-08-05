@@ -1,8 +1,10 @@
 const reportsModel = require("../models/reports.model");
 const assessmentModel = require("../models/assessment.model");
 const childrenModel = require("../models/children.model");
+const barangayModel = require("../models/barangay.model");
 const { toMonthRange, addMonths, formatMonth, isValidMonthString } = require("../utils/date");
 const { filterSubmittedForRole } = require("../utils/submission");
+const { classifyUnderweight, classifyStunting, classifyWasting, worstTier } = require("../utils/publicHealthSignificance");
 
 const STATUS_VALUES = {
   wfa: ["Normal", "Underweight", "Severely Underweight", "Overweight"],
@@ -84,6 +86,7 @@ async function getGrowthSummaryReport(req, res, next) {
     const rows = filterSubmittedForRole(req, scopedRows).filter(
       (row) => row.tbl_children && bracketForAge(row.age_in_months)
     );
+    const totalRegistered = await reportsModel.countChildren({ barangay });
 
     const overall = emptyBracketCounts();
     const indicators = {};
@@ -128,6 +131,7 @@ async function getGrowthSummaryReport(req, res, next) {
     res.json({
       month,
       barangay: barangay || "All Barangays",
+      totalRegistered,
       ageBrackets: AGE_BRACKETS.map(({ key, label }) => ({ key, label })),
       overall: { byBracket: overall, total: sumBracketCounts(overall) },
       indicators: indicatorSummaries,
@@ -339,6 +343,56 @@ async function getBarangayComparison(req, res, next) {
   }
 }
 
+// Per-barangay underweight/stunted/wasted prevalence for the month, each
+// classified against WHO's public-health-significance thresholds — powers
+// the color-coded markers and side panel on the admin Barangay Map.
+async function getBarangayHealthStatus(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+
+    const { start, end } = toMonthRange(month);
+    const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
+    const rows = filterSubmittedForRole(req, allRows);
+
+    const totals = new Map();
+    for (const b of barangayModel.getAll()) {
+      totals.set(b.name, { barangay: b.name, totalAssessed: 0, underweight: 0, stunted: 0, wasted: 0 });
+    }
+
+    for (const row of rows) {
+      const barangay = row.tbl_children?.barangay;
+      const bucket = totals.get(barangay);
+      if (!bucket) continue;
+      bucket.totalAssessed += 1;
+      if (MALNOURISHED_WFA.has(row.wfa_status)) bucket.underweight += 1;
+      if (STUNTED_HFA.has(row.hfa_status)) bucket.stunted += 1;
+      if (WASTED_WFL_H.has(row.wfl_h_status)) bucket.wasted += 1;
+    }
+
+    const barangays = Array.from(totals.values()).map((b) => {
+      if (b.totalAssessed === 0) {
+        return { ...b, underweightPct: 0, stuntedPct: 0, wastedPct: 0, severity: "no-data" };
+      }
+      const underweightPct = (b.underweight / b.totalAssessed) * 100;
+      const stuntedPct = (b.stunted / b.totalAssessed) * 100;
+      const wastedPct = (b.wasted / b.totalAssessed) * 100;
+      const severity = worstTier(
+        classifyUnderweight(underweightPct),
+        classifyStunting(stuntedPct),
+        classifyWasting(wastedPct)
+      );
+      return { ...b, underweightPct, stuntedPct, wastedPct, severity };
+    });
+
+    res.json({ month, barangays });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function submitMonthlyReport(req, res, next) {
   try {
     const { month } = req.body;
@@ -389,6 +443,7 @@ module.exports = {
   getGrowthSummaryReport,
   getTrends,
   getBarangayComparison,
+  getBarangayHealthStatus,
   submitMonthlyReport,
   getSubmissionStatus,
 };

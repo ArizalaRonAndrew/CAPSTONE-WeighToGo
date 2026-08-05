@@ -6,6 +6,7 @@ const {
   getGrowthSummaryReport,
   getTrends,
   getBarangayComparison,
+  getBarangayHealthStatus,
   submitMonthlyReport,
   getSubmissionStatus,
 } = require("../controllers/reports.controller");
@@ -21,6 +22,7 @@ router.get("/vitamins", getVitaminReport);
 router.get("/growth-summary", getGrowthSummaryReport);
 router.get("/trends", authorize("MNAO"), getTrends);
 router.get("/barangay-comparison", authorize("MNAO"), getBarangayComparison);
+router.get("/barangay-health-status", authorize("MNAO"), getBarangayHealthStatus);
 router.get("/submission-status", getSubmissionStatus);
 router.post("/submit", authorize("BNS"), submitMonthlyReport);
 
