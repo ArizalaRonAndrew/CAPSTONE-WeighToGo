@@ -5,6 +5,7 @@ import { currentMonth } from "../../utils/month";
 import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
 import ManageChildModal from "../../components/ManageChildModal";
+import Dropdown from "../../components/Dropdown";
 
 function formatShortDate(dateStr) {
   if (!dateStr) return "--";
@@ -141,26 +142,26 @@ export default function AdminMasterlist() {
             </div>
           </div>
           <div className="field">
-            <label>Purok / Sitio</label>
-            <select className="input" value={purokFilter} onChange={(e) => setPurokFilter(e.target.value)}>
-              <option value="">All puroks</option>
-              {purokOptions.map((purok) => (
-                <option key={purok} value={purok}>
-                  {purok}
-                </option>
-              ))}
-            </select>
+            <label>Barangay</label>
+            <Dropdown
+              value={barangayFilter}
+              allLabel="All barangays"
+              options={barangays.map((b) => ({ value: b.name, label: b.name }))}
+              onChange={(value) => {
+                setBarangayFilter(value);
+                setPurokFilter("");
+              }}
+            />
           </div>
           <div className="field">
-            <label>Barangay</label>
-            <select className="input" value={barangayFilter} onChange={(e) => setBarangayFilter(e.target.value)}>
-              <option value="">All barangays</option>
-              {barangays.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+            <label>Purok / Sitio</label>
+            <Dropdown
+              value={purokFilter}
+              allLabel="All puroks"
+              options={purokOptions.map((purok) => ({ value: purok, label: purok }))}
+              onChange={setPurokFilter}
+              disabled={!barangayFilter}
+            />
           </div>
           {hasActiveFilters && (
             <button type="button" className="btn btn-secondary" onClick={clearFilters}>

@@ -412,6 +412,71 @@ h1, h2, h3, h4 {
   color: var(--status-severe-text);
 }
 
+/* Custom dropdown (see components/Dropdown.jsx) — a native <select>'s
+   options are positioned by the browser and flip above the field when
+   there's no room below; this menu is always anchored below the trigger and
+   scrolls internally instead, at the cost of being non-native. */
+.dropdown {
+  position: relative;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dropdown-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.dropdown-option {
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dropdown-option:hover {
+  background: var(--color-row-hover);
+}
+
+.dropdown-option-active {
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+  font-weight: 600;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
