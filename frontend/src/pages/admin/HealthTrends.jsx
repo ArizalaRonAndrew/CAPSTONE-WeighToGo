@@ -16,6 +16,7 @@ import { api } from "../../api/client";
 import { useBarangays } from "../../hooks/useBarangays";
 import { colorVarForStatus } from "../../utils/statusGroups";
 import { currentMonth, addMonths } from "../../utils/month";
+import Dropdown from "../../components/Dropdown";
 
 const INDICATOR_OPTIONS = [
   { value: "wfa", label: "Weight-for-Age" },
@@ -183,42 +184,33 @@ export default function HealthTrends() {
         <div className="filter-bar">
           <div className="field">
             <label>Indicator</label>
-            <select
-              className="input"
+            <Dropdown
               value={lineIndicator}
-              onChange={(e) => {
-                setLineIndicator(e.target.value);
+              options={INDICATOR_OPTIONS}
+              onChange={(value) => {
+                setLineIndicator(value);
                 setLineStatus("");
               }}
-            >
-              {INDICATOR_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="field">
             <label>Status</label>
-            <select className="input" value={lineStatus} onChange={(e) => setLineStatus(e.target.value)}>
-              <option value="">All Statuses</option>
-              {STATUS_OPTIONS[lineIndicator].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={lineStatus}
+              options={[
+                { value: "", label: "All Statuses" },
+                ...STATUS_OPTIONS[lineIndicator].map((s) => ({ value: s, label: s })),
+              ]}
+              onChange={setLineStatus}
+            />
           </div>
           <div className="field">
             <label>Barangay</label>
-            <select className="input" value={lineBarangay} onChange={(e) => setLineBarangay(e.target.value)}>
-              <option value="">All barangays</option>
-              {barangays.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={lineBarangay}
+              options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
+              onChange={setLineBarangay}
+            />
           </div>
         </div>
 

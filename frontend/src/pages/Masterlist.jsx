@@ -6,6 +6,7 @@ import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 import RegisterChildModal from "../components/RegisterChildModal";
 import ManageChildModal from "../components/ManageChildModal";
+import Dropdown from "../components/Dropdown";
 
 function initials(name) {
   const parts = name.trim().split(/\s+/);
@@ -124,22 +125,23 @@ export default function Masterlist() {
           </div>
           <div className="field">
             <label>Purok / Sitio</label>
-            <select className="input" value={purokFilter} onChange={(e) => setPurokFilter(e.target.value)}>
-              <option value="">All puroks</option>
-              {purokOptions.map((purok) => (
-                <option key={purok} value={purok}>
-                  {purok}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={purokFilter}
+              options={[{ value: "", label: "All puroks" }, ...purokOptions.map((purok) => ({ value: purok, label: purok }))]}
+              onChange={setPurokFilter}
+            />
           </div>
           <div className="field">
             <label>Checkup Status</label>
-            <select className="input" value={checkupFilter} onChange={(e) => setCheckupFilter(e.target.value)}>
-              <option value="">All statuses</option>
-              <option value="checked">Checked</option>
-              <option value="pending">Pending</option>
-            </select>
+            <Dropdown
+              value={checkupFilter}
+              options={[
+                { value: "", label: "All statuses" },
+                { value: "checked", label: "Checked" },
+                { value: "pending", label: "Pending" },
+              ]}
+              onChange={setCheckupFilter}
+            />
           </div>
           {hasActiveFilters && (
             <button type="button" className="btn btn-secondary" onClick={clearFilters}>

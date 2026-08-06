@@ -23,7 +23,12 @@ function ChevronIcon() {
 // there's no CSS to stop that. This renders the menu ourselves, always
 // anchored below the trigger (scrolling internally past a max-height instead
 // of flipping), for places where that flip is disruptive.
-export default function Dropdown({ value, onChange, options, allLabel, disabled = false }) {
+//
+// `options` is the full list to render, in order — including an "All X"
+// entry (value: "") if the field needs one; this component doesn't inject
+// one itself, since some filters (e.g. an indicator picker with no "all"
+// state) shouldn't have it.
+export default function Dropdown({ value, onChange, options, disabled = false }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -47,8 +52,7 @@ export default function Dropdown({ value, onChange, options, allLabel, disabled 
     if (disabled) setOpen(false);
   }, [disabled]);
 
-  const selectedOption = options.find((o) => o.value === value);
-  const selectedLabel = value ? selectedOption?.label ?? value : allLabel;
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
 
   function selectOption(optionValue) {
     onChange(optionValue);
@@ -70,14 +74,6 @@ export default function Dropdown({ value, onChange, options, allLabel, disabled 
       </button>
       {open && (
         <ul className="dropdown-menu" role="listbox">
-          <li
-            role="option"
-            aria-selected={value === ""}
-            className={`dropdown-option ${value === "" ? "dropdown-option-active" : ""}`}
-            onClick={() => selectOption("")}
-          >
-            {allLabel}
-          </li>
           {options.map((o) => (
             <li
               key={o.value}

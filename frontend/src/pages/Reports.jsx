@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useBarangays } from "../hooks/useBarangays";
 import { currentMonth, monthLabel } from "../utils/month";
+import Dropdown from "../components/Dropdown";
 
 // Operation Timbang Plus (OPT+) style summary rows, in the DOH form's
 // standard row order for each indicator.
@@ -199,14 +200,11 @@ export default function Reports() {
         </div>
         <div className="field">
           <label>Barangay</label>
-          <select className="input" value={barangay} onChange={(e) => setBarangay(e.target.value)}>
-            <option value="">All barangays</option>
-            {barangays.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            value={barangay}
+            options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
+            onChange={setBarangay}
+          />
         </div>
       </div>
 

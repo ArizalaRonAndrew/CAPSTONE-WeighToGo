@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import ManageChildModal from "../components/ManageChildModal";
+import Dropdown from "../components/Dropdown";
 import { formatNameForTable } from "../utils/name";
 
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
@@ -128,25 +129,22 @@ export default function VitaminsDeworming() {
           </div>
           <div className="field">
             <label>Purok / Sitio</label>
-            <select className="input" value={purokFilter} onChange={(e) => setPurokFilter(e.target.value)}>
-              <option value="">All puroks</option>
-              {purokOptions.map((purok) => (
-                <option key={purok} value={purok}>
-                  {purok}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={purokFilter}
+              options={[{ value: "", label: "All puroks" }, ...purokOptions.map((purok) => ({ value: purok, label: purok }))]}
+              onChange={setPurokFilter}
+            />
           </div>
           <div className="field">
             <label>Dose Status</label>
-            <select
-              className="input"
+            <Dropdown
               value={overdueOnly ? "overdue" : ""}
-              onChange={(e) => setOverdueOnly(e.target.value === "overdue")}
-            >
-              <option value="">All due</option>
-              <option value="overdue">Overdue only</option>
-            </select>
+              options={[
+                { value: "", label: "All due" },
+                { value: "overdue", label: "Overdue only" },
+              ]}
+              onChange={(value) => setOverdueOnly(value === "overdue")}
+            />
           </div>
           {hasActiveFilters && (
             <button type="button" className="btn btn-secondary" onClick={clearFilters}>

@@ -145,8 +145,7 @@ export default function AdminMasterlist() {
             <label>Barangay</label>
             <Dropdown
               value={barangayFilter}
-              allLabel="All barangays"
-              options={barangays.map((b) => ({ value: b.name, label: b.name }))}
+              options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
               onChange={(value) => {
                 setBarangayFilter(value);
                 setPurokFilter("");
@@ -157,8 +156,7 @@ export default function AdminMasterlist() {
             <label>Purok / Sitio</label>
             <Dropdown
               value={purokFilter}
-              allLabel="All puroks"
-              options={purokOptions.map((purok) => ({ value: purok, label: purok }))}
+              options={[{ value: "", label: "All puroks" }, ...purokOptions.map((purok) => ({ value: purok, label: purok }))]}
               onChange={setPurokFilter}
               disabled={!barangayFilter}
             />
