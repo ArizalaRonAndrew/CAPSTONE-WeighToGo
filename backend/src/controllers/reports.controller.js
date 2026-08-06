@@ -314,28 +314,44 @@ async function getTrends(req, res, next) {
   }
 }
 
+// Powers the Health Trends "issues by barangay" bar chart: how many distinct
+// children have a non-normal status in WFA, HFA, and/or WFL/H this month.
+// A child flagged in more than one indicator (e.g. both Underweight and
+// Stunted) is still counted once toward the barangay's total — the count is
+// "children with a problem", not "problem occurrences" — while the
+// breakdown keeps the per-indicator, per-status detail for the tooltip.
 async function getBarangayComparison(req, res, next) {
   try {
-    const { month, status } = req.query;
-    const indicatorKey = req.query.indicator;
-    const column = INDICATOR_COLUMNS[indicatorKey];
-    if (!isValidMonthString(month) || !column) {
-      return res.status(400).json({ error: "month (YYYY-MM) and a valid indicator (wfa|hfa|wfl_h) are required" });
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month (YYYY-MM) is required" });
     }
 
     const { start, end } = toMonthRange(month);
     const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
     const rows = filterSubmittedForRole(req, allRows);
 
-    const counts = new Map();
+    const buckets = new Map();
     for (const row of rows) {
-      if (status && row[column] !== status) continue;
       const barangay = row.tbl_children?.barangay;
       if (!barangay) continue;
-      counts.set(barangay, (counts.get(barangay) || 0) + 1);
+
+      const issues = Object.entries(INDICATOR_COLUMNS)
+        .map(([indicatorKey, column]) => [indicatorKey, row[column]])
+        .filter(([, value]) => value && value !== "Normal");
+      if (issues.length === 0) continue;
+
+      if (!buckets.has(barangay)) {
+        buckets.set(barangay, { count: 0, breakdown: { wfa: {}, hfa: {}, wfl_h: {} } });
+      }
+      const bucket = buckets.get(barangay);
+      bucket.count += 1;
+      for (const [indicatorKey, value] of issues) {
+        bucket.breakdown[indicatorKey][value] = (bucket.breakdown[indicatorKey][value] || 0) + 1;
+      }
     }
 
-    const result = Array.from(counts, ([barangay, count]) => ({ barangay, count }));
+    const result = Array.from(buckets, ([barangay, { count, breakdown }]) => ({ barangay, count, breakdown }));
     result.sort((a, b) => b.count - a.count);
     res.json(result);
   } catch (err) {

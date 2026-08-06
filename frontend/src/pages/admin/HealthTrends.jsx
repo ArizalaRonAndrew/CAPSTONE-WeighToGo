@@ -46,6 +46,57 @@ function trendRowTotal(row, statuses) {
   return statuses.reduce((sum, s) => sum + (row[s] || 0), 0);
 }
 
+const BAR_INDICATORS = [
+  { key: "wfa", label: "WFA" },
+  { key: "hfa", label: "HFA" },
+  { key: "wfl_h", label: "WFL/H" },
+];
+
+function BarangayIssueTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+
+  return (
+    <div
+      style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        borderRadius: 8,
+        padding: "10px 14px",
+        boxShadow: "var(--shadow-md)",
+        fontSize: 12.5,
+        minWidth: 170,
+      }}
+    >
+      <div style={{ fontWeight: 700, color: "var(--color-text)", marginBottom: 6 }}>{row.barangay}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--color-text-muted)" }}>
+        <span>Children with an issue</span>
+        <span style={{ fontWeight: 700, color: "var(--color-text)" }}>{row.count}</span>
+      </div>
+      {BAR_INDICATORS.map(({ key, label }) => {
+        const entries = STATUS_OPTIONS[key]
+          .filter((s) => s !== "Normal")
+          .map((status) => [status, row.breakdown?.[key]?.[status] || 0])
+          .filter(([, count]) => count > 0);
+        if (entries.length === 0) return null;
+        return (
+          <div key={key} style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--color-border)" }}>
+            <div style={{ fontWeight: 700, color: "var(--color-text-muted)", fontSize: 11, marginBottom: 2 }}>
+              {label}
+            </div>
+            {entries.map(([status, count]) => (
+              <div key={status} style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--color-text)" }}>
+                <span>{status}</span>
+                <span style={{ fontWeight: 600 }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatMonthLabel(monthString) {
   const [year, month] = monthString.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
@@ -66,8 +117,6 @@ export default function HealthTrends() {
   const [trendError, setTrendError] = useState("");
 
   const [barMonth, setBarMonth] = useState(currentMonth());
-  const [barIndicator, setBarIndicator] = useState("wfa");
-  const [barStatus, setBarStatus] = useState("Underweight");
   const [barData, setBarData] = useState([]);
   const [barLoading, setBarLoading] = useState(true);
   const [barError, setBarError] = useState("");
@@ -89,16 +138,16 @@ export default function HealthTrends() {
   useEffect(() => {
     setBarLoading(true);
     setBarError("");
-    const params = new URLSearchParams({ month: barMonth, indicator: barIndicator, status: barStatus });
+    const params = new URLSearchParams({ month: barMonth });
     api
       .get(`/reports/barangay-comparison?${params.toString()}`)
       .then((data) => setBarData(data.slice(0, 15)))
       .catch((err) => setBarError(err.message || "Failed to load barangay comparison data"))
       .finally(() => setBarLoading(false));
-  }, [barMonth, barIndicator, barStatus]);
+  }, [barMonth]);
 
   const lineColor = colorVarForStatus(lineStatus);
-  const barColor = colorVarForStatus(barStatus);
+  const barColor = "var(--status-severe-text)";
 
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
   const currentMonthCount = useMemo(
@@ -255,40 +304,15 @@ export default function HealthTrends() {
       </div>
 
       <div className="card">
-        <h3>
-          {barStatus} — {INDICATOR_OPTIONS.find((o) => o.value === barIndicator).label} by Barangay
-        </h3>
+        <h3>Nutritional Issues by Barangay</h3>
+        <p style={{ color: "var(--color-text-muted)", fontSize: 13, marginTop: -8 }}>
+          Children with a non-normal Weight-for-Age, Height-for-Age, or Weight-for-Length/Height status this month.
+          A child flagged in more than one indicator is still only counted once — hover a bar for the breakdown.
+        </p>
         <div className="filter-bar">
           <div className="field">
             <label>Month</label>
             <input className="input" type="month" value={barMonth} onChange={(e) => setBarMonth(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Indicator</label>
-            <select
-              className="input"
-              value={barIndicator}
-              onChange={(e) => {
-                setBarIndicator(e.target.value);
-                setBarStatus(STATUS_OPTIONS[e.target.value][0]);
-              }}
-            >
-              {INDICATOR_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>Status</label>
-            <select className="input" value={barStatus} onChange={(e) => setBarStatus(e.target.value)}>
-              {STATUS_OPTIONS[barIndicator].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
@@ -311,15 +335,8 @@ export default function HealthTrends() {
                 interval={0}
               />
               <YAxis allowDecimals={false} stroke="var(--color-text-muted)" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 8,
-                  color: "var(--color-text)",
-                }}
-              />
-              <Bar dataKey="count" name={barStatus} fill={barColor} radius={[4, 4, 0, 0]} />
+              <Tooltip cursor={{ fill: "var(--color-row-hover)" }} content={<BarangayIssueTooltip />} />
+              <Bar dataKey="count" name="Children with an issue" fill={barColor} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
