@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { useBarangays } from "../hooks/useBarangays";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
 import { combineChildName } from "../utils/name";
@@ -22,7 +21,6 @@ const EMPTY_FORM = {
 export default function RegisterChildModal({ onClose, onRegistered }) {
   useLockBodyScroll();
   const { user } = useAuth();
-  const { barangays } = useBarangays();
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -152,31 +150,14 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
         <div className="form-section">
           <div className="section-title">Location</div>
           <div className="form-grid cols-2">
-            {user?.role === "MNAO" ? (
-              <div className="field">
-                <label className="required">Barangay</label>
-                <select
-                  className="input"
-                  value={form.barangay}
-                  onChange={(e) => update("barangay", e.target.value)}
-                  required
-                >
-                  <option value="" disabled>
-                    Select barangay
-                  </option>
-                  {barangays.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="field">
-                <label>Barangay</label>
-                <input className="input" value={user?.assigned_barangay || ""} disabled />
-              </div>
-            )}
+            {/* Registration is BNS-only (this modal is never opened by an
+                admin — see Masterlist.jsx), and the backend always assigns
+                the child to the BNS's own barangay regardless of form
+                content, so this is a read-only display, not an input. */}
+            <div className="field">
+              <label>Barangay</label>
+              <input className="input" value={user?.assigned_barangay || ""} disabled />
+            </div>
             <div className="field">
               <label className="required">Purok</label>
               <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />

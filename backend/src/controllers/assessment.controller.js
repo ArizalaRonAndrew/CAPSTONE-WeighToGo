@@ -4,6 +4,14 @@ const { calculateAgeInMonths } = require("../utils/date");
 const { classifyNutritionStatus } = require("../services/nutritionStatus.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { filterSubmittedForRole } = require("../utils/submission");
+const { pickFields } = require("../utils/pickFields");
+
+// child_id and the status columns are deliberately excluded: child_id must
+// never be reassignable through an update (that's how a record could get
+// silently moved to a child outside the caller's barangay access), and the
+// wfa/hfa/wfl_h statuses are always server-computed from weight/height/age,
+// never client-settable.
+const ASSESSMENT_UPDATE_FIELDS = ["date_measured", "weight", "height"];
 
 function stripBarangay({ tbl_children: _tbl_children, ...rest }) {
   return rest;
@@ -132,7 +140,29 @@ async function updateAssessment(req, res, next) {
     const child = await childrenModel.findById(existing.child_id);
     assertBarangayAccess(req, child);
 
-    const assessment = await assessmentModel.update(req.params.id, req.body);
+    const fields = pickFields(req.body, ASSESSMENT_UPDATE_FIELDS);
+
+    // Any change to the inputs a status is derived from must recompute that
+    // status fresh, right now — never edit weight/height and leave the old
+    // wfa/hfa/wfl_h status sitting there stale.
+    const date_measured = fields.date_measured ?? existing.date_measured;
+    const weight = fields.weight ?? existing.weight;
+    const height = fields.height ?? existing.height;
+    const age_in_months = calculateAgeInMonths(child.dob, date_measured);
+    const { wfa_status, hfa_status, wfl_h_status } = classifyNutritionStatus({
+      sex: child.gender,
+      ageInMonths: age_in_months,
+      weightKg: Number(weight),
+      heightCm: Number(height),
+    });
+
+    const assessment = await assessmentModel.update(req.params.id, {
+      ...fields,
+      age_in_months,
+      wfa_status,
+      hfa_status,
+      wfl_h_status,
+    });
     res.json(assessment);
   } catch (err) {
     next(err);

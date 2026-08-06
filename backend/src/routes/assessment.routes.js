@@ -7,7 +7,7 @@ const {
   updateAssessment,
   deleteAssessment,
 } = require("../controllers/assessment.controller");
-const { authenticate } = require("../middleware/auth");
+const { authenticate, authorize } = require("../middleware/auth");
 
 const router = Router();
 
@@ -16,8 +16,8 @@ router.use(authenticate);
 router.get("/", listAssessments);
 router.post("/preview", previewAssessment);
 router.get("/:id", getAssessment);
-router.post("/", createAssessment);
-router.patch("/:id", updateAssessment);
-router.delete("/:id", deleteAssessment);
+router.post("/", authorize("BNS"), createAssessment);
+router.patch("/:id", authorize("BNS"), updateAssessment);
+router.delete("/:id", authorize("BNS"), deleteAssessment);
 
 module.exports = router;

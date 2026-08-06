@@ -3,6 +3,12 @@ const childrenModel = require("../models/children.model");
 const { calculateAgeInMonths } = require("../utils/date");
 const { getDueSupplements, getComplianceStatus, getSupplementSchedule } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
+const { pickFields } = require("../utils/pickFields");
+
+// child_id is deliberately excluded — same reasoning as assessments: it must
+// never be reassignable through an update, since that bypasses the
+// barangay-access check (which only validates the record's *current* child).
+const SUPPLEMENT_UPDATE_FIELDS = ["supplement_type", "dose_order", "date_administered"];
 
 async function visibleChildren(req) {
   if (req.user.role === "BNS") {
@@ -155,7 +161,8 @@ async function updateSupplement(req, res, next) {
     const child = await childrenModel.findById(existing.child_id);
     assertBarangayAccess(req, child);
 
-    const supplement = await supplementModel.update(req.params.id, req.body);
+    const fields = pickFields(req.body, SUPPLEMENT_UPDATE_FIELDS);
+    const supplement = await supplementModel.update(req.params.id, fields);
     res.json(supplement);
   } catch (err) {
     next(err);

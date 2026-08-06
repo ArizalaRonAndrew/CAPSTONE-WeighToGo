@@ -11,9 +11,11 @@ function requireSupabase() {
   }
 }
 
-async function findAll() {
+async function findAll({ status } = {}) {
   requireSupabase();
-  const { data, error } = await supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS);
+  let query = supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS);
+  if (status) query = query.eq("status", status);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return data;
 }
@@ -30,17 +32,6 @@ async function findByEmail(email) {
   const { data, error } = await supabase.from(TABLE_NAME).select("*").eq("email", email).single();
   if (error && error.code !== "PGRST116") throw error;
   return data || null;
-}
-
-async function create({ email, passwordHash, role, assigned_barangay }) {
-  requireSupabase();
-  const { data, error } = await supabase
-    .from(TABLE_NAME)
-    .insert({ email, password: passwordHash, role, assigned_barangay })
-    .select(PUBLIC_COLUMNS)
-    .single();
-  if (error) throw error;
-  return data;
 }
 
 async function updateStatus(id, status) {
@@ -84,4 +75,4 @@ async function bumpTokenVersion(id) {
   if (error) throw error;
 }
 
-module.exports = { findAll, findById, findByEmail, create, updateStatus, getTokenVersion, bumpTokenVersion };
+module.exports = { findAll, findById, findByEmail, updateStatus, getTokenVersion, bumpTokenVersion };

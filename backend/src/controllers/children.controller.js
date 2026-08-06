@@ -2,6 +2,9 @@ const childrenModel = require("../models/children.model");
 const assessmentModel = require("../models/assessment.model");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
+const { pickFields } = require("../utils/pickFields");
+
+const CHILD_UPDATE_FIELDS = ["name", "dob", "parent_name", "parent_contact", "barangay", "purok", "gender", "is_ip"];
 
 async function listChildren(req, res, next) {
   try {
@@ -75,7 +78,7 @@ async function updateChild(req, res, next) {
     const existing = await childrenModel.findById(req.params.id);
     assertBarangayAccess(req, existing);
 
-    const fields = { ...req.body };
+    const fields = pickFields(req.body, CHILD_UPDATE_FIELDS);
     if (req.user.role === "BNS") {
       delete fields.barangay;
     }

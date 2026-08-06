@@ -9,7 +9,7 @@ const {
   updateSupplement,
   deleteSupplement,
 } = require("../controllers/supplement.controller");
-const { authenticate } = require("../middleware/auth");
+const { authenticate, authorize } = require("../middleware/auth");
 
 const router = Router();
 
@@ -20,8 +20,8 @@ router.get("/compliance", listComplianceMasterlist);
 router.get("/schedule", getChildSupplementSchedule);
 router.get("/", listSupplements);
 router.get("/:id", getSupplement);
-router.post("/", createSupplement);
-router.patch("/:id", updateSupplement);
-router.delete("/:id", deleteSupplement);
+router.post("/", authorize("BNS"), createSupplement);
+router.patch("/:id", authorize("BNS"), updateSupplement);
+router.delete("/:id", authorize("BNS"), deleteSupplement);
 
 module.exports = router;

@@ -3,7 +3,6 @@ const jwt = require("jsonwebtoken");
 const userModel = require("../models/user.model");
 const { JWT_SECRET, JWT_EXPIRES_IN, COOKIE_NAME } = require("../config/jwt");
 
-const SALT_ROUNDS = 10;
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function signToken(user) {
@@ -41,7 +40,8 @@ function clearSessionCookie(res) {
 
 async function listUsers(req, res, next) {
   try {
-    const users = await userModel.findAll();
+    const { status } = req.query;
+    const users = await userModel.findAll({ status });
     res.json(users);
   } catch (err) {
     next(err);
@@ -52,26 +52,6 @@ async function getUser(req, res, next) {
   try {
     const user = await userModel.findById(req.params.id);
     res.json(user);
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function registerUser(req, res, next) {
-  try {
-    const { email, password, role, assigned_barangay } = req.body;
-    if (!email || !password || !role) {
-      return res.status(400).json({ error: "email, password, and role are required" });
-    }
-
-    const existing = await userModel.findByEmail(email);
-    if (existing) {
-      return res.status(409).json({ error: "An account with this email already exists" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await userModel.create({ email, passwordHash, role, assigned_barangay });
-    res.status(201).json(user);
   } catch (err) {
     next(err);
   }
@@ -154,7 +134,6 @@ async function updateUserStatus(req, res, next) {
 module.exports = {
   listUsers,
   getUser,
-  registerUser,
   loginUser,
   logoutUser,
   getCurrentUser,
