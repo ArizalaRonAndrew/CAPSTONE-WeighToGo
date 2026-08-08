@@ -43,18 +43,17 @@ function SearchIcon() {
   );
 }
 
-function PeopleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" />
-      <path d="M15.5 6a3 3 0 0 1 0 5.8" />
-      <path d="M17.5 14.3c2 .5 3.7 2.6 3.7 5.7" />
-    </svg>
-  );
-}
-
 const PAGE_SIZE = 10;
+
+const KPI_TILES = [
+  { key: "totalRegistered", label: "Total Registered" },
+  { key: "totalAssessed", label: "Total Assessed" },
+  { key: "normal", label: "Normal Status", color: "var(--status-normal-text)" },
+  { key: "malnourishedStunted", label: "At-Risk / Malnourished", color: "var(--status-mild-text)" },
+  { key: "obese", label: "Overweight / Obese", color: "var(--status-over-text)" },
+  { key: "severe", label: "Severe Cases", color: "var(--status-severe-text)" },
+  { key: "newRegistrations", label: "New Registrations" },
+];
 
 export default function AdminMasterlist() {
   const { barangays } = useBarangays();
@@ -68,18 +67,25 @@ export default function AdminMasterlist() {
   const [page, setPage] = useState(1);
   const [viewChildId, setViewChildId] = useState(null);
 
-  function load() {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setPage(1);
     const params = new URLSearchParams({ month });
     if (barangayFilter) params.set("barangay", barangayFilter);
+    if (purokFilter) params.set("purok", purokFilter);
     api
       .get(`/reports/monthly-masterlist?${params.toString()}`)
-      .then(setReport)
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, [month, barangayFilter]);
+      .then((data) => {
+        if (!cancelled) setReport(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [month, barangayFilter, purokFilter]);
 
   const rows = report?.rows || [];
   const purokOptions = [...new Set(rows.map((r) => r.purok).filter(Boolean))].sort();
@@ -115,15 +121,15 @@ export default function AdminMasterlist() {
         <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
       </div>
 
-      <div className="card hero-stat-card">
-        <div>
-          <div className="hero-stat-label">Total Registered</div>
-          <div className="hero-stat-value">{loading ? "…" : report?.totalRegistered ?? 0}</div>
-          <div className="hero-stat-subtitle">Filtered child masterlist view</div>
-        </div>
-        <div className="hero-stat-icon">
-          <PeopleIcon />
-        </div>
+      <div className="card kpi-strip">
+        {KPI_TILES.map((tile) => (
+          <div className="kpi-strip-item" key={tile.key}>
+            <div className="kpi-strip-value" style={tile.color ? { color: tile.color } : undefined}>
+              {loading ? "…" : report?.[tile.key] ?? 0}
+            </div>
+            <div className="kpi-strip-label">{tile.label}</div>
+          </div>
+        ))}
       </div>
 
       <div className="card filter-card">

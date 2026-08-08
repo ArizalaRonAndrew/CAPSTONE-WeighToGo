@@ -32,10 +32,26 @@ async function fetchAssessmentsWithChildren({ start, end }) {
   return data;
 }
 
-async function countChildren({ barangay }) {
+async function countChildren({ barangay, purok }) {
   requireSupabase();
   let query = supabase.from("tbl_children").select("id", { count: "exact", head: true }).eq("status", "active");
   if (barangay) query = query.eq("barangay", barangay);
+  if (purok) query = query.eq("purok", purok);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count;
+}
+
+async function countNewChildren({ barangay, purok, start, end }) {
+  requireSupabase();
+  let query = supabase
+    .from("tbl_children")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active")
+    .gte("created_at", start)
+    .lt("created_at", end);
+  if (barangay) query = query.eq("barangay", barangay);
+  if (purok) query = query.eq("purok", purok);
   const { count, error } = await query;
   if (error) throw error;
   return count;
@@ -57,5 +73,6 @@ module.exports = {
   fetchAssessmentsWithBarangay,
   fetchAssessmentsWithChildren,
   countChildren,
+  countNewChildren,
   fetchSupplementsWithBarangay,
 };

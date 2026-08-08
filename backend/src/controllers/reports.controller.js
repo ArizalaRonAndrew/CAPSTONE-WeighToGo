@@ -169,6 +169,7 @@ async function getNutritionReport(req, res, next) {
 const MALNOURISHED_WFA = new Set(["Underweight", "Severely Underweight"]);
 const STUNTED_HFA = new Set(["Stunted", "Severely Stunted"]);
 const WASTED_WFL_H = new Set(["Wasted", "Severely Wasted"]);
+const SEVERE_STATUSES = new Set(["Severely Underweight", "Severely Stunted", "Severely Wasted"]);
 
 async function getMonthlyMasterlistReport(req, res, next) {
   try {
@@ -177,11 +178,12 @@ async function getMonthlyMasterlistReport(req, res, next) {
       return res.status(400).json({ error: "month is required in YYYY-MM format" });
     }
     const barangay = effectiveBarangay(req);
+    const purok = req.query.purok || null;
     const { start, end } = toMonthRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
     const rawRows = filterSubmittedForRole(req, scopedRows);
-    const totalRegistered = await reportsModel.countChildren({ barangay });
+    const totalRegistered = await reportsModel.countChildren({ barangay, purok });
 
     const rows = rawRows
       .filter((row) => row.tbl_children)
@@ -208,10 +210,15 @@ async function getMonthlyMasterlistReport(req, res, next) {
       })
       .sort((a, b) => a.purok?.localeCompare(b.purok) || a.name.localeCompare(b.name));
 
+    // KPI totals are scoped to the selected purok (if any), while `rows` stays
+    // barangay-scoped so the client can still populate the purok dropdown.
+    const kpiRows = purok ? rows.filter((row) => row.purok === purok) : rows;
+
     let normal = 0;
     let malnourishedStunted = 0;
     let obese = 0;
-    for (const row of rows) {
+    let severe = 0;
+    for (const row of kpiRows) {
       if (row.wfa_status === "Normal" && row.hfa_status === "Normal" && row.wfl_h_status === "Normal") {
         normal += 1;
       }
@@ -225,15 +232,27 @@ async function getMonthlyMasterlistReport(req, res, next) {
       if (row.wfl_h_status === "Obese") {
         obese += 1;
       }
+      if (
+        SEVERE_STATUSES.has(row.wfa_status) ||
+        SEVERE_STATUSES.has(row.hfa_status) ||
+        SEVERE_STATUSES.has(row.wfl_h_status)
+      ) {
+        severe += 1;
+      }
     }
+
+    const newRegistrations = await reportsModel.countNewChildren({ barangay, purok, start, end });
 
     res.json({
       month,
       barangay: barangay || "All barangays",
       totalRegistered,
+      totalAssessed: kpiRows.length,
       normal,
       malnourishedStunted,
       obese,
+      severe,
+      newRegistrations,
       rows,
     });
   } catch (err) {
