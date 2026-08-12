@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { api } from "../../api/client";
 import { currentMonth, monthLabel } from "../../utils/month";
 import StatusBadge from "../../components/StatusBadge";
+import BarangayAiPanel from "../../components/BarangayAiPanel";
 
 const INDICATOR_DEFS = [
   { key: "wfa", label: "Weight-for-Age", abbr: "WFA" },
@@ -12,12 +13,14 @@ const INDICATOR_DEFS = [
   { key: "wfl_h", label: "Weight-for-Length/Height", abbr: "WFL/H" },
 ];
 
-// WHO public-health-significance tiers, collapsed to a 3-color traffic light
+// WHO / de Onis et al. (2018) public-health-significance tiers
 // (see backend/src/utils/publicHealthSignificance.js for the thresholds).
 const SEVERITY_META = {
-  low: { label: "Low significance", badgeClass: "badge-normal" },
-  medium: { label: "Medium significance", badgeClass: "badge-mild" },
-  high: { label: "High significance", badgeClass: "badge-severe" },
+  "very-low": { label: "Very low significance", badgeClass: "badge-severity-very-low" },
+  low: { label: "Low significance", badgeClass: "badge-severity-low" },
+  medium: { label: "Medium significance", badgeClass: "badge-severity-medium" },
+  high: { label: "High significance", badgeClass: "badge-severity-high" },
+  "very-high": { label: "Very high significance", badgeClass: "badge-severity-very-high" },
   "no-data": { label: "No data this month", badgeClass: "badge-muted" },
 };
 
@@ -86,9 +89,11 @@ export default function BarangayMap() {
 
   const legendItems = useMemo(
     () => [
+      { severity: "very-low", label: "Very Low" },
       { severity: "low", label: "Low" },
       { severity: "medium", label: "Medium" },
       { severity: "high", label: "High" },
+      { severity: "very-high", label: "Very High" },
       { severity: "no-data", label: "No data" },
     ],
     []
@@ -100,8 +105,8 @@ export default function BarangayMap() {
         <div>
           <h1>Barangay Map — Balayan, Batangas</h1>
           <p className="subtitle" style={{ color: "var(--color-text-muted)", margin: 0 }}>
-            Marker color shows each barangay's public health significance for {monthLabel(month)}, based on WHO
-            prevalence thresholds for underweight, stunting, and wasting.
+            Marker color shows each barangay's public health significance for {monthLabel(month)}, based on WHO / de
+            Onis et al. (2018) prevalence thresholds for underweight, stunting, wasting, and overweight.
           </p>
         </div>
       </div>
@@ -186,8 +191,14 @@ export default function BarangayMap() {
                     <div className="map-prevalence-value">{pct(selectedHealth.wastedPct)}</div>
                     <div className="map-prevalence-label">Wasted</div>
                   </div>
+                  <div>
+                    <div className="map-prevalence-value">{pct(selectedHealth.overweightPct)}</div>
+                    <div className="map-prevalence-label">Overweight</div>
+                  </div>
                 </div>
               )}
+
+              <BarangayAiPanel key={selected.name} barangayName={selected.name} month={month} severity={selectedSeverity} />
 
               {summaryLoading && <div className="loading-state">Loading summary...</div>}
               {!summaryLoading && summary && (

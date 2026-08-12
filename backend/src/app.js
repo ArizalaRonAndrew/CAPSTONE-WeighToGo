@@ -13,7 +13,10 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+// Default 100kb is too small for the Barangay Map AI explainer, which can
+// carry a few base64-encoded screenshots (capped at 4MB raw / image, 3
+// images max — see ai.controller.js) alongside its JSON payload.
+app.use(express.json({ limit: "16mb" }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 
