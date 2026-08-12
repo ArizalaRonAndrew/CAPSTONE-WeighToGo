@@ -60,7 +60,12 @@ async function explainBarangaySignificance({ barangay, month, stats }) {
   const body = {
     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
     contents: [{ role: "user", parts: [{ text: statsText }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 220 },
+    // maxOutputTokens covers Gemini's hidden "thinking" tokens as well as the
+    // visible reply — gemini-flash-latest (currently gemini-3.6-flash) spends
+    // several hundred tokens reasoning before writing the answer, so a budget
+    // sized only for the ~120-word reply truncates the response (MAX_TOKENS)
+    // before any text comes out.
+    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
   };
 
   const res = await fetch(`${GEMINI_URL(GEMINI_MODEL)}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {

@@ -1,5 +1,5 @@
 const supabase = require("../config/supabase");
-const { applyStatusFilter } = require("./queryHelpers");
+const { applyStatusFilter, fetchAllPages } = require("./queryHelpers");
 
 const TABLE_NAME = "tbl_supplements";
 
@@ -13,13 +13,13 @@ function requireSupabase() {
 
 async function findAll({ childId, childIds, status } = {}) {
   requireSupabase();
-  let query = supabase.from(TABLE_NAME).select("*");
-  if (childId) query = query.eq("child_id", childId);
-  if (childIds) query = query.in("child_id", childIds);
-  query = applyStatusFilter(query, status);
-  const { data, error } = await query.order("date_administered", { ascending: false });
-  if (error) throw error;
-  return data;
+  return fetchAllPages(() => {
+    let query = supabase.from(TABLE_NAME).select("*");
+    if (childId) query = query.eq("child_id", childId);
+    if (childIds) query = query.in("child_id", childIds);
+    query = applyStatusFilter(query, status);
+    return query.order("date_administered", { ascending: false });
+  });
 }
 
 async function findById(id) {

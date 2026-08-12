@@ -1,5 +1,5 @@
 const supabase = require("../config/supabase");
-const { applyStatusFilter } = require("./queryHelpers");
+const { applyStatusFilter, fetchAllPages } = require("./queryHelpers");
 
 const TABLE_NAME = "tbl_children";
 
@@ -13,12 +13,12 @@ function requireSupabase() {
 
 async function findAll({ barangay, status } = {}) {
   requireSupabase();
-  let query = supabase.from(TABLE_NAME).select("*");
-  if (barangay) query = query.eq("barangay", barangay);
-  query = applyStatusFilter(query, status);
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw error;
-  return data;
+  return fetchAllPages(() => {
+    let query = supabase.from(TABLE_NAME).select("*");
+    if (barangay) query = query.eq("barangay", barangay);
+    query = applyStatusFilter(query, status);
+    return query.order("created_at", { ascending: false });
+  });
 }
 
 async function findById(id) {

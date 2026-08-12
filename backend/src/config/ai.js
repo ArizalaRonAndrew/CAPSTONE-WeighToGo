@@ -9,5 +9,5 @@ if (!GEMINI_API_KEY) {
 
 module.exports = {
   GEMINI_API_KEY,
-  GEMINI_MODEL: GEMINI_MODEL || "gemini-2.0-flash",
+  GEMINI_MODEL: GEMINI_MODEL || "gemini-flash-latest",
 };
