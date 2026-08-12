@@ -42,6 +42,37 @@ function classify(pct, thresholds) {
   return thresholds[thresholds.length - 1].tier;
 }
 
+// Renders the exact WHO band text (e.g. "20-<30%", ">=30%") that a
+// prevalence rate fell into — the specific cutoff that justifies a tier,
+// for callers (e.g. the AI explainer) that need to cite it verbatim rather
+// than have a model recall or restate it from memory.
+function bandFor(pct, thresholds) {
+  let lower = 0;
+  for (const { below } of thresholds) {
+    if (pct < below) {
+      if (below === Infinity) return `>=${lower}%`;
+      return lower === 0 ? `<${below}%` : `${lower}-<${below}%`;
+    }
+    lower = below;
+  }
+}
+
+function bandForUnderweight(pct) {
+  return bandFor(pct, UNDERWEIGHT_THRESHOLDS);
+}
+
+function bandForStunting(pct) {
+  return bandFor(pct, STUNTING_THRESHOLDS);
+}
+
+function bandForWasting(pct) {
+  return bandFor(pct, WASTING_THRESHOLDS);
+}
+
+function bandForOverweight(pct) {
+  return bandFor(pct, OVERWEIGHT_THRESHOLDS);
+}
+
 function classifyUnderweight(pct) {
   return classify(pct, UNDERWEIGHT_THRESHOLDS);
 }
@@ -70,6 +101,10 @@ module.exports = {
   classifyStunting,
   classifyWasting,
   classifyOverweight,
+  bandForUnderweight,
+  bandForStunting,
+  bandForWasting,
+  bandForOverweight,
   worstTier,
   TIER_RANK,
 };
