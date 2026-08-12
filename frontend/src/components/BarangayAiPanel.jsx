@@ -2,9 +2,11 @@ import { useState } from "react";
 import { api } from "../api/client";
 
 // Shown only for barangays at High / Very High public-health significance.
-// Asks the backend AI explainer — grounded in the WHO/de Onis (2018)
-// reference thresholds, not an uploaded screenshot — why the barangay
-// reached that significance level and what the mNAO should do about it.
+// Two-step by design: "Explain with AI" just opens the panel, and a
+// separate "Analyze" click is what actually spends an AI request — so
+// opening the panel to read the barangay's stats never silently costs a
+// Gemini call. The explainer itself is grounded in the WHO/de Onis (2018)
+// reference thresholds, not an uploaded screenshot.
 export default function BarangayAiPanel({ barangayName, month, severity }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -14,7 +16,6 @@ export default function BarangayAiPanel({ barangayName, month, severity }) {
   if (severity !== "high" && severity !== "very-high") return null;
 
   async function analyze() {
-    setOpen(true);
     setLoading(true);
     setError(null);
     setResult(null);
@@ -30,7 +31,7 @@ export default function BarangayAiPanel({ barangayName, month, severity }) {
 
   if (!open) {
     return (
-      <button type="button" className="map-ai-trigger" onClick={analyze}>
+      <button type="button" className="map-ai-trigger" onClick={() => setOpen(true)}>
         Explain with AI
       </button>
     );
@@ -38,7 +39,10 @@ export default function BarangayAiPanel({ barangayName, month, severity }) {
 
   return (
     <div className="map-ai-panel">
-      {loading && <div className="loading-state">Analyzing...</div>}
+      <button type="button" className="map-ai-trigger" onClick={analyze} disabled={loading}>
+        {loading ? "Analyzing..." : "Analyze this barangay"}
+      </button>
+
       {error && <div className="map-ai-error">{error}</div>}
       {result && <div className="map-ai-result">{result}</div>}
     </div>
