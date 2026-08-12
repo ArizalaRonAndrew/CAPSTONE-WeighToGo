@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const { fetchAllPages } = require("./queryHelpers");
 
 const TABLE_NAME = "tbl_users";
 const PUBLIC_COLUMNS = "id, email, role, assigned_barangay, status, created_at";
@@ -13,11 +14,11 @@ function requireSupabase() {
 
 async function findAll({ status } = {}) {
   requireSupabase();
-  let query = supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS);
-  if (status) query = query.eq("status", status);
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw error;
-  return data;
+  return fetchAllPages(() => {
+    let query = supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS);
+    if (status) query = query.eq("status", status);
+    return query.order("created_at", { ascending: false });
+  });
 }
 
 async function findById(id) {

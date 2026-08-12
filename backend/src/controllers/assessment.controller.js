@@ -1,10 +1,18 @@
 const assessmentModel = require("../models/assessment.model");
 const childrenModel = require("../models/children.model");
-const { calculateAgeInMonths } = require("../utils/date");
+const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { classifyNutritionStatus } = require("../services/nutritionStatus.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { filterSubmittedForRole } = require("../utils/submission");
 const { pickFields } = require("../utils/pickFields");
+const { parseWeight, parseHeight, WEIGHT_RANGE, HEIGHT_RANGE, MAX_AGE_MONTHS } = require("../utils/measurements");
+
+const MEASUREMENT_ERROR =
+  `weight must be a number between ${WEIGHT_RANGE.min}-${WEIGHT_RANGE.max} kg and height between ` +
+  `${HEIGHT_RANGE.min}-${HEIGHT_RANGE.max} cm`;
+const AGE_LIMIT_ERROR =
+  `This child is over ${MAX_AGE_MONTHS} months old and has aged out of the WHO under-5 growth standards ` +
+  "this program uses.";
 
 // child_id and the status columns are deliberately excluded: child_id must
 // never be reassignable through an update (that's how a record could get
@@ -68,8 +76,19 @@ async function createAssessment(req, res, next) {
       });
     }
 
+    const weightKg = parseWeight(weight);
+    const heightCm = parseHeight(height);
+    if (weightKg === null || heightCm === null) {
+      return res.status(400).json({ error: MEASUREMENT_ERROR });
+    }
+
     const child = await childrenModel.findById(child_id);
     assertBarangayAccess(req, child);
+
+    const age_in_months = calculateAgeInMonths(child.dob, date_measured);
+    if (age_in_months > MAX_AGE_MONTHS) {
+      return res.status(400).json({ error: AGE_LIMIT_ERROR });
+    }
 
     const existingAssessments = await assessmentModel.findAll({ childId: child_id });
     const targetMonth = date_measured.slice(0, 7);
@@ -82,19 +101,18 @@ async function createAssessment(req, res, next) {
       });
     }
 
-    const age_in_months = calculateAgeInMonths(child.dob, date_measured);
     const { wfa_status, hfa_status, wfl_h_status } = classifyNutritionStatus({
       sex: child.gender,
       ageInMonths: age_in_months,
-      weightKg: Number(weight),
-      heightCm: Number(height),
+      weightKg,
+      heightCm,
     });
 
     const assessment = await assessmentModel.create({
       child_id,
       date_measured,
-      weight,
-      height,
+      weight: weightKg,
+      height: heightCm,
       age_in_months,
       wfa_status,
       hfa_status,
@@ -116,16 +134,25 @@ async function previewAssessment(req, res, next) {
       return res.status(400).json({ error: "child_id, weight, and height are required" });
     }
 
+    const weightKg = parseWeight(weight);
+    const heightCm = parseHeight(height);
+    if (weightKg === null || heightCm === null) {
+      return res.status(400).json({ error: MEASUREMENT_ERROR });
+    }
+
     const child = await childrenModel.findById(child_id);
     assertBarangayAccess(req, child);
 
-    const effectiveDate = date_measured || new Date().toISOString().slice(0, 10);
+    const effectiveDate = date_measured || todayInManila();
     const age_in_months = calculateAgeInMonths(child.dob, effectiveDate);
+    if (age_in_months > MAX_AGE_MONTHS) {
+      return res.status(400).json({ error: AGE_LIMIT_ERROR });
+    }
     const status = classifyNutritionStatus({
       sex: child.gender,
       ageInMonths: age_in_months,
-      weightKg: Number(weight),
-      heightCm: Number(height),
+      weightKg,
+      heightCm,
     });
 
     res.json({ ...status, age_in_months });
@@ -146,18 +173,45 @@ async function updateAssessment(req, res, next) {
     // status fresh, right now — never edit weight/height and leave the old
     // wfa/hfa/wfl_h status sitting there stale.
     const date_measured = fields.date_measured ?? existing.date_measured;
-    const weight = fields.weight ?? existing.weight;
-    const height = fields.height ?? existing.height;
+    const weightKg = parseWeight(fields.weight ?? existing.weight);
+    const heightCm = parseHeight(fields.height ?? existing.height);
+    if (weightKg === null || heightCm === null) {
+      return res.status(400).json({ error: MEASUREMENT_ERROR });
+    }
+
     const age_in_months = calculateAgeInMonths(child.dob, date_measured);
+    if (age_in_months > MAX_AGE_MONTHS) {
+      return res.status(400).json({ error: AGE_LIMIT_ERROR });
+    }
+
+    // Editing date_measured into a month that already has another active
+    // assessment for this child would silently recreate the same
+    // one-per-month violation createAssessment's 409 check exists to
+    // prevent — re-check it here too, excluding this record itself.
+    if (fields.date_measured) {
+      const siblings = await assessmentModel.findAll({ childId: existing.child_id });
+      const targetMonth = date_measured.slice(0, 7);
+      const conflict = siblings.some(
+        (a) => a.id !== existing.id && a.date_measured?.slice(0, 7) === targetMonth
+      );
+      if (conflict) {
+        return res.status(409).json({
+          error: "This child already has another assessment for that month.",
+        });
+      }
+    }
+
     const { wfa_status, hfa_status, wfl_h_status } = classifyNutritionStatus({
       sex: child.gender,
       ageInMonths: age_in_months,
-      weightKg: Number(weight),
-      heightCm: Number(height),
+      weightKg,
+      heightCm,
     });
 
     const assessment = await assessmentModel.update(req.params.id, {
       ...fields,
+      weight: weightKg,
+      height: heightCm,
       age_in_months,
       wfa_status,
       hfa_status,

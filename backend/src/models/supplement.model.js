@@ -51,4 +51,13 @@ async function softDelete(id) {
   return update(id, { status: "reject" });
 }
 
-module.exports = { findAll, findById, create, update, softDelete };
+// Cascades a child's deletion to their supplement history so a deleted
+// child's records stop counting in compliance lists/reports, which already
+// filter on status='active'.
+async function rejectAllForChild(childId) {
+  requireSupabase();
+  const { error } = await supabase.from(TABLE_NAME).update({ status: "reject" }).eq("child_id", childId);
+  if (error) throw error;
+}
+
+module.exports = { findAll, findById, create, update, softDelete, rejectAllForChild };

@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/user.model");
 const { JWT_SECRET, JWT_EXPIRES_IN, COOKIE_NAME } = require("../config/jwt");
+const { getTokenFromRequest } = require("../middleware/auth");
 
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -89,7 +90,11 @@ async function loginUser(req, res, next) {
 
 async function logoutUser(req, res, next) {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
+    // Checks the Authorization header too, not just the cookie, so a
+    // Bearer-token session actually gets its token_version bumped here
+    // instead of only "logging out" client-side while staying valid on the
+    // server for up to JWT_EXPIRES_IN.
+    const token = getTokenFromRequest(req);
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -125,6 +130,12 @@ async function updateUserStatus(req, res, next) {
       return res.status(400).json({ error: "status must be 'active' or 'reject'" });
     }
     const user = await userModel.updateStatus(req.params.id, status);
+    // Deactivating an account must kill any session already issued for it —
+    // otherwise a rejected user's existing cookie/token keeps working for up
+    // to JWT_EXPIRES_IN (7 days) after an MNAO fires/suspends them.
+    if (status === "reject") {
+      await userModel.bumpTokenVersion(req.params.id);
+    }
     res.json(user);
   } catch (err) {
     next(err);

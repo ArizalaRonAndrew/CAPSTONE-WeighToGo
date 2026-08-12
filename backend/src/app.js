@@ -7,6 +7,18 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
 
+// Rate limiters (loginLimiter, aiLimiter) key off req.ip. Without this,
+// behind any reverse proxy req.ip resolves to the proxy's own address for
+// every request, collapsing all users into one shared bucket — turning
+// brute-force protection into an accidental denial-of-service for a whole
+// office network. `1` trusts exactly the first hop (the proxy itself), which
+// is the correct setting for a single-reverse-proxy PaaS deployment (Render,
+// Railway, Heroku, etc.) — unlike `true`, it won't trust an arbitrary chain
+// of forwarded-for headers a client could spoof directly.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",

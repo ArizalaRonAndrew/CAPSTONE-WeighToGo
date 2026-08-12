@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { ageInMonths } from "../utils/age";
-import { currentMonth } from "../utils/month";
+import { currentMonth, todayInManila } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
 import { sanitizeDecimalInput } from "../utils/decimal";
 import StatusBadge from "./StatusBadge";
@@ -108,6 +108,8 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const TABS = readOnly ? ALL_TABS.filter((t) => t.key !== "assessment") : ALL_TABS;
   const [tab, setTab] = useState(initialTab === "assessment" && readOnly ? "info" : initialTab);
   const [child, setChild] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [assessmentsError, setAssessmentsError] = useState("");
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [savingInfo, setSavingInfo] = useState(false);
@@ -121,14 +123,22 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const [previewLoading, setPreviewLoading] = useState(false);
 
   function loadChild() {
-    api.get(`/children/${childId}`).then((data) => {
-      setChild(data);
-      setEditForm(data);
-    });
+    setLoadError("");
+    api
+      .get(`/children/${childId}`)
+      .then((data) => {
+        setChild(data);
+        setEditForm(data);
+      })
+      .catch((err) => setLoadError(err.message || "Failed to load this child's record."));
   }
 
   function loadAssessments() {
-    api.get(`/assessments?childId=${childId}`).then(setAssessments);
+    setAssessmentsError("");
+    api
+      .get(`/assessments?childId=${childId}`)
+      .then(setAssessments)
+      .catch((err) => setAssessmentsError(err.message || "Failed to load checkup history."));
   }
 
   useEffect(() => {
@@ -164,7 +174,19 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-card modal-card-lg" onClick={(e) => e.stopPropagation()}>
-          <div className="loading-state">Loading...</div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+          {loadError ? (
+            <div className="loading-state">
+              <p className="error-text">{loadError}</p>
+              <button className="btn" onClick={loadChild}>
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="loading-state">Loading...</div>
+          )}
         </div>
       </div>
     );
@@ -207,7 +229,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     try {
       await api.post("/assessments", {
         child_id: childId,
-        date_measured: new Date().toISOString().slice(0, 10),
+        date_measured: todayInManila(),
         weight: Number(assessmentForm.weight),
         height: Number(assessmentForm.height),
       });
@@ -483,6 +505,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           {tab === "history" && (
             <div>
               <h3>Past Monthly Reports</h3>
+              {assessmentsError && (
+                <div className="banner banner-warning" style={{ marginBottom: 12 }}>
+                  {assessmentsError}{" "}
+                  <button type="button" className="btn btn-sm" onClick={loadAssessments}>
+                    Retry
+                  </button>
+                </div>
+              )}
               <div className="table-wrap">
                 <table className="history-table">
                   <colgroup>
@@ -502,7 +532,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                     </tr>
                   </thead>
                   <tbody>
-                    {assessments.length === 0 && (
+                    {assessments.length === 0 && !assessmentsError && (
                       <tr>
                         <td colSpan={5} className="empty-state">
                           No history available.

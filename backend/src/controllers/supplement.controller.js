@@ -1,6 +1,6 @@
 const supplementModel = require("../models/supplement.model");
 const childrenModel = require("../models/children.model");
-const { calculateAgeInMonths } = require("../utils/date");
+const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { getDueSupplements, getComplianceStatus, getSupplementSchedule } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { pickFields } = require("../utils/pickFields");
@@ -139,7 +139,7 @@ async function createSupplement(req, res, next) {
     const child = await childrenModel.findById(child_id);
     assertBarangayAccess(req, child);
 
-    const effectiveDate = date_administered || new Date().toISOString().slice(0, 10);
+    const effectiveDate = date_administered || todayInManila();
     const age_in_months = calculateAgeInMonths(child.dob, effectiveDate);
 
     const supplement = await supplementModel.create({

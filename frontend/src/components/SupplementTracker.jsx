@@ -73,13 +73,17 @@ function SupplementBlock({ type, doses, onMark, markingKey, readOnly }) {
 export default function SupplementTracker({ childId, onChanged, readOnly = false }) {
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [markError, setMarkError] = useState("");
   const [markingKey, setMarkingKey] = useState(null);
 
   function load() {
     setLoading(true);
+    setLoadError("");
     api
       .get(`/supplements/schedule?childId=${childId}`)
       .then((data) => setSchedule(data.schedule))
+      .catch((err) => setLoadError(err.message || "Failed to load the supplement schedule"))
       .finally(() => setLoading(false));
   }
 
@@ -88,6 +92,7 @@ export default function SupplementTracker({ childId, onChanged, readOnly = false
   async function handleMark(dose) {
     const key = `${dose.supplement_type}-${dose.dose_order}`;
     setMarkingKey(key);
+    setMarkError("");
     try {
       await api.post("/supplements", {
         child_id: childId,
@@ -96,16 +101,29 @@ export default function SupplementTracker({ childId, onChanged, readOnly = false
       });
       load();
       onChanged?.();
+    } catch (err) {
+      setMarkError(err.message || "Failed to record that dose. Please try again.");
     } finally {
       setMarkingKey(null);
     }
   }
 
   if (loading) return <div className="loading-state">Loading...</div>;
+  if (loadError) {
+    return (
+      <div className="loading-state">
+        <p className="error-text">{loadError}</p>
+        <button className="btn" onClick={load}>
+          Retry
+        </button>
+      </div>
+    );
+  }
   if (!schedule) return null;
 
   return (
     <div>
+      {markError && <p className="error-text">{markError}</p>}
       <div className="supplement-grid">
         {Object.entries(schedule).map(([type, doses]) => (
           <SupplementBlock

@@ -80,8 +80,14 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
   const initial = user?.email?.[0]?.toUpperCase() || "?";
 
   async function handleLogout() {
-    await logout();
-    navigate("/login", { replace: true });
+    // logout() already clears local session state in a `finally`, but the
+    // server call it awaits can still reject — navigate regardless so a
+    // failed request never leaves the user stuck on an authenticated screen.
+    try {
+      await logout();
+    } finally {
+      navigate("/login", { replace: true });
+    }
   }
 
   function handleNavClick(e) {

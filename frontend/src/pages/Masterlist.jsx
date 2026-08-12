@@ -43,11 +43,13 @@ export default function Masterlist() {
   const [children, setChildren] = useState([]);
   const [checkedChildIds, setCheckedChildIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [manageChildId, setManageChildId] = useState(null);
 
   function load() {
     setLoading(true);
+    setError("");
     Promise.all([api.get("/children"), api.get("/assessments")])
       .then(([childrenData, assessments]) => {
         setChildren(childrenData);
@@ -57,6 +59,7 @@ export default function Masterlist() {
         );
         setCheckedChildIds(checked);
       })
+      .catch((err) => setError(err.message || "Failed to load the masterlist"))
       .finally(() => setLoading(false));
   }
 
@@ -107,6 +110,15 @@ export default function Masterlist() {
           <div className="label">Pending this month</div>
         </div>
       </div>
+
+      {error && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          {error}{" "}
+          <button type="button" className="btn btn-sm" onClick={load}>
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="card filter-card">
         <div className="filter-bar" style={{ marginBottom: 0 }}>
@@ -178,7 +190,7 @@ export default function Masterlist() {
                 </td>
               </tr>
             )}
-            {!loading && children.length === 0 && (
+            {!loading && !error && children.length === 0 && (
               <tr>
                 <td colSpan={7} className="empty-state">
                   No children registered yet.

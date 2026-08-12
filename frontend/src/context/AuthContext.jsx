@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, setUnauthorizedHandler } from "../api/client";
 
 const AuthContext = createContext(null);
 
@@ -13,6 +13,14 @@ export function AuthProvider({ children }) {
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Catches a session going invalid mid-visit (expired token, or an admin
+  // deactivating this account) from any API call anywhere in the app, not
+  // just the ones this context makes directly.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   useEffect(() => {
@@ -39,8 +47,15 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await api.post("/users/logout");
-    setUser(null);
+    // Session must be cleared client-side even if the server call fails
+    // (offline, server error) — otherwise a failed logout silently leaves
+    // the UI authenticated with no indication anything went wrong, which
+    // matters most on a shared office computer.
+    try {
+      await api.post("/users/logout");
+    } finally {
+      setUser(null);
+    }
   }
 
   return (

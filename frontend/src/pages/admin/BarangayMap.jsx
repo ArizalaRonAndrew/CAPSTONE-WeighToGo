@@ -57,28 +57,39 @@ export default function BarangayMap() {
   const month = currentMonth();
   const [barangays, setBarangays] = useState([]);
   const [healthByBarangay, setHealthByBarangay] = useState({});
+  const [mapError, setMapError] = useState("");
   const [selected, setSelected] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  useEffect(() => {
-    Promise.all([api.get("/barangays"), api.get(`/reports/barangay-health-status?month=${month}`)]).then(
-      ([barangayList, healthReport]) => {
+  function loadMap() {
+    setMapError("");
+    Promise.all([api.get("/barangays"), api.get(`/reports/barangay-health-status?month=${month}`)])
+      .then(([barangayList, healthReport]) => {
         setBarangays(barangayList);
         const byName = {};
         for (const row of healthReport.barangays) byName[row.barangay] = row;
         setHealthByBarangay(byName);
-      }
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month]);
+      })
+      .catch((err) => setMapError(err.message || "Failed to load the barangay map"));
+  }
+
+  useEffect(loadMap, [month]);
 
   async function selectBarangay(barangay) {
     setSelected(barangay);
+    // Clear the previous barangay's summary immediately — otherwise, if this
+    // fetch fails, the old summary keeps rendering underneath the new
+    // barangay's name/header, misattributing one barangay's data to another.
+    setSummary(null);
+    setSummaryError("");
     setSummaryLoading(true);
     try {
       const data = await api.get(`/reports/nutrition?month=${month}&barangay=${encodeURIComponent(barangay.name)}`);
       setSummary(data);
+    } catch (err) {
+      setSummaryError(err.message || "Failed to load this barangay's summary");
     } finally {
       setSummaryLoading(false);
     }
@@ -110,6 +121,15 @@ export default function BarangayMap() {
           </p>
         </div>
       </div>
+
+      {mapError && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          {mapError}{" "}
+          <button type="button" className="btn btn-sm" onClick={loadMap}>
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="map-legend">
         {legendItems.map((item) => (
@@ -201,6 +221,14 @@ export default function BarangayMap() {
               <BarangayAiPanel key={selected.name} barangayName={selected.name} month={month} severity={selectedSeverity} />
 
               {summaryLoading && <div className="loading-state">Loading summary...</div>}
+              {!summaryLoading && summaryError && (
+                <div className="banner banner-warning" style={{ marginTop: 18 }}>
+                  {summaryError}{" "}
+                  <button type="button" className="btn btn-sm" onClick={() => selectBarangay(selected)}>
+                    Retry
+                  </button>
+                </div>
+              )}
               {!summaryLoading && summary && (
                 <>
                   <div className="section-title" style={{ marginTop: 18 }}>

@@ -64,12 +64,15 @@ export default function AdminMasterlist() {
   const [purokFilter, setPurokFilter] = useState("");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [viewChildId, setViewChildId] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError("");
     setPage(1);
     const params = new URLSearchParams({ month });
     if (barangayFilter) params.set("barangay", barangayFilter);
@@ -79,13 +82,16 @@ export default function AdminMasterlist() {
       .then((data) => {
         if (!cancelled) setReport(data);
       })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Failed to load the masterlist");
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [month, barangayFilter, purokFilter]);
+  }, [month, barangayFilter, purokFilter, retryCount]);
 
   const rows = report?.rows || [];
   const purokOptions = [...new Set(rows.map((r) => r.purok).filter(Boolean))].sort();
@@ -175,7 +181,16 @@ export default function AdminMasterlist() {
         </div>
       </div>
 
-      {!loading && (
+      {error && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          {error}{" "}
+          <button type="button" className="btn btn-sm" onClick={() => setRetryCount((c) => c + 1)}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
         <p className="results-count">
           Showing {filteredRows.length} of {rows.length} checkups this month
         </p>
@@ -226,7 +241,7 @@ export default function AdminMasterlist() {
                   </td>
                 </tr>
               )}
-              {!loading && rows.length === 0 && (
+              {!loading && !error && rows.length === 0 && (
                 <tr>
                   <td colSpan={14} className="empty-state">
                     No checkups recorded for {monthLabel(month)}.

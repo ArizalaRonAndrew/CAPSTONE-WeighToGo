@@ -1,8 +1,19 @@
+import { manilaDateParts } from "./month";
+
+// dob is a plain "YYYY-MM-DD" date column value — split it directly rather
+// than round-tripping through `new Date(dob)` and local getters, which
+// previously misread it as the wrong calendar day on a browser/host set to
+// a timezone behind UTC.
+function dobParts(dob) {
+  const [year, month, day] = String(dob).slice(0, 10).split("-").map(Number);
+  return { year, month, day };
+}
+
 export function ageInMonths(dob) {
-  const birth = new Date(dob);
-  const now = new Date();
-  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-  if (now.getDate() < birth.getDate()) months -= 1;
+  const birth = dobParts(dob);
+  const now = manilaDateParts();
+  let months = (now.year - birth.year) * 12 + (now.month - birth.month);
+  if (now.day < birth.day) months -= 1;
   return Math.max(months, 0);
 }
 

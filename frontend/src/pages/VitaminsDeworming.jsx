@@ -47,6 +47,7 @@ function SearchIcon() {
 export default function VitaminsDeworming() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
@@ -54,6 +55,7 @@ export default function VitaminsDeworming() {
 
   function load() {
     setLoading(true);
+    setError("");
     api
       .get("/supplements/due")
       .then((data) => {
@@ -62,6 +64,7 @@ export default function VitaminsDeworming() {
         );
         setEntries(sorted);
       })
+      .catch((err) => setError(err.message || "Failed to load due supplements"))
       .finally(() => setLoading(false));
   }
 
@@ -160,7 +163,16 @@ export default function VitaminsDeworming() {
         </p>
       )}
 
-      {!loading && entries.length === 0 && (
+      {error && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          {error}{" "}
+          <button type="button" className="btn btn-sm" onClick={load}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && entries.length === 0 && (
         <div className="banner banner-success" style={{ marginBottom: 20 }}>
           No children currently need a dose.
         </div>

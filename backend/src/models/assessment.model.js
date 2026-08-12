@@ -81,6 +81,15 @@ async function softDelete(id) {
   return update(id, { status: "reject" });
 }
 
+// Cascades a child's deletion to their assessment history so a deleted
+// child's checkups stop counting in reports/the Barangay Map, which already
+// filter on status='active'.
+async function rejectAllForChild(childId) {
+  requireSupabase();
+  const { error } = await supabase.from(TABLE_NAME).update({ status: "reject" }).eq("child_id", childId);
+  if (error) throw error;
+}
+
 // Marks every draft assessment for the given children within [start, end)
 // as submitted, so the admin side can pick it up.
 async function submitForChildren({ childIds, start, end }) {
@@ -104,14 +113,16 @@ async function submitForChildren({ childIds, start, end }) {
 async function findSubmittedChildIds(childIds) {
   requireSupabase();
   if (!childIds.length) return new Set();
-  const { data, error } = await supabase
-    .from(TABLE_NAME)
-    .select("child_id")
-    .in("child_id", childIds)
-    .eq("submission_status", "submitted")
-    .eq("status", "active");
-  if (error) throw error;
-  return new Set(data.map((row) => row.child_id));
+  const rows = await fetchAllPages(() =>
+    supabase
+      .from(TABLE_NAME)
+      .select("child_id")
+      .in("child_id", childIds)
+      .eq("submission_status", "submitted")
+      .eq("status", "active")
+      .order("child_id", { ascending: true })
+  );
+  return new Set(rows.map((row) => row.child_id));
 }
 
 module.exports = {
@@ -121,6 +132,7 @@ module.exports = {
   create,
   update,
   softDelete,
+  rejectAllForChild,
   submitForChildren,
   findSubmittedChildIds,
 };
