@@ -4,6 +4,21 @@ const { explainBarangaySignificance } = require("../services/ai.service");
 
 const HIGH_SIGNIFICANCE = new Set(["high", "very-high"]);
 
+// The AI explainer addresses one specific indicator, not a generic summary
+// of all four — so we deterministically pick the indicator responsible for
+// the barangay's overall severity (the one whose own tier matches it),
+// breaking ties by whichever has the higher prevalence. Computed in code so
+// the model doesn't have to (and can't get it wrong).
+function pickPrimaryIndicator(stats) {
+  const candidates = [
+    { key: "stunting", label: "Stunting", pct: stats.stuntedPct, tier: stats.stuntedTier },
+    { key: "wasting", label: "Wasting", pct: stats.wastedPct, tier: stats.wastedTier },
+    { key: "overweight", label: "Overweight", pct: stats.overweightPct, tier: stats.overweightTier },
+    { key: "underweight", label: "Underweight", pct: stats.underweightPct, tier: stats.underweightTier },
+  ];
+  return candidates.filter((c) => c.tier === stats.severity).sort((a, b) => b.pct - a.pct)[0];
+}
+
 async function analyzeBarangaySignificance(req, res, next) {
   try {
     const { barangay, month } = req.body;
@@ -25,8 +40,9 @@ async function analyzeBarangaySignificance(req, res, next) {
       });
     }
 
-    const explanation = await explainBarangaySignificance({ barangay, month, stats });
-    res.json({ barangay, month, severity: stats.severity, explanation });
+    const primary = pickPrimaryIndicator(stats);
+    const explanation = await explainBarangaySignificance({ barangay, month, primary });
+    res.json({ barangay, month, severity: stats.severity, indicator: primary.key, explanation });
   } catch (err) {
     next(err);
   }

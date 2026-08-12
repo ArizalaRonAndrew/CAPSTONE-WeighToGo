@@ -63,13 +63,23 @@ async function computeBarangayHealthStatus({ req, month }) {
     const stuntedPct = (b.stunted / b.totalAssessed) * 100;
     const wastedPct = (b.wasted / b.totalAssessed) * 100;
     const overweightPct = (b.overweight / b.totalAssessed) * 100;
-    const severity = worstTier(
-      classifyUnderweight(underweightPct),
-      classifyStunting(stuntedPct),
-      classifyWasting(wastedPct),
-      classifyOverweight(overweightPct)
-    );
-    return { ...b, underweightPct, stuntedPct, wastedPct, overweightPct, severity };
+    const underweightTier = classifyUnderweight(underweightPct);
+    const stuntedTier = classifyStunting(stuntedPct);
+    const wastedTier = classifyWasting(wastedPct);
+    const overweightTier = classifyOverweight(overweightPct);
+    const severity = worstTier(underweightTier, stuntedTier, wastedTier, overweightTier);
+    return {
+      ...b,
+      underweightPct,
+      stuntedPct,
+      wastedPct,
+      overweightPct,
+      underweightTier,
+      stuntedTier,
+      wastedTier,
+      overweightTier,
+      severity,
+    };
   });
 }
 

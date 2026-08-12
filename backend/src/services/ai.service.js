@@ -2,65 +2,75 @@ const { GEMINI_API_KEY, GEMINI_MODEL } = require("../config/ai");
 
 const GEMINI_URL = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-// The WHO NLiS reference the app's classification is built on
-// (https://apps.who.int/nutrition/landscape/help.aspx?menu=0&helpid=391),
-// condensed to what the model needs to ground its explanation: what each
-// indicator means, why it matters, and the exact prevalence cutoffs. This
-// replaces relying on the model's own background knowledge (or an uploaded
-// screenshot) with the same source of truth publicHealthSignificance.js
-// codes against.
-const WHO_REFERENCE =
-  "WHO/de Onis et al. (2018) reference, WHO Nutrition Landscape Information System " +
-  "(apps.who.int/nutrition/landscape, help topic: Malnutrition in children):\n" +
-  "- Stunting (height-for-age <-2 SD): cumulative chronic undernutrition/infection since before birth; " +
-  "delays mental development, lowers school performance and adult economic productivity.\n" +
-  "- Wasting (weight-for-height <-2 SD): acute undernutrition, usually recent food shortage or infection " +
-  "(esp. diarrhoea); impairs immunity, raises risk of severe illness and death.\n" +
-  "- Overweight (weight-for-height >+2 SD): childhood obesity; raises lifetime risk of cardiovascular " +
-  "disease, diabetes, musculoskeletal disorders, and certain cancers.\n" +
-  "- Underweight (weight-for-age <-2 SD, WHO/UNICEF 1995): composite of stunting and/or wasting; " +
-  "mortality risk rises even at mild underweight.\n" +
-  "Prevalence cutoffs for public health significance (%):\n" +
-  "Stunting: <2.5 very low, 2.5-<10 low, 10-<20 medium, 20-<30 high, >=30 very high.\n" +
-  "Wasting & Overweight: <2.5 very low, 2.5-<5 low, 5-<10 medium, 10-<15 high, >=15 very high.\n" +
-  "Underweight: <10 low, 10-<20 medium, 20-<30 high, >=30 very high.";
+// WHO/de Onis et al. (2018) prevalence cutoffs (WHO/UNICEF 1995 for
+// underweight, which 2018 doesn't redefine) — see
+// https://apps.who.int/nutrition/landscape/help.aspx?menu=0&helpid=391 and
+// backend/src/utils/publicHealthSignificance.js, which this text mirrors.
+// Scoped to just the flagged indicator so the model is grounded in the
+// exact band the barangay's percentage falls into, without spending tokens
+// on the other three indicators' cutoffs.
+const INDICATOR_INFO = {
+  stunting: {
+    label: "Stunting",
+    metric: "height-for-age",
+    cutoffs: "very low <2.5%, low 2.5-<10%, medium 10-<20%, high 20-<30%, very high >=30%",
+  },
+  wasting: {
+    label: "Wasting",
+    metric: "weight-for-height",
+    cutoffs: "very low <2.5%, low 2.5-<5%, medium 5-<10%, high 10-<15%, very high >=15%",
+  },
+  overweight: {
+    label: "Overweight",
+    metric: "weight-for-height",
+    cutoffs: "very low <2.5%, low 2.5-<5%, medium 5-<10%, high 10-<15%, very high >=15%",
+  },
+  underweight: {
+    label: "Underweight",
+    metric: "weight-for-age",
+    cutoffs: "low <10%, medium 10-<20%, high 20-<30%, very high >=30%",
+  },
+};
 
 const SYSTEM_INSTRUCTION =
-  `${WHO_REFERENCE}\n\n` +
-  "You brief a Municipal Nutrition Action Officer (mNAO) in the Philippines on a barangay's child " +
-  "malnutrition data, which has already been classified as 'High' or 'Very High' public health significance " +
-  "using the reference above. Be EXTREMELY concise to minimize token usage: no greeting, no repeating raw " +
-  "numbers beyond what's needed, no filler. Reply in plain text with exactly two short sections:\n" +
-  "Why:\n- up to 3 short bullets naming which indicator(s) crossed which WHO tier and, briefly, why that " +
-  "indicator matters (drawing on the reference above)\n" +
-  "Do next:\n- up to 4 short, concrete, locally actionable steps for the mNAO\n" +
-  "Hard cap: under 120 words total.";
+  "STRICT WORD LIMIT: your entire reply must be 45 words or fewer. Count as you write and cut anything past " +
+  "45 words.\n\n" +
+  "You brief a Municipal Nutrition Action Officer (mNAO) in the Philippines on one specific malnutrition " +
+  "indicator that has been flagged at High or Very High WHO public health significance in a barangay, using " +
+  "the WHO prevalence cutoffs and percentage given to you. Respond in plain text, structured as:\n" +
+  "1. One short sentence (max 12 words) stating the main health consequence of this specific issue (e.g., " +
+  '"Stunting leads to delayed mental development", "Wasting impairs the immune system", "Overweight leads to ' +
+  'NCDs like diabetes").\n' +
+  "2. Exactly 2 short bulleted actionable suggestions (max 15 words each) for the mNAO to address this " +
+  "specific type of malnutrition in the barangay.\n\n" +
+  "Constraints:\n" +
+  "- Maximum 45 words total across the whole reply. This is a hard limit, not a target.\n" +
+  '- Do NOT use introductory or concluding phrases (e.g., "Here is the analysis").\n' +
+  "- Respond in plain text with bullet points for the suggestions.";
 
-// Calls Gemini's generateContent endpoint with the barangay's real
-// (server-computed) prevalence stats, grounded in the WHO reference baked
-// into the system instruction, and returns a short why/what-to-do
-// explanation.
-async function explainBarangaySignificance({ barangay, month, stats }) {
+// Calls Gemini's generateContent endpoint for the one indicator responsible
+// for the barangay's High/Very High significance (picked deterministically
+// in ai.controller.js), grounded in the exact WHO cutoff band it falls
+// into, and returns a short consequence + 2 actionable suggestions.
+async function explainBarangaySignificance({ barangay, month, primary }) {
   if (!GEMINI_API_KEY) {
     const err = new Error("AI explainer is not configured (missing GEMINI_API_KEY)");
     err.status = 503;
     throw err;
   }
 
-  const statsText =
+  const info = INDICATOR_INFO[primary.key];
+  const promptText =
     `Barangay: ${barangay}\n` +
     `Month: ${month}\n` +
-    `Children assessed: ${stats.totalAssessed}\n` +
-    `Overall significance: ${stats.severity}\n` +
-    `Underweight (WFA): ${stats.underweightPct.toFixed(1)}%\n` +
-    `Stunted (HFA): ${stats.stuntedPct.toFixed(1)}%\n` +
-    `Wasted (WFL/H): ${stats.wastedPct.toFixed(1)}%\n` +
-    `Overweight (WFL/H): ${stats.overweightPct.toFixed(1)}%`;
+    `Flagged indicator: ${info.label} (${info.metric}) = ${primary.pct.toFixed(1)}%\n` +
+    `WHO cutoffs for ${info.label}: ${info.cutoffs}\n` +
+    `This barangay's ${info.label} falls in the "${primary.tier}" band.`;
 
   const body = {
     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-    contents: [{ role: "user", parts: [{ text: statsText }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 220 },
+    contents: [{ role: "user", parts: [{ text: promptText }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 110 },
   };
 
   const res = await fetch(`${GEMINI_URL(GEMINI_MODEL)}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {

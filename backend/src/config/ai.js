@@ -9,5 +9,10 @@ if (!GEMINI_API_KEY) {
 
 module.exports = {
   GEMINI_API_KEY,
-  GEMINI_MODEL: GEMINI_MODEL || "gemini-2.0-flash",
+  // "-latest" alias so this doesn't need updating every time Google
+  // deprecates a dated model version. "-lite" specifically: no reasoning
+  // ("thinking") tokens, which for the newer Gemini models otherwise eat
+  // the whole output budget before any visible text is written — the
+  // wrong tradeoff for a short, cheap explanation like this one.
+  GEMINI_MODEL: GEMINI_MODEL || "gemini-flash-lite-latest",
 };
