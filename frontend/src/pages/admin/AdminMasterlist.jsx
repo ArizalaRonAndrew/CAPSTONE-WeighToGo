@@ -43,7 +43,7 @@ function SearchIcon() {
   );
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 7;
 
 const KPI_TILES = [
   { key: "totalRegistered", label: "Total Registered" },
@@ -197,7 +197,7 @@ export default function AdminMasterlist() {
       )}
 
       <div className="card">
-        <div className="table-wrap paginated-table-wrap">
+        <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>
               <col style={{ width: "10%" }} />

@@ -15,6 +15,23 @@ function initials(name) {
   return (first + last).toUpperCase();
 }
 
+const PAGE_SIZE = 7;
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 701px)").matches
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 701px)");
+    const handler = (e) => setIsDesktop(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  return isDesktop;
+}
+
 function SearchIcon() {
   return (
     <svg
@@ -36,6 +53,7 @@ function SearchIcon() {
 
 export default function Masterlist() {
   const { user } = useAuth();
+  const isDesktop = useIsDesktop();
 
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
@@ -46,6 +64,7 @@ export default function Masterlist() {
   const [error, setError] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [manageChildId, setManageChildId] = useState(null);
+  const [page, setPage] = useState(1);
 
   function load() {
     setLoading(true);
@@ -65,6 +84,10 @@ export default function Masterlist() {
 
   useEffect(load, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, purokFilter, checkupFilter]);
+
   const purokOptions = [...new Set(children.map((c) => c.purok).filter(Boolean))].sort();
 
   const filteredChildren = children.filter((child) => {
@@ -77,6 +100,13 @@ export default function Masterlist() {
     }
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredChildren.length / PAGE_SIZE));
+  const pageChildren = isDesktop
+    ? filteredChildren.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : filteredChildren;
+  const rangeStart = filteredChildren.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, filteredChildren.length);
 
   const checkedCount = children.filter((c) => checkedChildIds.has(c.id)).length;
   const hasActiveFilters = Boolean(search || purokFilter || checkupFilter);
@@ -207,7 +237,7 @@ export default function Masterlist() {
                 </td>
               </tr>
             )}
-            {filteredChildren.map((child) => {
+            {pageChildren.map((child) => {
               const isChecked = checkedChildIds.has(child.id);
               return (
                 <tr key={child.id}>
@@ -237,6 +267,35 @@ export default function Masterlist() {
           </tbody>
         </table>
       </div>
+
+      {isDesktop && (
+        <div className="pagination-bar">
+          <span className="pagination-info">
+            {filteredChildren.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${filteredChildren.length}`}
+          </span>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span className="pagination-page">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {showRegister && (
         <RegisterChildModal
