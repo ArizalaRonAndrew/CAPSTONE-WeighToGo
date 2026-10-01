@@ -16,6 +16,7 @@ function initials(name) {
 }
 
 const PAGE_SIZE = 7;
+const MOBILE_PAGE_SIZE = 10;
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -65,6 +66,7 @@ export default function Masterlist() {
   const [showRegister, setShowRegister] = useState(false);
   const [manageChildId, setManageChildId] = useState(null);
   const [page, setPage] = useState(1);
+  const [mobilePage, setMobilePage] = useState(1);
 
   function load() {
     setLoading(true);
@@ -88,6 +90,10 @@ export default function Masterlist() {
     setPage(1);
   }, [search, purokFilter, checkupFilter]);
 
+  useEffect(() => {
+    setMobilePage(1);
+  }, [search, purokFilter, checkupFilter]);
+
   const purokOptions = [...new Set(children.map((c) => c.purok).filter(Boolean))].sort();
 
   const filteredChildren = children.filter((child) => {
@@ -102,11 +108,10 @@ export default function Masterlist() {
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredChildren.length / PAGE_SIZE));
+  const mobileTotalPages = Math.max(1, Math.ceil(filteredChildren.length / MOBILE_PAGE_SIZE));
   const pageChildren = isDesktop
     ? filteredChildren.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    : filteredChildren;
-  const rangeStart = filteredChildren.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, filteredChildren.length);
+    : filteredChildren.slice((mobilePage - 1) * MOBILE_PAGE_SIZE, mobilePage * MOBILE_PAGE_SIZE);
 
   const checkedCount = children.filter((c) => checkedChildIds.has(c.id)).length;
   const hasActiveFilters = Boolean(search || purokFilter || checkupFilter);
@@ -204,32 +209,31 @@ export default function Masterlist() {
           <thead>
             <tr>
               <th>Name of Child</th>
-              <th>Parent / Guardian</th>
-              <th>Gender</th>
+              <th className="hide-on-mobile">Parent / Guardian</th>
+              <th className="hide-on-mobile">Gender</th>
               <th>Age (mos)</th>
               <th>Purok / Sitio</th>
               <th>Checkup Status</th>
-              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7} className="loading-state">
+                <td colSpan={6} className="loading-state">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && !error && children.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={6} className="empty-state">
                   No children registered yet.
                 </td>
               </tr>
             )}
             {!loading && children.length > 0 && filteredChildren.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={6} className="empty-state">
                   <div>No children match your filters.</div>
                   <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
                     Clear filters
@@ -240,26 +244,28 @@ export default function Masterlist() {
             {pageChildren.map((child) => {
               const isChecked = checkedChildIds.has(child.id);
               return (
-                <tr key={child.id}>
+                <tr
+                  key={child.id}
+                  className="clickable"
+                  onClick={() => setManageChildId(child.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setManageChildId(child.id); } }}
+                >
                   <td data-label="Name of Child">
                     <div className="child-name-cell">
                       <span className="avatar-circle">{initials(child.name)}</span>
                       <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                     </div>
                   </td>
-                  <td data-label="Parent / Guardian">{formatNameForTable(child.parent_name)}</td>
-                  <td data-label="Gender">{child.gender}</td>
+                  <td data-label="Parent / Guardian" className="hide-on-mobile">{formatNameForTable(child.parent_name)}</td>
+                  <td data-label="Gender" className="hide-on-mobile">{child.gender}</td>
                   <td data-label="Age (mos)">{ageInMonths(child.dob)}</td>
                   <td data-label="Purok / Sitio">{child.purok}</td>
                   <td data-label="Checkup Status">
                     <span className={`status-pill ${isChecked ? "status-pill-checked" : "status-pill-pending"}`}>
                       {isChecked ? "✓ Checked" : "Pending"}
                     </span>
-                  </td>
-                  <td data-label="Action">
-                    <button className="btn btn-secondary" onClick={() => setManageChildId(child.id)}>
-                      Manage
-                    </button>
                   </td>
                 </tr>
               );
@@ -268,10 +274,41 @@ export default function Masterlist() {
         </table>
       </div>
 
+      {!isDesktop && filteredChildren.length > 0 && (
+        <div className="pagination-bar">
+          <span className="pagination-info">
+            {`Showing ${(mobilePage - 1) * MOBILE_PAGE_SIZE + 1}–${Math.min(mobilePage * MOBILE_PAGE_SIZE, filteredChildren.length)} of ${filteredChildren.length}`}
+          </span>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={mobilePage <= 1}
+              onClick={() => { setMobilePage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            >
+              Previous
+            </button>
+            <span className="pagination-page">
+              Page {mobilePage} of {mobileTotalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={mobilePage >= mobileTotalPages}
+              onClick={() => { setMobilePage((p) => Math.min(mobileTotalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {isDesktop && (
         <div className="pagination-bar">
           <span className="pagination-info">
-            {filteredChildren.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${filteredChildren.length}`}
+            {filteredChildren.length === 0
+              ? "No records"
+              : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filteredChildren.length)} of ${filteredChildren.length}`}
           </span>
           <div className="pagination-controls">
             <button

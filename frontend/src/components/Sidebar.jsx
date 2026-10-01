@@ -99,15 +99,33 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
 
   return (
     <>
-      <div className={`sidebar-backdrop ${open ? "visible" : ""}`} onClick={onClose} aria-hidden="true" />
+      <div
+        className={`sidebar-backdrop ${open ? "visible" : ""}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
       <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
-        <button type="button" className="sidebar-close" onClick={onClose} aria-label="Close menu">
+        <button
+          type="button"
+          className="sidebar-close"
+          onClick={onClose}
+          aria-label="Close menu"
+        >
           ×
         </button>
 
         <div className="sidebar-brand" title="WeighToGo">
           <span className="sidebar-brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              width="18"
+              height="18"
+            >
               <path d="M5 20c9 0 14-5 14-14V5h-1C9 5 4 10 4 19v1Z" />
             </svg>
           </span>
@@ -119,7 +137,9 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
           <div className="sidebar-user-info">
             <div className="sidebar-user-email">{user?.email}</div>
             <span className="sidebar-role-pill">
-              {user?.role === "MNAO" ? "Administrator" : `BNS · ${user?.assigned_barangay}`}
+              {user?.role === "MNAO"
+                ? "Administrator"
+                : `BNS · ${user?.assigned_barangay}`}
             </span>
           </div>
         </div>
@@ -140,7 +160,13 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
           ))}
         </nav>
 
-        <button type="button" className="sidebar-logout" onClick={handleLogout} title="Log Out" aria-label="Log Out">
+        <button
+          type="button"
+          className="sidebar-logout"
+          onClick={handleLogout}
+          title="Log Out"
+          aria-label="Log Out"
+        >
           <Icon name="logout" />
           <span className="sidebar-label">Log Out</span>
         </button>

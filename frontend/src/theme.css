@@ -28,16 +28,16 @@
   /* Barangay Map public-health-significance tiers (WHO / de Onis et al. 2018
      5-tier scale). Distinct from the --status-* tokens above, which encode a
      single child's growth status, not population prevalence severity. */
-  --severity-very-low-bg: #e6f2e9;
-  --severity-very-low-text: #1e7a34;
-  --severity-low-bg: #eef1dc;
-  --severity-low-text: #5c7a17;
-  --severity-medium-bg: #f9efd6;
-  --severity-medium-text: #9c6b12;
-  --severity-high-bg: #fbe8d8;
-  --severity-high-text: #b04f1a;
-  --severity-very-high-bg: #f9e0dc;
-  --severity-very-high-text: #a92f2a;
+  --severity-very-low-bg: #e4f2e8;
+  --severity-very-low-text: #16803c;
+  --severity-low-bg: #e2f1f3;
+  --severity-low-text: #007c91;
+  --severity-medium-bg: #f7eed8;
+  --severity-medium-text: #9a6b00;
+  --severity-high-bg: #fbe8dc;
+  --severity-high-text: #c34c00;
+  --severity-very-high-bg: #f8e5e3;
+  --severity-very-high-text: #b42318;
 
   --shadow-sm: 0 1px 2px rgba(16, 24, 20, 0.05);
   --shadow-md: 0 6px 16px rgba(16, 24, 20, 0.1);
@@ -47,45 +47,7 @@
   --sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
   --sidebar-w-collapsed: 76px;
   --sidebar-w-expanded: 252px;
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #101214;
-    --color-surface: #17191c;
-    --color-border: #2b2f33;
-    --color-text: #ecedee;
-    --color-text-muted: #9aa0a6;
-
-    --status-normal-bg: #16302a;
-    --status-normal-text: #7fcdb0;
-    --status-mild-bg: #362b13;
-    --status-mild-text: #eec26c;
-    --status-severe-bg: #351b19;
-    --status-severe-text: #ed9c96;
-    --status-over-bg: #182238;
-    --status-over-text: #a3bbec;
-
-    --severity-very-low-bg: #163024;
-    --severity-very-low-text: #7fcdb0;
-    --severity-low-bg: #2b3418;
-    --severity-low-text: #a8c96a;
-    --severity-medium-bg: #362b13;
-    --severity-medium-text: #eec26c;
-    --severity-high-bg: #3a2416;
-    --severity-high-text: #f0a35f;
-    --severity-very-high-bg: #351b19;
-    --severity-very-high-text: #ed9c96;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.4);
-
-    /* --color-primary-50 stays a light pastel in dark mode (used elsewhere
-       against explicitly dark text), so row hover needs its own token that
-       actually adapts, or hovered text becomes near-white-on-near-white. */
-    --color-row-hover: rgba(255, 255, 255, 0.07);
-  }
+  color-scheme: light;
 }
 
 * {
@@ -129,7 +91,10 @@ textarea {
   color: inherit;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   margin: 0 0 0.5em;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -150,7 +115,11 @@ h1, h2, h3, h4 {
   left: 0;
   bottom: 0;
   width: var(--sidebar-w-collapsed);
-  background: linear-gradient(180deg, var(--color-primary-900), var(--color-primary-800) 60%);
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-900),
+    var(--color-primary-800) 60%
+  );
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -159,7 +128,7 @@ h1, h2, h3, h4 {
   overflow-y: auto;
   z-index: 30;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
-  transition: width 0.16s ease;
+  transition: width 0.22s cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 /* Desktop: a slim icon rail that overlays open to a full labeled panel on hover/focus. */
@@ -167,6 +136,11 @@ h1, h2, h3, h4 {
   .sidebar:hover,
   .sidebar:focus-within {
     width: var(--sidebar-w-expanded);
+  }
+
+  .sidebar:hover ~ .main-content,
+  .sidebar:focus-within ~ .main-content {
+    margin-left: var(--sidebar-w-expanded);
   }
 
   /* Collapsed rail: center icons and zero the gap so the hidden (zero-width)
@@ -219,13 +193,18 @@ h1, h2, h3, h4 {
   .sidebar:focus-within .sidebar-user-info {
     opacity: 1;
     max-width: 180px;
+    transition:
+      opacity 0.16s ease 0.06s,
+      max-width 0.22s cubic-bezier(0.2, 0.75, 0.25, 1);
   }
 }
 
 .sidebar-label {
   overflow: hidden;
   white-space: nowrap;
-  transition: opacity 0.12s ease, max-width 0.16s ease;
+  transition:
+    opacity 0.1s ease,
+    max-width 0.18s cubic-bezier(0.4, 0, 1, 1);
 }
 
 .sidebar-close {
@@ -280,7 +259,9 @@ h1, h2, h3, h4 {
 
 .sidebar-user-info {
   min-width: 0;
-  transition: opacity 0.12s ease, max-width 0.16s ease;
+  transition:
+    opacity 0.12s ease,
+    max-width 0.16s ease;
 }
 
 .sidebar-user-email {
@@ -320,7 +301,9 @@ h1, h2, h3, h4 {
   font-size: 14px;
   font-weight: 500;
   border-left: 3px solid transparent;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .sidebar-icon {
@@ -353,7 +336,9 @@ h1, h2, h3, h4 {
   font-size: 14px;
   font-weight: 500;
   margin-top: 12px;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .sidebar-logout:hover {
@@ -366,6 +351,16 @@ h1, h2, h3, h4 {
   padding: 32px 36px;
   min-width: 0;
   overflow-x: auto;
+  transition: margin-left 0.22s cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .main-content,
+  .sidebar-label {
+    transition-duration: 0.01ms;
+    transition-delay: 0s;
+  }
 }
 
 .page-header {
@@ -409,7 +404,9 @@ h1, h2, h3, h4 {
   color: var(--color-text-muted);
 }
 
-.input, select.input, textarea.input {
+.input,
+select.input,
+textarea.input {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 9px 11px;
@@ -417,10 +414,14 @@ h1, h2, h3, h4 {
   color: var(--color-text);
   min-width: 160px;
   font-size: 14.5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.input:focus, select.input:focus, textarea.input:focus {
+.input:focus,
+select.input:focus,
+textarea.input:focus {
   outline: none;
   border-color: var(--color-primary-400);
   box-shadow: 0 0 0 3px rgba(52, 113, 90, 0.18);
@@ -514,7 +515,10 @@ h1, h2, h3, h4 {
   font-weight: 600;
   cursor: pointer;
   font-size: 14.5px;
-  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .btn:hover {
@@ -572,10 +576,6 @@ table {
   border: 1px solid var(--color-border);
   border-radius: 14px;
   overflow: auto;
-}
-
-.paginated-table-wrap {
-  height: 500px;
 }
 
 /* Admin Masterlist: 14 columns of nowrap text used to force this table wider
@@ -643,7 +643,8 @@ table {
   color: var(--color-text);
 }
 
-th, td {
+th,
+td {
   text-align: left;
   padding: 12px 15px;
   border-bottom: 1px solid var(--color-border);
@@ -833,6 +834,31 @@ tr.clickable:hover {
   }
 }
 
+.stat-callout {
+  flex-shrink: 0;
+  text-align: right;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-100);
+}
+
+.stat-callout-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-primary-700);
+}
+
+.stat-callout-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
 .hero-stat-card {
   display: flex;
   align-items: flex-start;
@@ -1018,7 +1044,11 @@ tr.clickable:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, var(--color-primary-700), var(--color-primary-900));
+  background: linear-gradient(
+    160deg,
+    var(--color-primary-700),
+    var(--color-primary-900)
+  );
 }
 
 .login-card {
@@ -1293,6 +1323,10 @@ tr.clickable:hover {
   color: var(--color-text);
 }
 
+.tab-content {
+  min-height: 0;
+}
+
 .manage-modal-header {
   display: flex;
   align-items: center;
@@ -1351,13 +1385,6 @@ tr.clickable:hover {
   color: var(--color-primary-700);
   font-size: 12px;
   font-weight: 600;
-}
-
-@media (prefers-color-scheme: dark) {
-  .child-tag {
-    background: var(--color-primary-900);
-    color: var(--color-primary-200);
-  }
 }
 
 .tabs {
@@ -1674,7 +1701,11 @@ tr.clickable:hover {
   align-items: center;
   gap: 12px;
   padding: 0 14px;
-  background: linear-gradient(180deg, var(--color-primary-900), var(--color-primary-800) 60%);
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-900),
+    var(--color-primary-800) 60%
+  );
   color: #fff;
   z-index: 5;
   box-shadow: var(--shadow-sm);
@@ -1831,6 +1862,48 @@ tr.clickable:hover {
     min-width: 0;
   }
 
+  .stat-row {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .stat-tile {
+    min-width: 0;
+    flex: 1 1 calc(33.333% - 6px);
+    padding: 12px 10px;
+  }
+
+  .stat-tile .value {
+    font-size: 22px;
+  }
+
+  .stat-tile .label {
+    font-size: 11px;
+  }
+
+  .filter-card {
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .filter-bar {
+    gap: 8px;
+  }
+
+  .filter-bar .field {
+    flex: 1 1 100%;
+  }
+
+  .search-field {
+    min-width: 0;
+  }
+
+  .search-field .input {
+    min-width: 0;
+    width: 100%;
+  }
+
   .tabs {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1845,27 +1918,303 @@ tr.clickable:hover {
 
   .modal-overlay {
     padding: 10px;
+    align-items: center;
   }
 
   .modal-card {
-    padding: 18px;
-    border-radius: 10px;
+    padding: 0;
+    border-radius: 14px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .modal-card-lg {
+    max-width: 100%;
+  }
+
+  .manage-modal-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface);
+    border-radius: 14px 14px 0 0;
+    flex-shrink: 0;
   }
 
   .manage-modal-header {
+    display: flex;
+    align-items: center;
     gap: 12px;
+    padding: 16px 16px 12px;
+    margin-bottom: 0;
   }
 
   .child-avatar {
     width: 44px;
     height: 44px;
-    font-size: 15px;
+    font-size: 14px;
+    border-radius: 50%;
+  }
+
+  .child-header-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .manage-modal-header h2 {
+    font-size: 18px;
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+
+  .child-header-location {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .child-header-tags {
+    gap: 6px;
+  }
+
+  .child-tag {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .modal-close {
+    top: 10px;
+    right: 10px;
+    font-size: 20px;
+    padding: 4px 8px;
+    z-index: 4;
+    background: var(--color-surface);
+    border-radius: 4px;
+  }
+
+  .tabs {
+    margin-bottom: 0;
+    gap: 0;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    padding: 11px 8px 13px;
+    font-size: 14px;
+  }
+
+  .tab-content {
+    padding: 12px 14px 14px;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .section-title {
+    font-size: 12.5px;
+    margin: 12px 0 6px;
+  }
+
+  .info-grid {
+    gap: 5px;
+  }
+
+  .info-card {
+    padding: 7px 9px;
+    gap: 7px;
+    border-radius: 6px;
+  }
+
+  .info-label {
+    font-size: 10px;
+    margin-bottom: 1px;
+  }
+
+  .info-value {
+    font-size: 12.5px;
+  }
+
+  .info-card-icon {
+    width: 13px;
+    height: 13px;
+    margin-top: 1px;
+  }
+
+  .computed-status-box {
+    padding: 8px;
+    margin-top: 10px;
+    border-radius: 6px;
+  }
+
+  .computed-status-title {
+    font-size: 11px;
+    margin-bottom: 6px;
   }
 
   .computed-status-row {
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .computed-status-label {
+    font-size: 10px;
+  }
+
+  .computed-status-value {
+    font-size: 12px;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 4px 5px;
+    font-size: 11px;
+  }
+
+  .btn {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .banner {
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+
+  /* Monthly Report indicator cards */
+  .indicator-grid {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .indicator-card {
+    padding: 10px 12px;
+  }
+
+  .indicator-card-header {
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+
+  .indicator-card-title {
+    font-size: 13px;
+  }
+
+  .indicator-card-abbr {
+    font-size: 10px;
+    margin-top: 1px;
+  }
+
+  .indicator-card-total {
+    font-size: 16px;
+  }
+
+  .indicator-status-row {
+    padding: 4px 0;
+  }
+
+  .indicator-status-label {
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .indicator-status-count {
+    font-size: 13px;
+  }
+
+  .indicator-status-label svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Register Child Modal */
+  .register-modal .modal-header {
+    padding: 14px 14px 10px;
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+
+  .register-modal .modal-header h2 {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .register-modal .modal-subtitle {
+    font-size: 12px;
+  }
+
+  .register-modal-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface);
+    border-radius: 14px 14px 0 0;
+    flex-shrink: 0;
+  }
+
+  .register-modal-body {
+    padding: 0 14px;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .register-modal .form-section {
+    margin-bottom: 14px;
+  }
+
+  .register-modal .form-section:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .register-modal .section-title {
+    font-size: 12.5px;
+    margin: 0 0 6px;
+  }
+
+  .register-modal .field label {
+    font-size: 11.5px;
+  }
+
+  .register-modal .input {
+    padding: 7px 9px;
+    font-size: 13px;
+    min-width: 0;
+  }
+
+  .register-modal select.input {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+
+  .register-modal .checkbox-card {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .register-modal .checkbox-card label {
+    font-size: 12.5px;
+    gap: 8px;
+  }
+
+  .register-modal .checkbox-card input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+  }
+
+  .register-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--color-border);
+    flex-shrink: 0;
+    background: var(--color-surface);
+  }
+
+  .register-modal-footer .btn {
+    flex: 1;
   }
 }
 
@@ -1888,6 +2237,10 @@ tr.clickable:hover {
    action button is pinned full-width at the bottom. Scoped to `screen` so
    printed reports keep their normal tabular layout. */
 @media screen and (max-width: 700px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
   .table-wrap {
     border: none;
     overflow: visible;
@@ -1905,18 +2258,18 @@ tr.clickable:hover {
   .table-wrap tbody {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   .table-wrap tr {
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
-    gap: 10px 12px;
+    gap: 6px 10px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 12px;
-    padding: 14px 16px 16px;
+    padding: 10px 14px 12px;
     box-shadow: var(--shadow-sm);
   }
 
@@ -1933,7 +2286,7 @@ tr.clickable:hover {
     border-bottom: none;
     padding: 0;
     white-space: normal;
-    font-size: 13.5px;
+    font-size: 13px;
   }
 
   .table-wrap td[data-label]::before {
@@ -1950,10 +2303,10 @@ tr.clickable:hover {
   .table-wrap td[data-label="Month"] {
     order: -2;
     flex-basis: 100%;
-    padding-bottom: 10px;
-    margin-bottom: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 0;
     border-bottom: 1px solid var(--color-border);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
   }
 
@@ -1969,18 +2322,14 @@ tr.clickable:hover {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 10px;
-    margin-bottom: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 0;
     border-bottom: 1px solid var(--color-border);
   }
 
-  /* Fields with richer content need the full row instead of the 2-up grid.
-     "Age (mos)" is forced full-width too so it closes out the 2-up block
-     cleanly — otherwise its leftover half-row bleeds into the status trio
-     below and throws off the 3-up split. */
+  /* Fields with richer content need the full row instead of the 2-up grid. */
   .table-wrap td[data-label="Doses Due"],
-  .table-wrap td[data-label="Weight/Height"],
-  .table-wrap td[data-label="Age (mos)"] {
+  .table-wrap td[data-label="Weight/Height"] {
     flex-basis: 100%;
   }
 
@@ -2039,12 +2388,6 @@ tr.clickable:hover {
   .table-wrap td.empty-state::before {
     content: none;
   }
-
-  .paginated-table-wrap {
-    height: auto;
-    max-height: 70vh;
-    overflow-y: auto;
-  }
 }
 
 /* Growth Summary Report (OPT+ style pivot table). Deliberately kept out of
@@ -2101,13 +2444,26 @@ tr.clickable:hover {
 }
 
 /* Dense OPT+ matrix (21 columns). table-layout: fixed + an explicit colgroup
-   keep the table pinned to the card's own width no matter how narrow the
-   viewport is, so it never needs horizontal scrolling — columns shrink and
-   their text wraps instead of pushing the table wider than its container. */
+   keep the table pinned to the card's own width for most viewports — columns
+   shrink and their text wraps instead of pushing the table wider than its
+   container. overflow-x is still a scroll (not hidden): sub-pixel rounding
+   across 20+ auto-width columns can push the rendered table a hair past
+   100%, and with `hidden` that sliver silently clips the last column
+   instead of just becoming a few px of harmless scroll. */
+/* Scrollbar chrome is hidden globally, so without this there's no cue that
+   the OPT+ matrix (usually wider than its card) scrolls at all. An inset
+   shadow is painted on the scroll container's own box rather than its
+   (scrolling) content, so it stays put as a constant edge vignette — and
+   reads correctly no matter which row — white, gray, or the WFL/H tint —
+   happens to sit under it. */
 .growth-summary-wrap {
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-shadow:
+    inset -10px 0 8px -8px rgba(0, 0, 0, 0.15),
+    inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
 }
 
 .growth-summary-table {
@@ -2147,6 +2503,22 @@ tr.clickable:hover {
 
 .growth-summary-table tr[data-indicator="hfa"] {
   background: var(--color-bg);
+}
+
+.growth-summary-table tr[data-indicator="wfl_h"] {
+  background: var(--color-primary-50);
+}
+
+/* Thicker rule at each indicator hand-off (matched only against the first
+   row of the next group) so the three OPT+ sections read as distinct blocks
+   rather than 13 identically-weighted rows. */
+.growth-summary-table tr[data-indicator="wfa"] + tr[data-indicator="hfa"] td,
+.growth-summary-table tr[data-indicator="hfa"] + tr[data-indicator="wfl_h"] td {
+  border-top: 2px solid var(--color-border);
+}
+
+.growth-summary-table tbody tr:not(.growth-summary-total-row):hover td {
+  background: var(--color-row-hover);
 }
 
 .growth-summary-subtotal {

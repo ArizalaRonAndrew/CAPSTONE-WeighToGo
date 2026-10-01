@@ -56,7 +56,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <form
-        className="modal-card modal-card-lg"
+        className="modal-card modal-card-lg register-modal"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
@@ -64,120 +64,120 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
           ×
         </button>
 
-        <div className="modal-header">
-          <h2>Register a Child</h2>
-          <p className="modal-subtitle">Add a new child to the barangay masterlist.</p>
-        </div>
-
-        <div className="form-section">
-          <div className="section-title">Child Information</div>
-          <div className="form-grid cols-3">
-            <div className="field">
-              <label className="required">First Name</label>
-              <input
-                className="input"
-                value={form.firstName}
-                onChange={(e) => update("firstName", e.target.value)}
-                required
-              />
-            </div>
-            <div className="field">
-              <label>Middle Name</label>
-              <input
-                className="input"
-                value={form.middleName}
-                onChange={(e) => update("middleName", e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label className="required">Last Name</label>
-              <input
-                className="input"
-                value={form.lastName}
-                onChange={(e) => update("lastName", e.target.value)}
-                required
-              />
-            </div>
-          </div>
-          <div className="form-grid cols-2" style={{ marginTop: 14 }}>
-            <div className="field">
-              <label className="required">Date of Birth</label>
-              <input
-                className="input"
-                type="date"
-                value={form.dob}
-                onChange={(e) => update("dob", e.target.value)}
-                required
-              />
-            </div>
-            <div className="field">
-              <label>Gender</label>
-              <select className="input" value={form.gender} onChange={(e) => update("gender", e.target.value)}>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
+        <div className="register-modal-sticky">
+          <div className="modal-header">
+            <h2>Register a Child</h2>
+            <p className="modal-subtitle">Add a new child to the barangay masterlist.</p>
           </div>
         </div>
 
-        <div className="form-section">
-          <div className="section-title">Parent / Guardian</div>
-          <div className="form-grid cols-2">
-            <div className="field">
-              <label className="required">Full Name</label>
-              <input
-                className="input"
-                value={form.parent_name}
-                onChange={(e) => update("parent_name", e.target.value)}
-                required
-              />
+        <div className="register-modal-body">
+          <div className="form-section">
+            <div className="section-title">Child Information</div>
+            <div className="form-grid cols-3">
+              <div className="field">
+                <label className="required">First Name</label>
+                <input
+                  className="input"
+                  value={form.firstName}
+                  onChange={(e) => update("firstName", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Middle Name</label>
+                <input
+                  className="input"
+                  value={form.middleName}
+                  onChange={(e) => update("middleName", e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label className="required">Last Name</label>
+                <input
+                  className="input"
+                  value={form.lastName}
+                  onChange={(e) => update("lastName", e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div className="field">
-              <label>Contact Number</label>
-              <input
-                className="input"
-                type="tel"
-                inputMode="numeric"
-                maxLength={11}
-                placeholder="09XXXXXXXXX"
-                value={form.parent_contact}
-                onChange={(e) => update("parent_contact", sanitizePhoneInput(e.target.value))}
-              />
+            <div className="form-grid cols-2" style={{ marginTop: 14 }}>
+              <div className="field">
+                <label className="required">Date of Birth</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={form.dob}
+                  onChange={(e) => update("dob", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Gender</label>
+                <select className="input" value={form.gender} onChange={(e) => update("gender", e.target.value)}>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
             </div>
           </div>
+
+          <div className="form-section">
+            <div className="section-title">Parent / Guardian</div>
+            <div className="form-grid cols-2">
+              <div className="field">
+                <label className="required">Full Name</label>
+                <input
+                  className="input"
+                  value={form.parent_name}
+                  onChange={(e) => update("parent_name", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Contact Number</label>
+                <input
+                  className="input"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder="09XXXXXXXXX"
+                  value={form.parent_contact}
+                  onChange={(e) => update("parent_contact", sanitizePhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <div className="section-title">Location</div>
+            <div className="form-grid cols-2">
+              <div className="field">
+                <label>Barangay</label>
+                <input className="input" value={user?.assigned_barangay || ""} disabled />
+              </div>
+              <div className="field">
+                <label className="required">Purok</label>
+                <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />
+              </div>
+            </div>
+            <div className="checkbox-card" style={{ marginTop: 14 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.is_ip}
+                  onChange={(e) => update("is_ip", e.target.checked)}
+                />
+                Indigenous Person (IP)
+              </label>
+            </div>
+          </div>
+
+          {error && <div className="banner banner-danger">{error}</div>}
         </div>
 
-        <div className="form-section">
-          <div className="section-title">Location</div>
-          <div className="form-grid cols-2">
-            {/* Registration is BNS-only (this modal is never opened by an
-                admin — see Masterlist.jsx), and the backend always assigns
-                the child to the BNS's own barangay regardless of form
-                content, so this is a read-only display, not an input. */}
-            <div className="field">
-              <label>Barangay</label>
-              <input className="input" value={user?.assigned_barangay || ""} disabled />
-            </div>
-            <div className="field">
-              <label className="required">Purok</label>
-              <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />
-            </div>
-          </div>
-          <div className="checkbox-card" style={{ marginTop: 14 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.is_ip}
-                onChange={(e) => update("is_ip", e.target.checked)}
-              />
-              Indigenous Person (IP)
-            </label>
-          </div>
-        </div>
-
-        {error && <div className="banner banner-danger">{error}</div>}
-
-        <div className="modal-footer">
+        <div className="register-modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>

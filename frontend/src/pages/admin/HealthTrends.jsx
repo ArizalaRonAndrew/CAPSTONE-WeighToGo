@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Area,
   CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
   Bar,
   BarChart,
@@ -14,7 +12,6 @@ import {
 } from "recharts";
 import { api } from "../../api/client";
 import { useBarangays } from "../../hooks/useBarangays";
-import { colorVarForStatus } from "../../utils/statusGroups";
 import { currentMonth, addMonths } from "../../utils/month";
 import Dropdown from "../../components/Dropdown";
 
@@ -30,20 +27,25 @@ const STATUS_OPTIONS = {
   wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
 };
 
-// colorVarForStatus buckets Overweight and Obese under the same "over"
-// color since they share a severity group; give Obese its own hue so both
-// are still distinguishable when both lines are on the chart at once.
+const STATUS_COLORS = {
+  Normal: "#16803c",
+  Underweight: "#c17a00",
+  "Severely Underweight": "#b42318",
+  Overweight: "#2166ac",
+  Stunted: "#7b4ab3",
+  "Severely Stunted": "#8c2d5e",
+  Tall: "#008a8a",
+  Wasted: "#d55e00",
+  "Severely Wasted": "#6b3f24",
+  Obese: "#4f46a5",
+};
+
 function lineSeriesColor(status) {
-  if (status === "Obese") return "#7c3aed";
-  return colorVarForStatus(status);
+  return STATUS_COLORS[status] || "#285a48";
 }
 
-// The trend endpoint returns { month, count } when a status filter is
-// applied, or { month, [status]: count, ... } per status otherwise —
-// this normalizes either shape to a single per-month total.
 function trendRowTotal(row, statuses) {
   if (!row) return 0;
-  if (typeof row.count === "number") return row.count;
   return statuses.reduce((sum, s) => sum + (row[s] || 0), 0);
 }
 
@@ -69,10 +71,23 @@ function BarangayIssueTooltip({ active, payload }) {
         minWidth: 170,
       }}
     >
-      <div style={{ fontWeight: 700, color: "var(--color-text)", marginBottom: 6 }}>{row.barangay}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--color-text-muted)" }}>
+      <div
+        style={{ fontWeight: 700, color: "var(--color-text)", marginBottom: 6 }}
+      >
+        {row.barangay}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          color: "var(--color-text-muted)",
+        }}
+      >
         <span>Children with an issue</span>
-        <span style={{ fontWeight: 700, color: "var(--color-text)" }}>{row.count}</span>
+        <span style={{ fontWeight: 700, color: "var(--color-text)" }}>
+          {row.count}
+        </span>
       </div>
       {BAR_INDICATORS.map(({ key, label }) => {
         const entries = STATUS_OPTIONS[key]
@@ -81,12 +96,34 @@ function BarangayIssueTooltip({ active, payload }) {
           .filter(([, count]) => count > 0);
         if (entries.length === 0) return null;
         return (
-          <div key={key} style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--color-border)" }}>
-            <div style={{ fontWeight: 700, color: "var(--color-text-muted)", fontSize: 11, marginBottom: 2 }}>
+          <div
+            key={key}
+            style={{
+              marginTop: 6,
+              paddingTop: 6,
+              borderTop: "1px solid var(--color-border)",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 700,
+                color: "var(--color-text-muted)",
+                fontSize: 11,
+                marginBottom: 2,
+              }}
+            >
               {label}
             </div>
             {entries.map(([status, count]) => (
-              <div key={status} style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--color-text)" }}>
+              <div
+                key={status}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  color: "var(--color-text)",
+                }}
+              >
                 <span>{status}</span>
                 <span style={{ fontWeight: 600 }}>{count}</span>
               </div>
@@ -111,7 +148,9 @@ export default function HealthTrends() {
   const { barangays } = useBarangays();
 
   const [lineIndicator, setLineIndicator] = useState("wfa");
-  const [lineStatus, setLineStatus] = useState("");
+  const [visibleStatuses, setVisibleStatuses] = useState(
+    () => new Set(STATUS_OPTIONS.wfa),
+  );
   const [lineBarangay, setLineBarangay] = useState("");
   const [trend, setTrend] = useState([]);
   const [trendLoading, setTrendLoading] = useState(true);
@@ -127,14 +166,14 @@ export default function HealthTrends() {
     setTrendError("");
     const from = addMonths(currentMonth(), -5);
     const to = currentMonth();
-    const params = new URLSearchParams({ from, to, indicator: lineIndicator, status: lineStatus });
+    const params = new URLSearchParams({ from, to, indicator: lineIndicator });
     if (lineBarangay) params.set("barangay", lineBarangay);
     api
       .get(`/reports/trends?${params.toString()}`)
       .then(setTrend)
       .catch((err) => setTrendError(err.message || "Failed to load trend data"))
       .finally(() => setTrendLoading(false));
-  }, [lineIndicator, lineStatus, lineBarangay]);
+  }, [lineIndicator, lineBarangay]);
 
   useEffect(() => {
     setBarLoading(true);
@@ -143,17 +182,18 @@ export default function HealthTrends() {
     api
       .get(`/reports/barangay-comparison?${params.toString()}`)
       .then((data) => setBarData(data.slice(0, 15)))
-      .catch((err) => setBarError(err.message || "Failed to load barangay comparison data"))
+      .catch((err) =>
+        setBarError(err.message || "Failed to load barangay comparison data"),
+      )
       .finally(() => setBarLoading(false));
   }, [barMonth]);
 
-  const lineColor = colorVarForStatus(lineStatus);
   const barColor = "var(--status-severe-text)";
 
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
   const currentMonthCount = useMemo(
     () => trendRowTotal(trend[trend.length - 1], trendStatuses),
-    [trend, trendStatuses]
+    [trend, trendStatuses],
   );
 
   return (
@@ -164,21 +204,34 @@ export default function HealthTrends() {
 
       <div className="card" style={{ marginBottom: 24 }}>
         <div
-          style={{ marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}
+          style={{
+            marginBottom: 4,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
         >
           <div>
             <h3 style={{ marginBottom: 2 }}>
-              {lineStatus || "All Statuses"} — {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label}
+              {INDICATOR_OPTIONS.find((o) => o.value === lineIndicator).label}
             </h3>
-            <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: 0 }}>
-              Monthly case count over the last 6 months{lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
+            <p
+              style={{
+                color: "var(--color-text-muted)",
+                fontSize: 13,
+                margin: 0,
+              }}
+            >
+              Monthly case count over the last 6 months
+              {lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
             </p>
           </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: "var(--color-primary-700)", lineHeight: 1.2 }}>
+          <div className="stat-callout">
+            <div className="stat-callout-value">
               {trendLoading ? "…" : currentMonthCount}
             </div>
-            <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>assessed this month</div>
+            <div className="stat-callout-label">Assessed this month</div>
           </div>
         </div>
         <div className="filter-bar">
@@ -189,29 +242,83 @@ export default function HealthTrends() {
               options={INDICATOR_OPTIONS}
               onChange={(value) => {
                 setLineIndicator(value);
-                setLineStatus("");
+                setVisibleStatuses(new Set(STATUS_OPTIONS[value]));
               }}
-            />
-          </div>
-          <div className="field">
-            <label>Status</label>
-            <Dropdown
-              value={lineStatus}
-              options={[
-                { value: "", label: "All Statuses" },
-                ...STATUS_OPTIONS[lineIndicator].map((s) => ({ value: s, label: s })),
-              ]}
-              onChange={setLineStatus}
             />
           </div>
           <div className="field">
             <label>Barangay</label>
             <Dropdown
               value={lineBarangay}
-              options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
+              options={[
+                { value: "", label: "All barangays" },
+                ...barangays.map((b) => ({ value: b.name, label: b.name })),
+              ]}
               onChange={setLineBarangay}
             />
           </div>
+        </div>
+
+        <div
+          role="group"
+          aria-label="Visible nutritional statuses"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            margin: "4px 0 12px",
+          }}
+        >
+          {STATUS_OPTIONS[lineIndicator].map((status) => {
+            const color = lineSeriesColor(status);
+            const isVisible = visibleStatuses.has(status);
+            return (
+              <button
+                key={status}
+                type="button"
+                role="checkbox"
+                aria-checked={isVisible}
+                onClick={() => {
+                  setVisibleStatuses((current) => {
+                    const next = new Set(current);
+                    if (next.has(status)) next.delete(status);
+                    else next.add(status);
+                    return next;
+                  });
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "5px 9px",
+                  border: `1px solid ${isVisible ? color : "var(--color-border)"}`,
+                  borderRadius: 6,
+                  background: "var(--color-surface)",
+                  color: isVisible
+                    ? "var(--color-text)"
+                    : "var(--color-text-muted)",
+                  opacity: isVisible ? 1 : 0.65,
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontSize: 12.5,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 13,
+                    height: 13,
+                    flex: "0 0 13px",
+                    boxSizing: "border-box",
+                    border: `2px solid ${color}`,
+                    borderRadius: 3,
+                    background: isVisible ? color : "transparent",
+                  }}
+                />
+                {status}
+              </button>
+            );
+          })}
         </div>
 
         {trendLoading ? (
@@ -219,17 +326,16 @@ export default function HealthTrends() {
         ) : trendError ? (
           <div className="empty-state">{trendError}</div>
         ) : (
-          <ResponsiveContainer width="100%" height={lineStatus ? 300 : 320}>
-            <ComposedChart data={trend} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              {lineStatus && (
-                <defs>
-                  <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.22} />
-                    <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-              )}
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart
+              data={trend}
+              margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+            >
+              <CartesianGrid
+                stroke="var(--color-border)"
+                strokeDasharray="3 3"
+                vertical={false}
+              />
               <XAxis
                 dataKey="month"
                 tickFormatter={formatMonthLabel}
@@ -248,7 +354,10 @@ export default function HealthTrends() {
               />
               <Tooltip
                 labelFormatter={formatMonthLabel}
-                formatter={(value, name) => [`${value} child${value === 1 ? "" : "ren"}`, name]}
+                formatter={(value, name) => [
+                  `${value} child${value === 1 ? "" : "ren"}`,
+                  name,
+                ]}
                 contentStyle={{
                   background: "var(--color-surface)",
                   border: "1px solid var(--color-border)",
@@ -257,39 +366,33 @@ export default function HealthTrends() {
                   boxShadow: "var(--shadow-md)",
                 }}
               />
-              {lineStatus ? (
-                <>
-                  <Area type="monotone" dataKey="count" stroke="none" fill="url(#trendFill)" isAnimationActive={false} />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    name={lineStatus}
-                    stroke={lineColor}
-                    strokeWidth={2.5}
-                    dot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
-                    activeDot={{ r: 6, strokeWidth: 2, stroke: "var(--color-surface)", fill: lineColor }}
-                  />
-                </>
-              ) : (
-                <>
-                  <Legend verticalAlign="top" height={32} iconType="circle" wrapperStyle={{ fontSize: 12.5 }} />
-                  {STATUS_OPTIONS[lineIndicator].map((s) => {
-                    const color = lineSeriesColor(s);
-                    return (
-                      <Line
-                        key={s}
-                        type="monotone"
-                        dataKey={s}
-                        name={s}
-                        stroke={color}
-                        strokeWidth={2.5}
-                        dot={{ r: 3.5, strokeWidth: 2, stroke: "var(--color-surface)", fill: color }}
-                        activeDot={{ r: 5.5, strokeWidth: 2, stroke: "var(--color-surface)", fill: color }}
-                      />
-                    );
-                  })}
-                </>
-              )}
+              {STATUS_OPTIONS[lineIndicator]
+                .filter((status) => visibleStatuses.has(status))
+                .map((status) => {
+                  const color = lineSeriesColor(status);
+                  return (
+                    <Line
+                      key={status}
+                      type="monotone"
+                      dataKey={status}
+                      name={status}
+                      stroke={color}
+                      strokeWidth={2.5}
+                      dot={{
+                        r: 3.5,
+                        strokeWidth: 2,
+                        stroke: "var(--color-surface)",
+                        fill: color,
+                      }}
+                      activeDot={{
+                        r: 5.5,
+                        strokeWidth: 2,
+                        stroke: "var(--color-surface)",
+                        fill: color,
+                      }}
+                    />
+                  );
+                })}
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -297,14 +400,27 @@ export default function HealthTrends() {
 
       <div className="card">
         <h3>Nutritional Issues by Barangay</h3>
-        <p style={{ color: "var(--color-text-muted)", fontSize: 13, marginTop: -8 }}>
-          Children with a non-normal Weight-for-Age, Height-for-Age, or Weight-for-Length/Height status this month.
-          A child flagged in more than one indicator is still only counted once — hover a bar for the breakdown.
+        <p
+          style={{
+            color: "var(--color-text-muted)",
+            fontSize: 13,
+            marginTop: -8,
+          }}
+        >
+          Children with a non-normal Weight-for-Age, Height-for-Age, or
+          Weight-for-Length/Height status this month. A child flagged in more
+          than one indicator is still only counted once — hover a bar for the
+          breakdown.
         </p>
         <div className="filter-bar">
           <div className="field">
             <label>Month</label>
-            <input className="input" type="month" value={barMonth} onChange={(e) => setBarMonth(e.target.value)} />
+            <input
+              className="input"
+              type="month"
+              value={barMonth}
+              onChange={(e) => setBarMonth(e.target.value)}
+            />
           </div>
         </div>
 
@@ -316,8 +432,15 @@ export default function HealthTrends() {
           <div className="empty-state">No cases recorded for this filter.</div>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={barData} margin={{ top: 8, right: 16, left: 0, bottom: 48 }}>
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+            <BarChart
+              data={barData}
+              margin={{ top: 8, right: 16, left: 0, bottom: 48 }}
+            >
+              <CartesianGrid
+                stroke="var(--color-border)"
+                strokeDasharray="3 3"
+                vertical={false}
+              />
               <XAxis
                 dataKey="barangay"
                 stroke="var(--color-text-muted)"
@@ -326,9 +449,21 @@ export default function HealthTrends() {
                 textAnchor="end"
                 interval={0}
               />
-              <YAxis allowDecimals={false} stroke="var(--color-text-muted)" fontSize={12} />
-              <Tooltip cursor={{ fill: "var(--color-row-hover)" }} content={<BarangayIssueTooltip />} />
-              <Bar dataKey="count" name="Children with an issue" fill={barColor} radius={[4, 4, 0, 0]} />
+              <YAxis
+                allowDecimals={false}
+                stroke="var(--color-text-muted)"
+                fontSize={12}
+              />
+              <Tooltip
+                cursor={{ fill: "var(--color-row-hover)" }}
+                content={<BarangayIssueTooltip />}
+              />
+              <Bar
+                dataKey="count"
+                name="Children with an issue"
+                fill={barColor}
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}

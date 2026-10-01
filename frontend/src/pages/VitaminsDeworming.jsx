@@ -4,6 +4,8 @@ import ManageChildModal from "../components/ManageChildModal";
 import Dropdown from "../components/Dropdown";
 import { formatNameForTable } from "../utils/name";
 
+const PAGE_SIZE = 10;
+
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
 function ordinal(n) {
@@ -51,6 +53,7 @@ export default function VitaminsDeworming() {
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [page, setPage] = useState(1);
   const [manageChildId, setManageChildId] = useState(null);
 
   function load() {
@@ -70,6 +73,10 @@ export default function VitaminsDeworming() {
 
   useEffect(load, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, purokFilter, overdueOnly]);
+
   const purokOptions = [...new Set(entries.map((e) => e.child.purok).filter(Boolean))].sort();
 
   const filteredEntries = entries.filter(({ child, due }) => {
@@ -78,6 +85,12 @@ export default function VitaminsDeworming() {
     if (overdueOnly && !due.some((d) => d.overdue)) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const rangeStart = filteredEntries.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, filteredEntries.length);
+  const paginatedEntries = filteredEntries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const totalDue = entries.reduce((sum, e) => sum + e.due.length, 0);
   const overdueChildren = entries.filter((e) => e.due.some((d) => d.overdue)).length;
@@ -210,7 +223,7 @@ export default function VitaminsDeworming() {
                 </tr>
               )}
               {!loading &&
-                filteredEntries.map(({ child, ageInMonths, due }) => (
+                paginatedEntries.map(({ child, ageInMonths, due }) => (
                   <tr key={child.id} className="clickable" onClick={() => setManageChildId(child.id)}>
                     <td data-label="Name of Child">
                       <div className="child-name-cell">
@@ -244,6 +257,35 @@ export default function VitaminsDeworming() {
                 ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && filteredEntries.length > 0 && (
+        <div className="pagination-bar">
+          <span className="pagination-info">
+            Showing {rangeStart}–{rangeEnd} of {filteredEntries.length}
+          </span>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={safePage <= 1}
+              onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            >
+              Previous
+            </button>
+            <span className="pagination-page">
+              Page {safePage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={safePage >= totalPages}
+              onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 

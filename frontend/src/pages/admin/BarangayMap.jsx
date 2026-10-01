@@ -54,7 +54,7 @@ function pct(value) {
 }
 
 export default function BarangayMap() {
-  const month = currentMonth();
+  const [month, setMonth] = useState(currentMonth());
   const [barangays, setBarangays] = useState([]);
   const [healthByBarangay, setHealthByBarangay] = useState({});
   const [mapError, setMapError] = useState("");
@@ -62,6 +62,12 @@ export default function BarangayMap() {
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  useEffect(() => {
+    setSelected(null);
+    setSummary(null);
+    setSummaryError("");
+  }, [month]);
 
   function loadMap() {
     setMapError("");
@@ -119,6 +125,18 @@ export default function BarangayMap() {
             Marker color shows each barangay's public health significance for {monthLabel(month)}, based on WHO / de
             Onis et al. (2018) prevalence thresholds for underweight, stunting, wasting, and overweight.
           </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <label htmlFor="map-month" className="label" style={{ margin: 0, whiteSpace: "nowrap" }}>
+            Month
+          </label>
+          <input
+            id="map-month"
+            className="input"
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          />
         </div>
       </div>
 

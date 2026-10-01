@@ -148,7 +148,7 @@ export default function MonthlyReport() {
         </div>
         <div className="page-header-actions" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-          <button className="btn btn-secondary" onClick={() => window.print()}>
+          <button className="btn btn-secondary hide-on-mobile" onClick={() => window.print()}>
             <PrintIcon /> Print Report
           </button>
           <button className="btn btn-accent" onClick={handleSubmit} disabled={submitting}>
@@ -238,8 +238,23 @@ export default function MonthlyReport() {
 
       <div className="card">
         <h3>Masterlist Report Data</h3>
-        <div className="table-wrap paginated-table-wrap">
-          <table>
+        <div className="table-wrap">
+          <table className="masterlist-table">
+            <colgroup>
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "6%" }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Address / Purok</th>
@@ -308,7 +323,7 @@ export default function MonthlyReport() {
               type="button"
               className="btn btn-secondary"
               disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             >
               Previous
             </button>
@@ -319,7 +334,7 @@ export default function MonthlyReport() {
               type="button"
               className="btn btn-secondary"
               disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             >
               Next
             </button>

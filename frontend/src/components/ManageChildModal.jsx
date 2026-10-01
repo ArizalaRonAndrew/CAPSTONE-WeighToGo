@@ -253,33 +253,35 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           ×
         </button>
 
-        <div className="manage-modal-header">
-          <div className="child-avatar" aria-hidden="true">
-            {getInitials(child.name)}
-          </div>
-          <div className="child-header-info">
-            <h2>{child.name}</h2>
-            <div className="child-header-location">
-              {child.purok}{child.purok && child.barangay ? ", " : ""}
-              {child.barangay}
+        <div className="manage-modal-sticky">
+          <div className="manage-modal-header">
+            <div className="child-avatar" aria-hidden="true">
+              {getInitials(child.name)}
             </div>
-            <div className="child-header-tags">
-              <span className="child-tag">Age: {ageInMonths(child.dob)} mos</span>
-              <span className="child-tag">{child.gender}</span>
+            <div className="child-header-info">
+              <h2>{child.name}</h2>
+              <div className="child-header-location">
+                {child.purok}{child.purok && child.barangay ? ", " : ""}
+                {child.barangay}
+              </div>
+              <div className="child-header-tags">
+                <span className="child-tag">Age: {ageInMonths(child.dob)} mos</span>
+                <span className="child-tag">{child.gender}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              className={`tab ${tab === t.key ? "tab-active" : ""}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+          <div className="tabs">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                className={`tab ${tab === t.key ? "tab-active" : ""}`}
+                onClick={() => setTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="tab-content">
