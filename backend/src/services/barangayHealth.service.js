@@ -22,7 +22,7 @@ const OVERWEIGHT_WFL_H = new Set(["Overweight", "Obese"]);
 // instead of trusting client-supplied numbers.
 async function computeBarangayHealthStatus({ req, month }) {
   const { start, end } = toMonthRange(month);
-  const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
+  const allRows = await reportsModel.fetchTrendRows({ start, end });
   const rows = filterSubmittedForRole(req, allRows);
 
   const totals = new Map();

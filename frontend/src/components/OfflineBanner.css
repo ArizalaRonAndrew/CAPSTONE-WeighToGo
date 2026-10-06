@@ -1,0 +1,59 @@
+/* Global offline/sync strip — sits above page content in Layout. */
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.offline-banner-offline {
+  background: var(--status-mild-bg);
+  color: var(--status-mild-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.offline-banner-pending {
+  background: var(--color-primary-50);
+  color: var(--color-primary-800);
+  border-bottom: 1px solid var(--color-primary-100);
+}
+
+.offline-banner-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.offline-banner-offline .offline-banner-dot {
+  animation: offline-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes offline-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.offline-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.offline-banner-sync {
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-banner-offline .offline-banner-dot {
+    animation: none;
+  }
+}

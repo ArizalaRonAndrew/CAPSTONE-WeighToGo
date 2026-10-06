@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const redis = require("../config/redis");
 const { fetchAllPages } = require("./queryHelpers");
 
 const TABLE_NAME = "tbl_users";
@@ -57,16 +58,29 @@ async function updateStatus(id, status) {
 // so callers can fail open instead of locking every user out.
 async function getTokenVersion(id) {
   requireSupabase();
+  // Revocation checks run on EVERY authenticated request, but the version
+  // only changes on logout/deactivation — a 60s cache cuts a Supabase
+  // round-trip off nearly every API call. Bumped versions delete the key
+  // immediately (see below), so the worst case is a ~60s delay noticing a
+  // revocation, versus up to 7 days without the check at all.
+  const cached = await redis.getCachedTokenVersion(id);
+  if (cached !== null && cached !== undefined) return cached;
   const { data, error } = await supabase.from(TABLE_NAME).select("token_version").eq("id", id).single();
   if (error) {
     if (error.code === "42703") return undefined; // column not migrated yet
     throw error;
   }
-  return data?.token_version ?? 0;
+  const version = data?.token_version ?? 0;
+  await redis.setCachedTokenVersion(id, version);
+  return version;
 }
 
 async function bumpTokenVersion(id) {
   requireSupabase();
+  // Drop the cache BEFORE reading: otherwise two bumps inside the 60s
+  // window would both read the same stale value and write back the same
+  // version (lost update). This keeps the original fresh-read semantics.
+  await redis.delCachedTokenVersion(id);
   const current = await getTokenVersion(id);
   if (current === undefined) return; // column not migrated yet — nothing to bump
   const { error } = await supabase
@@ -74,6 +88,8 @@ async function bumpTokenVersion(id) {
     .update({ token_version: current + 1 })
     .eq("id", id);
   if (error) throw error;
+  // Drop the cached version right away — the next request must see the bump.
+  await redis.delCachedTokenVersion(id);
 }
 
 module.exports = { findAll, findById, findByEmail, updateStatus, getTokenVersion, bumpTokenVersion };

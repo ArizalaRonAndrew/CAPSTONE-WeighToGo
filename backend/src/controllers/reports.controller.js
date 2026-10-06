@@ -4,6 +4,7 @@ const childrenModel = require("../models/children.model");
 const { toMonthRange, addMonths, formatMonth, isValidMonthString } = require("../utils/date");
 const { filterSubmittedForRole } = require("../utils/submission");
 const { computeBarangayHealthStatus } = require("../services/barangayHealth.service");
+const { bustAll, touchRevs, getRevs } = require("../config/redis");
 
 const STATUS_VALUES = {
   wfa: ["Normal", "Underweight", "Severely Underweight", "Overweight"],
@@ -81,7 +82,7 @@ async function getGrowthSummaryReport(req, res, next) {
     const barangay = effectiveBarangay(req);
     const { start, end } = toMonthRange(month);
 
-    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchGrowthRows({ start, end }), barangay);
     const rows = filterSubmittedForRole(req, scopedRows).filter(
       (row) => row.tbl_children && bracketForAge(row.age_in_months)
     );
@@ -149,7 +150,7 @@ async function getNutritionReport(req, res, next) {
     const barangay = effectiveBarangay(req);
     const { start, end } = toMonthRange(month);
 
-    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
     const rows = filterSubmittedForRole(req, scopedRows);
 
     res.json({
@@ -169,6 +170,39 @@ const MALNOURISHED_WFA = new Set(["Underweight", "Severely Underweight"]);
 const STUNTED_HFA = new Set(["Stunted", "Severely Stunted"]);
 const WASTED_WFL_H = new Set(["Wasted", "Severely Wasted"]);
 const SEVERE_STATUSES = new Set(["Severely Underweight", "Severely Stunted", "Severely Wasted"]);
+
+// Shared KPI tally over masterlist-shaped rows ({wfa,hfa,wfl_h}_status).
+// Used by the legacy full-rows endpoint and the slim summary endpoint alike
+// so both always agree.
+function tallyMasterlistKpis(kpiRows) {
+  let normal = 0;
+  let malnourishedStunted = 0;
+  let obese = 0;
+  let severe = 0;
+  for (const row of kpiRows) {
+    if (row.wfa_status === "Normal" && row.hfa_status === "Normal" && row.wfl_h_status === "Normal") {
+      normal += 1;
+    }
+    if (
+      MALNOURISHED_WFA.has(row.wfa_status) ||
+      STUNTED_HFA.has(row.hfa_status) ||
+      WASTED_WFL_H.has(row.wfl_h_status)
+    ) {
+      malnourishedStunted += 1;
+    }
+    if (row.wfl_h_status === "Obese") {
+      obese += 1;
+    }
+    if (
+      SEVERE_STATUSES.has(row.wfa_status) ||
+      SEVERE_STATUSES.has(row.hfa_status) ||
+      SEVERE_STATUSES.has(row.wfl_h_status)
+    ) {
+      severe += 1;
+    }
+  }
+  return { normal, malnourishedStunted, obese, severe };
+}
 
 async function getMonthlyMasterlistReport(req, res, next) {
   try {
@@ -213,32 +247,7 @@ async function getMonthlyMasterlistReport(req, res, next) {
     // barangay-scoped so the client can still populate the purok dropdown.
     const kpiRows = purok ? rows.filter((row) => row.purok === purok) : rows;
 
-    let normal = 0;
-    let malnourishedStunted = 0;
-    let obese = 0;
-    let severe = 0;
-    for (const row of kpiRows) {
-      if (row.wfa_status === "Normal" && row.hfa_status === "Normal" && row.wfl_h_status === "Normal") {
-        normal += 1;
-      }
-      if (
-        MALNOURISHED_WFA.has(row.wfa_status) ||
-        STUNTED_HFA.has(row.hfa_status) ||
-        WASTED_WFL_H.has(row.wfl_h_status)
-      ) {
-        malnourishedStunted += 1;
-      }
-      if (row.wfl_h_status === "Obese") {
-        obese += 1;
-      }
-      if (
-        SEVERE_STATUSES.has(row.wfa_status) ||
-        SEVERE_STATUSES.has(row.hfa_status) ||
-        SEVERE_STATUSES.has(row.wfl_h_status)
-      ) {
-        severe += 1;
-      }
-    }
+    const { normal, malnourishedStunted, obese, severe } = tallyMasterlistKpis(kpiRows);
 
     const newRegistrations = await reportsModel.countNewChildren({ barangay, purok, start, end });
 
@@ -295,7 +304,7 @@ async function getTrends(req, res, next) {
 
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
-    const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
     const rows = filterSubmittedForRole(req, scopedRows);
 
     const months = [];
@@ -346,7 +355,7 @@ async function getBarangayComparison(req, res, next) {
     }
 
     const { start, end } = toMonthRange(month);
-    const allRows = await reportsModel.fetchAssessmentsWithBarangay({ start, end });
+    const allRows = await reportsModel.fetchTrendRows({ start, end });
     const rows = filterSubmittedForRole(req, allRows);
 
     const buckets = new Map();
@@ -411,7 +420,135 @@ async function submitMonthlyReport(req, res, next) {
     const childIds = children.map((c) => c.id);
     const updated = await assessmentModel.submitForChildren({ childIds, start, end });
 
+    // Flipping draft->submitted changes what MNAO sees in assessments,
+    // the masterlist, and every submission-gated report.
+    await bustAll(["reports:*", "assessments:*", "children:*"]);
+    await touchRevs([month]);
     res.status(200).json({ barangay, month, submitted: true, count: updated.length });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// KPI-only companion to the legacy full-rows monthly-masterlist: same tallies
+// over slim rows, plus the purok filter options, but no row payload — pairs
+// with the paged rows endpoint below so the admin table never transfers the
+// month's full row set.
+async function getMasterlistSummary(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    let barangay = effectiveBarangay(req);
+    // BNS accounts are barangay-locked server-side, same as the legacy route.
+    if (req.user.role === "BNS") barangay = req.user.assigned_barangay;
+    const purok = req.query.purok || null;
+    const { start, end } = toMonthRange(month);
+
+    const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
+    const rows = filterSubmittedForRole(req, scopedRows);
+    const kpiRows = purok ? rows.filter((row) => row.tbl_children?.purok === purok) : rows;
+    // Trend rows carry the child join but not purok — resolve it for the
+    // purok-scoped KPIs via the (small, barangay-scoped) roster below.
+    const { normal, malnourishedStunted, obese, severe } = tallyMasterlistKpis(kpiRows);
+    const [totalRegistered, newRegistrations, purokOptions] = await Promise.all([
+      reportsModel.countChildren({ barangay, purok }),
+      reportsModel.countNewChildren({ barangay, purok, start, end }),
+      barangay ? reportsModel.fetchPuroks({ barangay }) : Promise.resolve([]),
+    ]);
+
+    res.json({
+      month,
+      barangay: barangay || "All barangays",
+      totalRegistered,
+      totalAssessed: kpiRows.length,
+      normal,
+      malnourishedStunted,
+      obese,
+      severe,
+      newRegistrations,
+      purokOptions,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+// Server-paginated masterlist detail page: filtering, global sort, and the
+// total all resolve in Postgres (one round trip), so the admin table
+// transfers one page instead of the month's full row set. Row shape matches
+// the legacy endpoint's mapped rows. MNAO callers are restricted to
+// submitted rows in-query, mirroring filterSubmittedForRole.
+async function getMasterlistRows(req, res, next) {
+  try {
+    const { month } = req.query;
+    if (!isValidMonthString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    }
+    let barangay = effectiveBarangay(req);
+    if (req.user.role === "BNS") barangay = req.user.assigned_barangay;
+    const purok = req.query.purok || null;
+    const search = (req.query.search || "").trim() || null;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 7));
+    const { start, end } = toMonthRange(month);
+
+    const { rows: raw, total } = await reportsModel.fetchMasterlistPage({
+      start,
+      end,
+      barangay,
+      purok,
+      search,
+      page,
+      pageSize,
+      submittedOnly: req.user.role === "MNAO",
+    });
+
+    const rows = raw
+      .filter((row) => row.tbl_children)
+      .map((row) => {
+        const child = row.tbl_children;
+        return {
+          assessment_id: row.id,
+          child_id: child.id,
+          purok: child.purok,
+          barangay: child.barangay,
+          parent_name: child.parent_name,
+          name: child.name,
+          is_ip: child.is_ip,
+          gender: child.gender,
+          dob: child.dob,
+          date_measured: row.date_measured,
+          weight: row.weight,
+          height: row.height,
+          age_in_months: row.age_in_months,
+          wfa_status: row.wfa_status,
+          hfa_status: row.hfa_status,
+          wfl_h_status: row.wfl_h_status,
+        };
+      });
+
+    res.json({ month, barangay: barangay || "All barangays", page, pageSize, total, rows });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Tiny revision snapshot for rev-gated report caching: the client snapshots
+// these alongside a cached payload and skips refetching while they match —
+// one cheap request per page visit instead of multi-thousand-row scans.
+// Counters only, no row data, so any authenticated user may call it. Never
+// wrapped in the response cache (that would defeat its purpose). Without
+// Redis everything comes back null and clients simply refetch as today.
+async function getSyncStatus(req, res, next) {
+  try {
+    const months = String(req.query.months || "")
+      .split(",")
+      .map((m) => m.trim())
+      .filter((m) => isValidMonthString(m))
+      .slice(0, 24);
+    const revs = await getRevs(months);
+    res.json({ months, global: revs?.global ?? null, revs: revs?.months ?? {} });
   } catch (err) {
     next(err);
   }
@@ -429,7 +566,7 @@ async function getSubmissionStatus(req, res, next) {
     }
 
     const { start, end } = toMonthRange(month);
-    const rows = filterByBarangay(await reportsModel.fetchAssessmentsWithBarangay({ start, end }), barangay);
+    const rows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
     const submitted = rows.length > 0 && rows.every((row) => row.submission_status === "submitted");
 
     res.json({ barangay, month, submitted, total: rows.length });
@@ -448,4 +585,7 @@ module.exports = {
   getBarangayHealthStatus,
   submitMonthlyReport,
   getSubmissionStatus,
+  getSyncStatus,
+  getMasterlistSummary,
+  getMasterlistRows,
 };

@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { api } from "../../api/client";
 import { currentMonth, monthLabel } from "../../utils/month";
+import { useRevReport, loadRevGated } from "../../hooks/useRevReport";
+import RefreshLine from "../../components/RefreshLine";
 import StatusBadge from "../../components/StatusBadge";
 import BarangayAiPanel from "../../components/BarangayAiPanel";
 
@@ -32,16 +33,16 @@ function pinIcon(severity) {
     className: "barangay-pin-wrap",
     html: `
       <div class="barangay-pin barangay-pin-${severity}">
-        <svg viewBox="0 0 24 34" width="28" height="40">
+        <svg viewBox="0 0 24 34" width="32" height="45">
           <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 22 12 22s12-13 12-22C24 5.4 18.6 0 12 0z" fill="currentColor"/>
           <circle cx="12" cy="12" r="4.5" fill="#fff"/>
         </svg>
       </div>
     `,
-    iconSize: [28, 40],
-    iconAnchor: [14, 38],
-    popupAnchor: [0, -34],
-    tooltipAnchor: [0, -36],
+    iconSize: [32, 45],
+    iconAnchor: [16, 43],
+    popupAnchor: [0, -38],
+    tooltipAnchor: [0, -40],
   });
   PIN_ICON_CACHE[severity] = icon;
   return icon;
@@ -55,33 +56,36 @@ function pct(value) {
 
 export default function BarangayMap() {
   const [month, setMonth] = useState(currentMonth());
-  const [barangays, setBarangays] = useState([]);
-  const [healthByBarangay, setHealthByBarangay] = useState({});
-  const [mapError, setMapError] = useState("");
   const [selected, setSelected] = useState(null);
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Rev-gated: cached map data paints instantly; the two month scans refetch
+  // only when revision counters moved server-side.
+  const barangaysQuery = useRevReport("/barangays", [month]);
+  const healthQuery = useRevReport(`/reports/barangay-health-status?month=${month}`, [month]);
+  const barangays = barangaysQuery.data || [];
+  const healthByBarangay = useMemo(() => {
+    const byName = {};
+    for (const row of healthQuery.data?.barangays || []) byName[row.barangay] = row;
+    return byName;
+  }, [healthQuery.data]);
+  const mapError =
+    (!barangaysQuery.data && barangaysQuery.error) || (!healthQuery.data && healthQuery.error) || "";
+  const mapRefreshing = barangaysQuery.refreshing || healthQuery.refreshing;
+  const mapUpdatedAt = Math.max(barangaysQuery.updatedAt || 0, healthQuery.updatedAt || 0) || null;
+
+  function refreshAll() {
+    barangaysQuery.refresh();
+    healthQuery.refresh();
+  }
 
   useEffect(() => {
     setSelected(null);
     setSummary(null);
     setSummaryError("");
   }, [month]);
-
-  function loadMap() {
-    setMapError("");
-    Promise.all([api.get("/barangays"), api.get(`/reports/barangay-health-status?month=${month}`)])
-      .then(([barangayList, healthReport]) => {
-        setBarangays(barangayList);
-        const byName = {};
-        for (const row of healthReport.barangays) byName[row.barangay] = row;
-        setHealthByBarangay(byName);
-      })
-      .catch((err) => setMapError(err.message || "Failed to load the barangay map"));
-  }
-
-  useEffect(loadMap, [month]);
 
   async function selectBarangay(barangay) {
     setSelected(barangay);
@@ -92,8 +96,12 @@ export default function BarangayMap() {
     setSummaryError("");
     setSummaryLoading(true);
     try {
-      const data = await api.get(`/reports/nutrition?month=${month}&barangay=${encodeURIComponent(barangay.name)}`);
-      setSummary(data);
+      // One-shot rev-gated fetch: cached barangay summaries skip the network.
+      const { body } = await loadRevGated(
+        `/reports/nutrition?month=${month}&barangay=${encodeURIComponent(barangay.name)}`,
+        [month]
+      );
+      setSummary(body);
     } catch (err) {
       setSummaryError(err.message || "Failed to load this barangay's summary");
     } finally {
@@ -143,11 +151,13 @@ export default function BarangayMap() {
       {mapError && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>
           {mapError}{" "}
-          <button type="button" className="btn btn-sm" onClick={loadMap}>
+          <button type="button" className="btn btn-sm" onClick={refreshAll}>
             Retry
           </button>
         </div>
       )}
+
+      <RefreshLine refreshing={mapRefreshing} updatedAt={mapUpdatedAt} onRefresh={refreshAll} />
 
       <div className="map-legend">
         {legendItems.map((item) => (

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import InstallBanner from "./InstallBanner";
+import OfflineBanner from "./OfflineBanner";
+import OutboxPanel, { SyncBadge } from "./OutboxPanel";
 
 function MenuIcon() {
   return (
@@ -13,6 +15,7 @@ function MenuIcon() {
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [outboxOpen, setOutboxOpen] = useState(false);
 
   return (
     <div className="app-shell">
@@ -31,9 +34,12 @@ export default function Layout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="main-content">
+        <OfflineBanner />
         <Outlet />
       </main>
 
+      <SyncBadge onOpen={() => setOutboxOpen(true)} />
+      <OutboxPanel open={outboxOpen} onClose={() => setOutboxOpen(false)} />
       <InstallBanner />
     </div>
   );

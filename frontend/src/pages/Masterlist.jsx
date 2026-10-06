@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useRevReport } from "../hooks/useRevReport";
+import RefreshLine from "../components/RefreshLine";
+import { subscribeOutbox } from "../utils/outbox";
 import { ageInMonths } from "../utils/age";
 import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
@@ -59,32 +61,54 @@ export default function Masterlist() {
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
   const [checkupFilter, setCheckupFilter] = useState("");
-  const [children, setChildren] = useState([]);
-  const [checkedChildIds, setCheckedChildIds] = useState(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [registerNotice, setRegisterNotice] = useState("");
+  // Synthetic rows for registrations still sitting in the offline queue —
+  // cleared once the queue drains and fresh data arrives.
+  const [extraChildren, setExtraChildren] = useState([]);
   const [showRegister, setShowRegister] = useState(false);
   const [manageChildId, setManageChildId] = useState(null);
   const [page, setPage] = useState(1);
   const [mobilePage, setMobilePage] = useState(1);
 
-  function load() {
-    setLoading(true);
-    setError("");
-    Promise.all([api.get("/children"), api.get("/assessments")])
-      .then(([childrenData, assessments]) => {
-        setChildren(childrenData);
-        const month = currentMonth();
-        const checked = new Set(
-          assessments.filter((a) => a.date_measured?.slice(0, 7) === month).map((a) => a.child_id)
-        );
-        setCheckedChildIds(checked);
-      })
-      .catch((err) => setError(err.message || "Failed to load the masterlist"))
-      .finally(() => setLoading(false));
+  // Rev-gated: snapshots render instantly; the roster + checkups refetch
+  // only when revision counters moved server-side.
+  const monthNow = currentMonth();
+  const childrenQuery = useRevReport("/children", [monthNow]);
+  const assessmentsQuery = useRevReport("/assessments", [monthNow]);
+
+  const children = useMemo(
+    () => [...extraChildren, ...((childrenQuery.data || []).filter((c) => !extraChildren.some((x) => x.name === c.name && x.dob === c.dob)))],
+    [extraChildren, childrenQuery.data]
+  );
+  const checkedChildIds = useMemo(() => {
+    const rows = assessmentsQuery.data || [];
+    return new Set(rows.filter((a) => a.date_measured?.slice(0, 7) === monthNow).map((a) => a.child_id));
+  }, [assessmentsQuery.data, monthNow]);
+  const loading = childrenQuery.loading && assessmentsQuery.loading;
+  const error =
+    (!childrenQuery.data && childrenQuery.error) || (!assessmentsQuery.data && assessmentsQuery.error) || "";
+  const refreshing = childrenQuery.refreshing || assessmentsQuery.refreshing;
+  const updatedAt = Math.max(childrenQuery.updatedAt || 0, assessmentsQuery.updatedAt || 0) || null;
+
+  function refreshAll() {
+    childrenQuery.refresh();
+    assessmentsQuery.refresh();
   }
 
-  useEffect(load, []);
+  // When the offline queue drains, synced rows arrive via refresh — drop the
+  // synthetic placeholders so they don't duplicate the real records.
+  const hadPending = useRef(false);
+  useEffect(() => {
+    return subscribeOutbox((s) => {
+      if (s.pending > 0) hadPending.current = true;
+      if (hadPending.current && s.pending === 0) {
+        hadPending.current = false;
+        setExtraChildren([]);
+        refreshAll();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -149,10 +173,18 @@ export default function Masterlist() {
       {error && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>
           {error}{" "}
-          <button type="button" className="btn btn-sm" onClick={load}>
+          <button type="button" className="btn btn-sm" onClick={refreshAll}>
             Retry
           </button>
         </div>
+      )}
+      {registerNotice && (
+        <div className="banner banner-success" style={{ marginBottom: 20 }}>
+          {registerNotice}
+        </div>
+      )}
+      {!loading && (
+        <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
       )}
 
       <div className="card filter-card">
@@ -337,9 +369,17 @@ export default function Masterlist() {
       {showRegister && (
         <RegisterChildModal
           onClose={() => setShowRegister(false)}
-          onRegistered={() => {
+          onRegistered={(child) => {
             setShowRegister(false);
-            load();
+            if (child?._queued) {
+              // Offline: show the synthetic row now; the queue swaps in the
+              // real record on sync and the next load reconciles the list.
+              setExtraChildren((prev) => [child, ...prev]);
+              setRegisterNotice("Registration saved on this device — will sync when you're back online.");
+            } else {
+              setRegisterNotice("");
+              refreshAll();
+            }
           }}
         />
       )}
@@ -348,7 +388,7 @@ export default function Masterlist() {
         <ManageChildModal
           childId={manageChildId}
           onClose={() => setManageChildId(null)}
-          onChanged={load}
+          onChanged={refreshAll}
         />
       )}
     </div>

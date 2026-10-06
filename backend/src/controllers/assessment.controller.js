@@ -6,6 +6,7 @@ const { assertBarangayAccess } = require("../utils/access");
 const { filterSubmittedForRole } = require("../utils/submission");
 const { pickFields } = require("../utils/pickFields");
 const { parseWeight, parseHeight, WEIGHT_RANGE, HEIGHT_RANGE, MAX_AGE_MONTHS } = require("../utils/measurements");
+const { bustAll, touchRevs } = require("../config/redis");
 
 const MEASUREMENT_ERROR =
   `weight must be a number between ${WEIGHT_RANGE.min}-${WEIGHT_RANGE.max} kg and height between ` +
@@ -118,6 +119,9 @@ async function createAssessment(req, res, next) {
       hfa_status,
       wfl_h_status,
     });
+    // Checkups feed reports, the map, and the MNAO-visible masterlist.
+    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await touchRevs([date_measured.slice(0, 7)]);
     res.status(201).json(assessment);
   } catch (err) {
     next(err);
@@ -217,6 +221,8 @@ async function updateAssessment(req, res, next) {
       hfa_status,
       wfl_h_status,
     });
+    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await touchRevs([existing.date_measured?.slice(0, 7), date_measured.slice(0, 7)]);
     res.json(assessment);
   } catch (err) {
     next(err);
@@ -230,6 +236,8 @@ async function deleteAssessment(req, res, next) {
     assertBarangayAccess(req, child);
 
     const assessment = await assessmentModel.softDelete(req.params.id);
+    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await touchRevs([existing.date_measured?.slice(0, 7)]);
     res.json(assessment);
   } catch (err) {
     next(err);

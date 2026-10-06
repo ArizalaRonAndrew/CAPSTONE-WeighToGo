@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   ComposedChart,
@@ -10,8 +10,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api } from "../../api/client";
 import { useBarangays } from "../../hooks/useBarangays";
+import { useRevReport } from "../../hooks/useRevReport";
+import RefreshLine from "../../components/RefreshLine";
 import { currentMonth, addMonths } from "../../utils/month";
 import Dropdown from "../../components/Dropdown";
 
@@ -135,13 +136,22 @@ function BarangayIssueTooltip({ active, payload }) {
   );
 }
 
-function formatMonthLabel(monthString) {
-  const [year, month] = monthString.split("-").map(Number);
+function formatMonthLabel(monthString) {  const [year, month] = monthString.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+function monthsBetween(from, to) {
+  const out = [];
+  let cursor = from;
+  while (cursor <= to) {
+    out.push(cursor);
+    cursor = addMonths(cursor, 1);
+  }
+  return out;
 }
 
 export default function HealthTrends() {
@@ -152,41 +162,26 @@ export default function HealthTrends() {
     () => new Set(STATUS_OPTIONS.wfa),
   );
   const [lineBarangay, setLineBarangay] = useState("");
-  const [trend, setTrend] = useState([]);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const [trendError, setTrendError] = useState("");
-
   const [barMonth, setBarMonth] = useState(currentMonth());
-  const [barData, setBarData] = useState([]);
-  const [barLoading, setBarLoading] = useState(true);
-  const [barError, setBarError] = useState("");
 
-  useEffect(() => {
-    setTrendLoading(true);
-    setTrendError("");
-    const from = addMonths(currentMonth(), -5);
-    const to = currentMonth();
-    const params = new URLSearchParams({ from, to, indicator: lineIndicator });
-    if (lineBarangay) params.set("barangay", lineBarangay);
-    api
-      .get(`/reports/trends?${params.toString()}`)
-      .then(setTrend)
-      .catch((err) => setTrendError(err.message || "Failed to load trend data"))
-      .finally(() => setTrendLoading(false));
-  }, [lineIndicator, lineBarangay]);
+  // Rev-gated: cached snapshots render instantly; the heavy endpoints
+  // refetch only when revision counters moved server-side.
+  const trendFrom = addMonths(currentMonth(), -5);
+  const trendTo = currentMonth();
+  const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: lineIndicator });
+  if (lineBarangay) trendParams.set("barangay", lineBarangay);
+  const trendMonths = useMemo(() => monthsBetween(trendFrom, trendTo), [trendFrom, trendTo]);
+  const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths);
+  // Stabilized so downstream memos don't recompute on every render when
+  // there is no snapshot yet (data null → fresh [] each render otherwise).
+  const trend = useMemo(() => trendQuery.data || [], [trendQuery.data]);
+  const trendLoading = trendQuery.loading;
+  const trendError = trendQuery.error;
 
-  useEffect(() => {
-    setBarLoading(true);
-    setBarError("");
-    const params = new URLSearchParams({ month: barMonth });
-    api
-      .get(`/reports/barangay-comparison?${params.toString()}`)
-      .then((data) => setBarData(data.slice(0, 15)))
-      .catch((err) =>
-        setBarError(err.message || "Failed to load barangay comparison data"),
-      )
-      .finally(() => setBarLoading(false));
-  }, [barMonth]);
+  const barQuery = useRevReport(`/reports/barangay-comparison?month=${barMonth}`, [barMonth]);
+  const barData = (barQuery.data || []).slice(0, 15);
+  const barLoading = barQuery.loading;
+  const barError = barQuery.error;
 
   const barColor = "var(--status-severe-text)";
 
@@ -321,6 +316,8 @@ export default function HealthTrends() {
           })}
         </div>
 
+        <RefreshLine refreshing={trendQuery.refreshing} updatedAt={trendQuery.updatedAt} onRefresh={trendQuery.refresh} />
+
         {trendLoading ? (
           <div className="loading-state">Loading...</div>
         ) : trendError ? (
@@ -423,6 +420,8 @@ export default function HealthTrends() {
             />
           </div>
         </div>
+
+        <RefreshLine refreshing={barQuery.refreshing} updatedAt={barQuery.updatedAt} onRefresh={barQuery.refresh} />
 
         {barLoading ? (
           <div className="loading-state">Loading...</div>

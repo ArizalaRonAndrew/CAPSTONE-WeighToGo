@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useEffect, useMemo, useState } from "react";
 import ManageChildModal from "../components/ManageChildModal";
 import Dropdown from "../components/Dropdown";
+import RefreshLine from "../components/RefreshLine";
+import { useRevReport } from "../hooks/useRevReport";
+import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 
 const PAGE_SIZE = 10;
@@ -47,31 +49,23 @@ function SearchIcon() {
 }
 
 export default function VitaminsDeworming() {
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [manageChildId, setManageChildId] = useState(null);
 
-  function load() {
-    setLoading(true);
-    setError("");
-    api
-      .get("/supplements/due")
-      .then((data) => {
-        const sorted = [...data].sort(
-          (a, b) => (a.child.purok || "").localeCompare(b.child.purok || "") || a.child.name.localeCompare(b.child.name)
-        );
-        setEntries(sorted);
-      })
-      .catch((err) => setError(err.message || "Failed to load due supplements"))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, []);
+  // Rev-gated + day-sensitive: dose windows are age-derived, so a snapshot
+  // from a previous day still renders instantly but always revalidates.
+  const dueQuery = useRevReport("/supplements/due", [currentMonth()], { daySensitive: true });
+  const entries = useMemo(() => {
+    const rows = dueQuery.data || [];
+    return [...rows].sort(
+      (a, b) => (a.child.purok || "").localeCompare(b.child.purok || "") || a.child.name.localeCompare(b.child.name)
+    );
+  }, [dueQuery.data]);
+  const loading = dueQuery.loading;
+  const error = dueQuery.error;
 
   useEffect(() => {
     setPage(1);
@@ -175,11 +169,14 @@ export default function VitaminsDeworming() {
           Showing {filteredEntries.length} of {entries.length} children
         </p>
       )}
+      {!loading && (
+        <RefreshLine refreshing={dueQuery.refreshing} updatedAt={dueQuery.updatedAt} onRefresh={dueQuery.refresh} />
+      )}
 
       {error && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>
           {error}{" "}
-          <button type="button" className="btn btn-sm" onClick={load}>
+          <button type="button" className="btn btn-sm" onClick={dueQuery.refresh}>
             Retry
           </button>
         </div>
@@ -294,7 +291,7 @@ export default function VitaminsDeworming() {
           childId={manageChildId}
           initialTab="vitamins"
           onClose={() => setManageChildId(null)}
-          onChanged={load}
+          onChanged={dueQuery.refresh}
         />
       )}
     </div>

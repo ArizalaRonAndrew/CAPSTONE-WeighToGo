@@ -2,6 +2,7 @@ const childrenModel = require("../models/children.model");
 const assessmentModel = require("../models/assessment.model");
 const supplementModel = require("../models/supplement.model");
 const barangayModel = require("../models/barangay.model");
+const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
 const { pickFields } = require("../utils/pickFields");
@@ -83,6 +84,9 @@ async function createChild(req, res, next) {
       });
     }
     const child = await childrenModel.create({ ...req.body, barangay });
+    // Roster, map counts, and reports all derive from the children table.
+    await bustAll(["children:*", "barangays:*", "reports:*"]);
+    await touchRevs([]);
     res.status(201).json(child);
   } catch (err) {
     next(err);
@@ -117,6 +121,8 @@ async function updateChild(req, res, next) {
       });
     }
     const child = await childrenModel.update(req.params.id, fields);
+    await bustAll(["children:*", "barangays:*", "reports:*"]);
+    await touchRevs([]);
     res.json(child);
   } catch (err) {
     next(err);
@@ -136,6 +142,8 @@ async function deleteChild(req, res, next) {
       assessmentModel.rejectAllForChild(req.params.id),
       supplementModel.rejectAllForChild(req.params.id),
     ]);
+    await bustAll(["children:*", "barangays:*", "reports:*", "assessments:*", "supplements:*"]);
+    await touchRevs([]);
     res.json(child);
   } catch (err) {
     next(err);

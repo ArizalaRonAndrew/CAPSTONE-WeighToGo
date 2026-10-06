@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { api } from "../../api/client";
 import { useBarangays } from "../../hooks/useBarangays";
+import { useRevReport } from "../../hooks/useRevReport";
+import RefreshLine from "../../components/RefreshLine";
 import { currentMonth } from "../../utils/month";
 import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
@@ -61,58 +62,64 @@ export default function AdminMasterlist() {
   const [month, setMonth] = useState(currentMonth());
   const [barangayFilter, setBarangayFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [viewChildId, setViewChildId] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
+
+  // Debounced search: each keystroke must not become a server round trip.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
     setPage(1);
-    const params = new URLSearchParams({ month });
-    if (barangayFilter) params.set("barangay", barangayFilter);
-    if (purokFilter) params.set("purok", purokFilter);
-    api
-      .get(`/reports/monthly-masterlist?${params.toString()}`)
-      .then((data) => {
-        if (!cancelled) setReport(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || "Failed to load the masterlist");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [month, barangayFilter, purokFilter, retryCount]);
+  }, [month, barangayFilter, purokFilter, debouncedSearch]);
 
-  const rows = report?.rows || [];
-  const purokOptions = [...new Set(rows.map((r) => r.purok).filter(Boolean))].sort();
+  // Rev-gated split: KPI summary + one server-paginated page of rows.
+  // Filtering, global sort, and the total resolve in Postgres — the table
+  // transfers 7 rows instead of the month's full row set.
+  const summaryParams = new URLSearchParams({ month });
+  if (barangayFilter) summaryParams.set("barangay", barangayFilter);
+  if (purokFilter) summaryParams.set("purok", purokFilter);
+  const summaryQuery = useRevReport(`/reports/monthly-masterlist/summary?${summaryParams.toString()}`, [month]);
 
-  const filteredRows = rows.filter((row) => {
-    if (search && !row.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (purokFilter && row.purok !== purokFilter) return false;
-    return true;
-  });
+  const rowsParams = new URLSearchParams({ month, page: String(page), pageSize: String(PAGE_SIZE) });
+  if (barangayFilter) rowsParams.set("barangay", barangayFilter);
+  if (purokFilter) rowsParams.set("purok", purokFilter);
+  if (debouncedSearch) rowsParams.set("search", debouncedSearch);
+  const rowsQuery = useRevReport(`/reports/monthly-masterlist/rows?${rowsParams.toString()}`, [month]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
-  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const rangeStart = filteredRows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, filteredRows.length);
+  const summary = summaryQuery.data;
+  const rows = rowsQuery.data?.rows || [];
+  const total = rowsQuery.data?.total ?? 0;
+  const purokOptions = summary?.purokOptions || [];
+  const loading = summaryQuery.loading && rowsQuery.loading;
+  const error = (!summaryQuery.data && summaryQuery.error) || (!rowsQuery.data && rowsQuery.error) || "";
+  const refreshing = summaryQuery.refreshing || rowsQuery.refreshing;
+  const updatedAt = Math.max(summaryQuery.updatedAt || 0, rowsQuery.updatedAt || 0) || null;
+
+  function refreshAll() {
+    summaryQuery.refresh();
+    rowsQuery.refresh();
+  }
+
+  // Rows arrive already filtered, globally sorted, and paged — the table
+  // renders the page as-is.
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageRows = rows;
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   const hasActiveFilters = Boolean(search || purokFilter || barangayFilter);
 
   function clearFilters() {
     setSearch("");
+    setDebouncedSearch("");
     setPurokFilter("");
     setBarangayFilter("");
+    setPage(1);
   }
 
   return (
@@ -131,7 +138,7 @@ export default function AdminMasterlist() {
         {KPI_TILES.map((tile) => (
           <div className="kpi-strip-item" key={tile.key}>
             <div className="kpi-strip-value" style={tile.color ? { color: tile.color } : undefined}>
-              {loading ? "…" : report?.[tile.key] ?? 0}
+              {loading ? "…" : summary?.[tile.key] ?? 0}
             </div>
             <div className="kpi-strip-label">{tile.label}</div>
           </div>
@@ -184,15 +191,21 @@ export default function AdminMasterlist() {
       {error && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>
           {error}{" "}
-          <button type="button" className="btn btn-sm" onClick={() => setRetryCount((c) => c + 1)}>
+          <button type="button" className="btn btn-sm" onClick={refreshAll}>
             Retry
           </button>
         </div>
       )}
 
+      {!loading && (
+        <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
+      )}
+
       {!loading && !error && (
         <p className="results-count">
-          Showing {filteredRows.length} of {rows.length} checkups this month
+          {debouncedSearch
+            ? `${total} match${total === 1 ? "" : "es"} for “${debouncedSearch}”`
+            : `Showing ${total} checkups this month`}
         </p>
       )}
 
@@ -248,16 +261,6 @@ export default function AdminMasterlist() {
                   </td>
                 </tr>
               )}
-              {!loading && rows.length > 0 && filteredRows.length === 0 && (
-                <tr>
-                  <td colSpan={14} className="empty-state">
-                    <div>No children match your filters.</div>
-                    <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
-                      Clear filters
-                    </button>
-                  </td>
-                </tr>
-              )}
               {pageRows.map((row) => (
                 <tr key={row.assessment_id}>
                   <td data-label="Address / Purok">
@@ -297,7 +300,7 @@ export default function AdminMasterlist() {
 
         <div className="pagination-bar">
           <span className="pagination-info">
-            {filteredRows.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${filteredRows.length}`}
+            {total === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
           </span>
           <div className="pagination-controls">
             <button

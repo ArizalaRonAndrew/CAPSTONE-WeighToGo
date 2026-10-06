@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { listEntries, isTmpId } from "../utils/outbox";
+import { getSupplementSchedule } from "../utils/supplementSchedule";
+import { ageInMonths } from "../utils/age";
 
 const STATUS_LABEL = {
   given: "Given",
@@ -70,35 +73,105 @@ function SupplementBlock({ type, doses, onMark, markingKey, readOnly }) {
   );
 }
 
-export default function SupplementTracker({ childId, onChanged, readOnly = false }) {
+export default function SupplementTracker({ childId, childDob, onChanged, readOnly = false }) {
   const [schedule, setSchedule] = useState(null);
+  // Server-computed or locally computed from saved records — shown so field
+  // staff know whether dose states are authoritative or provisional.
+  const [scheduleSource, setScheduleSource] = useState("server");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [markError, setMarkError] = useState("");
+  const [markNotice, setMarkNotice] = useState("");
   const [markingKey, setMarkingKey] = useState(null);
 
-  function load() {
+  async function load() {
     setLoading(true);
     setLoadError("");
-    api
-      .get(`/supplements/schedule?childId=${childId}`)
-      .then((data) => setSchedule(data.schedule))
-      .catch((err) => setLoadError(err.message || "Failed to load the supplement schedule"))
-      .finally(() => setLoading(false));
+    // Placeholder ids don't exist server-side — a brand-new unsynced child
+    // affirmatively has no server records, so build locally from queued
+    // doses only instead of a request that can only fail.
+    if (isTmpId(childId)) {
+      try {
+        if (!childDob) throw new Error("Birthdate missing for this registration.");
+        const queued = await listEntries();
+        const pending = queued
+          .filter((e) => e.method === "POST" && e.path.split("?")[0] === "/supplements" && String(e.body?.child_id) === String(childId))
+          .map((e) => ({ supplement_type: e.body.supplement_type, dose_order: e.body.dose_order, _queued: true }));
+        setSchedule(getSupplementSchedule(ageInMonths(childDob), pending));
+        setScheduleSource("local");
+      } catch (err) {
+        setLoadError(err.message || "Failed to load the supplement schedule");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    const hadData = schedule !== null;
+    try {
+      const data = await api.get(`/supplements/schedule?childId=${childId}`);
+      setSchedule(data.schedule);
+      setScheduleSource("server");
+      // Prime the raw-records cache in the background so the offline
+      // fallback below has affirmative data to build from later.
+      api.get(`/supplements?childId=${childId}`).catch(() => {});
+    } catch (err) {
+      if (!err.network) {
+        setLoadError(err.message || "Failed to load the supplement schedule");
+      } else {
+        // Offline fallback: rebuild the identical schedule locally from the
+        // child's saved records. Refuses to fabricate — without affirmative
+        // record data (or the birthdate it keys off), it errors instead of
+        // showing every dose as due and inviting double-recording.
+        try {
+          await loadOffline();
+        } catch (offlineErr) {
+          if (!hadData) setLoadError(offlineErr.message);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(load, [childId]);
+  async function loadOffline() {
+    if (!childDob) {
+      throw new Error("You're offline and this child's birthdate isn't saved here yet. Open this profile once online first.");
+    }
+    const records = await api.get(`/supplements?childId=${childId}`);
+    if (!Array.isArray(records)) {
+      throw new Error("You're offline and there's no saved supplement history for this child yet.");
+    }
+    // api.get throws (not returns null) when nothing is cached, so reaching
+    // here means the server affirmed this record set — including empty.
+    const queued = await listEntries();
+    const pending = queued
+      .filter((e) => e.method === "POST" && e.path.split("?")[0] === "/supplements" && String(e.body?.child_id) === String(childId))
+      .map((e) => ({ supplement_type: e.body.supplement_type, dose_order: e.body.dose_order, _queued: true }));
+    setSchedule(getSupplementSchedule(ageInMonths(childDob), [...records, ...pending]));
+    setScheduleSource("local");
+  }
+
+  // load reads `schedule` only to decide whether an offline failure deserves
+  // an error banner — it must not re-run when schedule changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load();
+  }, [childId]);
 
   async function handleMark(dose) {
     const key = `${dose.supplement_type}-${dose.dose_order}`;
     setMarkingKey(key);
     setMarkError("");
+    setMarkNotice("");
     try {
-      await api.post("/supplements", {
+      const result = await api.post("/supplements", {
         child_id: childId,
         supplement_type: dose.supplement_type,
         dose_order: dose.dose_order,
       });
+      if (result?._queued) {
+        setMarkNotice("Dose saved on this device — will sync when you're back online.");
+      }
       load();
       onChanged?.();
     } catch (err) {
@@ -121,9 +194,20 @@ export default function SupplementTracker({ childId, onChanged, readOnly = false
   }
   if (!schedule) return null;
 
+  const queuedCount = Object.values(schedule)
+    .flat()
+    .filter((d) => d._queued).length;
+
   return (
     <div>
       {markError && <p className="error-text">{markError}</p>}
+      {markNotice && <div className="banner banner-success">{markNotice}</div>}
+      {scheduleSource === "local" && (
+        <p style={{ fontSize: 12.5, color: "var(--color-text-muted)", margin: "0 0 10px" }}>
+          Computed offline from this device&apos;s saved records.
+          {queuedCount > 0 && ` Includes ${queuedCount} dose${queuedCount === 1 ? "" : "s"} waiting to sync.`}
+        </p>
+      )}
       <div className="supplement-grid">
         {Object.entries(schedule).map(([type, doses]) => (
           <SupplementBlock

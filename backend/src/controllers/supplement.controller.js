@@ -4,6 +4,7 @@ const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { getDueSupplements, getComplianceStatus, getSupplementSchedule } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { pickFields } = require("../utils/pickFields");
+const { bustAll, touchRevs } = require("../config/redis");
 
 // child_id is deliberately excluded — same reasoning as assessments: it must
 // never be reassignable through an update, since that bypasses the
@@ -149,6 +150,9 @@ async function createSupplement(req, res, next) {
       age_in_months,
       date_administered: effectiveDate,
     });
+    // Due/compliance/schedule lists and the vitamin report derive from this.
+    await bustAll(["supplements:*", "reports:*"]);
+    await touchRevs([effectiveDate.slice(0, 7)]);
     res.status(201).json(supplement);
   } catch (err) {
     next(err);
@@ -163,6 +167,8 @@ async function updateSupplement(req, res, next) {
 
     const fields = pickFields(req.body, SUPPLEMENT_UPDATE_FIELDS);
     const supplement = await supplementModel.update(req.params.id, fields);
+    await bustAll(["supplements:*", "reports:*"]);
+    await touchRevs([existing.date_administered?.slice(0, 7), supplement.date_administered?.slice(0, 7)]);
     res.json(supplement);
   } catch (err) {
     next(err);
@@ -176,6 +182,8 @@ async function deleteSupplement(req, res, next) {
     assertBarangayAccess(req, child);
 
     const supplement = await supplementModel.softDelete(req.params.id);
+    await bustAll(["supplements:*", "reports:*"]);
+    await touchRevs([existing.date_administered?.slice(0, 7)]);
     res.json(supplement);
   } catch (err) {
     next(err);

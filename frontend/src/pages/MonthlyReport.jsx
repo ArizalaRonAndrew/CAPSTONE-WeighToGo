@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useRevReport } from "../hooks/useRevReport";
+import RefreshLine from "../components/RefreshLine";
 import { currentMonth, monthLabel } from "../utils/month";
 import { colorVarForStatus } from "../utils/statusGroups";
 import { formatNameForTable } from "../utils/name";
@@ -88,43 +90,44 @@ const PAGE_SIZE = 10;
 
 export default function MonthlyReport() {
   const [month, setMonth] = useState(currentMonth());
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [submission, setSubmission] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [page, setPage] = useState(1);
 
-  function load() {
-    setLoading(true);
-    setError("");
-    setPage(1);
-    Promise.allSettled([
-      api.get(`/reports/monthly-masterlist?month=${month}`),
-      api.get(`/reports/submission-status?month=${month}`),
-    ])
-      .then(([reportResult, submissionResult]) => {
-        if (reportResult.status === "fulfilled") {
-          setReport(reportResult.value);
-        } else {
-          setError(reportResult.reason?.message || "Failed to load report data");
-        }
-        setSubmission(submissionResult.status === "fulfilled" ? submissionResult.value : null);
-      })
-      .finally(() => setLoading(false));
+  // Rev-gated: snapshots render instantly; the heavy payloads refetch only
+  // when revision counters moved server-side.
+  const masterlistQuery = useRevReport(`/reports/monthly-masterlist?month=${month}`, [month]);
+  const submissionQuery = useRevReport(`/reports/submission-status?month=${month}`, [month]);
+  const report = masterlistQuery.data;
+  const submission = submissionQuery.data;
+  const loading = masterlistQuery.loading && submissionQuery.loading;
+  const error = (!masterlistQuery.data && masterlistQuery.error) || "";
+  const refreshing = masterlistQuery.refreshing || submissionQuery.refreshing;
+  const updatedAt = Math.max(masterlistQuery.updatedAt || 0, submissionQuery.updatedAt || 0) || null;
+
+  function refreshAll() {
+    masterlistQuery.refresh();
+    submissionQuery.refresh();
   }
 
-  useEffect(load, [month]);
+  useEffect(() => {
+    setPage(1);
+  }, [month]);
 
   async function handleSubmit() {
-    setError("");
+    setSubmitError("");
+    setSubmitNotice("");
     setSubmitting(true);
     try {
-      await api.post("/reports/submit", { month });
-      const submissionData = await api.get(`/reports/submission-status?month=${month}`);
-      setSubmission(submissionData);
+      const result = await api.post("/reports/submit", { month });
+      if (result?._queued) {
+        setSubmitNotice("Submit saved on this device — will send when you're back online.");
+      } else {
+        submissionQuery.refresh();
+      }
     } catch (err) {
-      setError(err.message || "Failed to submit report");
+      setSubmitError(err.message || "Failed to submit report");
     } finally {
       setSubmitting(false);
     }
@@ -172,6 +175,16 @@ export default function MonthlyReport() {
           {error}
         </p>
       )}
+      {submitError && (
+        <p className="error-text" style={{ marginBottom: 12 }}>
+          {submitError}
+        </p>
+      )}
+      {submitNotice && (
+        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+          {submitNotice}
+        </div>
+      )}
 
       {submission?.submitted && (
         <div className="banner banner-success" style={{ marginBottom: 20 }}>
@@ -181,9 +194,13 @@ export default function MonthlyReport() {
       )}
       {submission && !submission.submitted && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>
-          ⚠ Not yet submitted — the admin cannot see this barangay's {monthLabel(month)} checkup data until you
+          ⚠ Not yet submitted — the admin cannot see this barangay&apos;s {monthLabel(month)} checkup data until you
           submit.
         </div>
+      )}
+
+      {!loading && (
+        <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
       )}
 
       <div className="indicator-grid">

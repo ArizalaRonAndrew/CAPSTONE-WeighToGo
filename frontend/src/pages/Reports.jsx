@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useState } from "react";
 import { useBarangays } from "../hooks/useBarangays";
+import { useRevReport } from "../hooks/useRevReport";
+import RefreshLine from "../components/RefreshLine";
 import { currentMonth, monthLabel } from "../utils/month";
 import Dropdown from "../components/Dropdown";
 
@@ -171,21 +172,14 @@ export default function Reports() {
 
   const [month, setMonth] = useState(currentMonth());
   const [barangay, setBarangay] = useState("");
-  const [growth, setGrowth] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  function load() {
-    setLoading(true);
-    const params = new URLSearchParams({ month });
-    if (barangay) params.set("barangay", barangay);
-
-    api
-      .get(`/reports/growth-summary?${params.toString()}`)
-      .then(setGrowth)
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, [month, barangay]);
+  // Rev-gated: snapshot renders instantly; the summary refetches only when
+  // revision counters moved server-side.
+  const params = new URLSearchParams({ month });
+  if (barangay) params.set("barangay", barangay);
+  const growthQuery = useRevReport(`/reports/growth-summary?${params.toString()}`, [month]);
+  const growth = growthQuery.data;
+  const loading = growthQuery.loading;
 
   return (
     <div className="reports-page">
@@ -209,6 +203,10 @@ export default function Reports() {
       </div>
 
       {loading && <div className="loading-state">Loading...</div>}
+
+      {!loading && (
+        <RefreshLine refreshing={growthQuery.refreshing} updatedAt={growthQuery.updatedAt} onRefresh={growthQuery.refresh} />
+      )}
 
       {!loading && growth && <GrowthSummaryReport summary={growth} />}
     </div>

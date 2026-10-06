@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -10,6 +10,19 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isOffline, setIsOffline] = useState(
+    () => typeof navigator !== "undefined" && navigator.onLine === false
+  );
+
+  useEffect(() => {
+    const update = () => setIsOffline(navigator.onLine === false);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -30,6 +43,11 @@ export default function Login() {
       <form className="login-card" onSubmit={handleSubmit}>
         <h1>WeighToGo</h1>
         <p className="subtitle">Balayan Municipal Nutrition Program</p>
+        {isOffline && (
+          <div className="banner banner-warning" style={{ marginBottom: 16 }}>
+            You&apos;re offline — connect to the internet to log in.
+          </div>
+        )}
         <div className="form-grid">
           <div className="field">
             <label htmlFor="email">Email</label>

@@ -27,17 +27,19 @@
 
   /* Barangay Map public-health-significance tiers (WHO / de Onis et al. 2018
      5-tier scale). Distinct from the --status-* tokens above, which encode a
-     single child's growth status, not population prevalence severity. */
-  --severity-very-low-bg: #e4f2e8;
-  --severity-very-low-text: #16803c;
-  --severity-low-bg: #e2f1f3;
-  --severity-low-text: #007c91;
-  --severity-medium-bg: #f7eed8;
-  --severity-medium-text: #9a6b00;
-  --severity-high-bg: #fbe8dc;
-  --severity-high-text: #c34c00;
-  --severity-very-high-bg: #f8e5e3;
-  --severity-very-high-text: #b42318;
+     single child's growth status, not population prevalence severity.
+     Vivid heat scale — green → blue → gold → orange → red — so adjacent
+     tiers stay distinguishable at small pin sizes on busy map tiles. */
+  --severity-very-low-bg: #dcfce7;
+  --severity-very-low-text: #15803d;
+  --severity-low-bg: #e0f2fe;
+  --severity-low-text: #0369a1;
+  --severity-medium-bg: #fef3c7;
+  --severity-medium-text: #a16207;
+  --severity-high-bg: #ffedd5;
+  --severity-high-text: #c2410c;
+  --severity-very-high-bg: #fee2e2;
+  --severity-very-high-text: #b91c1c;
 
   --shadow-sm: 0 1px 2px rgba(16, 24, 20, 0.05);
   --shadow-md: 0 6px 16px rgba(16, 24, 20, 0.1);
@@ -1531,6 +1533,13 @@ tr.clickable:hover {
   font-style: italic;
 }
 
+.computed-status-local {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
 .computed-status-row {
   display: flex;
   justify-content: space-around;
@@ -2602,11 +2611,16 @@ tr.clickable:hover {
 }
 
 .map-legend-dot {
-  width: 11px;
-  height: 11px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
+  margin: 3px;
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 3.5px currentColor,
+    0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .barangay-pin-wrap {
@@ -2615,8 +2629,52 @@ tr.clickable:hover {
 }
 
 .barangay-pin {
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
   cursor: pointer;
+}
+
+/* White halo around the teardrop so the fill reads crisply on any tile. */
+.barangay-pin svg path {
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  paint-order: stroke;
+}
+
+/* Pin size grows with severity — reinforces the color scale and stays
+   readable for colorblind users. Scoped to map pins only (legend swatches
+   reuse the bare .barangay-pin-* color classes). Tip-anchored via
+   transform-origin so Leaflet's marker position stays exact. */
+.barangay-pin-wrap .barangay-pin-very-low {
+  transform: scale(0.92);
+  transform-origin: 50% 100%;
+}
+
+.barangay-pin-wrap .barangay-pin-low {
+  transform: scale(0.96);
+  transform-origin: 50% 100%;
+}
+
+.barangay-pin-wrap .barangay-pin-medium {
+  transform: scale(1);
+  transform-origin: 50% 100%;
+}
+
+.barangay-pin-wrap .barangay-pin-high {
+  transform: scale(1.08);
+  transform-origin: 50% 100%;
+}
+
+.barangay-pin-wrap .barangay-pin-very-high {
+  transform: scale(1.16);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 0 7px rgba(185, 28, 28, 0.65));
+}
+
+.barangay-pin-wrap .barangay-pin-no-data {
+  transform: scale(0.88);
+  transform-origin: 50% 100%;
+  opacity: 0.85;
 }
 
 .barangay-pin-very-low {

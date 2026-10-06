@@ -1,0 +1,137 @@
+/* Offline sync queue: floating badge + panel list. */
+
+.sync-badge {
+  position: fixed;
+  z-index: 55;
+  left: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--color-primary-500);
+  background: var(--color-primary-700);
+  color: #fff;
+  border-radius: 999px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.sync-badge:hover {
+  background: var(--color-primary-600);
+}
+
+.sync-badge-attention {
+  background: var(--status-mild-bg);
+  border-color: var(--status-mild-text);
+  color: var(--status-mild-text);
+}
+
+.sync-badge-attention:hover {
+  background: var(--status-mild-bg);
+}
+
+.outbox-last-sync {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.outbox-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.outbox-item {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--color-bg);
+}
+
+.outbox-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.outbox-item-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.outbox-item-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.outbox-item-error {
+  font-size: 12.5px;
+  color: var(--status-severe-text);
+  margin-top: 6px;
+}
+
+.outbox-item-note {
+  font-size: 12.5px;
+  color: var(--status-normal-text);
+  margin-top: 6px;
+}
+
+.outbox-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.outbox-status-pending,
+.outbox-status-blocked,
+.outbox-status-syncing {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+}
+
+.outbox-status-failed {
+  background: var(--status-severe-bg);
+  color: var(--status-severe-text);
+}
+
+.outbox-status-conflicted {
+  background: var(--status-mild-bg);
+  color: var(--status-mild-text);
+}
+
+.outbox-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .sync-badge {
+    left: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .outbox-item {
+    flex-direction: column;
+  }
+
+  .outbox-item-side {
+    align-items: flex-start;
+    width: 100%;
+  }
+}

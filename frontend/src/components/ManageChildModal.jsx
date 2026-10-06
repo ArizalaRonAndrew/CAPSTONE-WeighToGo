@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
+import { isTmpId, getOfflineChildBundle } from "../utils/outbox";
 import { ageInMonths } from "../utils/age";
 import { currentMonth, todayInManila } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
 import { sanitizeDecimalInput } from "../utils/decimal";
+import { classifyNutritionStatusLocal } from "../utils/nutritionStatus";
 import StatusBadge from "./StatusBadge";
 import SupplementTracker from "./SupplementTracker";
 
@@ -114,31 +116,63 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const [editForm, setEditForm] = useState(null);
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoError, setInfoError] = useState("");
+  const [infoNotice, setInfoNotice] = useState("");
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
 
   const [assessments, setAssessments] = useState([]);
   const [assessmentForm, setAssessmentForm] = useState({ weight: "", height: "" });
   const [assessmentError, setAssessmentError] = useState("");
+  const [assessmentNotice, setAssessmentNotice] = useState("");
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   function loadChild() {
     setLoadError("");
+    // Placeholder ids (unsynced registrations) don't exist server-side —
+    // resolve from the offline queue instead of a request that can only 500.
+    if (isTmpId(childId)) {
+      getOfflineChildBundle(childId).then((bundle) => {
+        if (bundle) {
+          setChild(bundle.child);
+          setEditForm(bundle.child);
+        } else {
+          setLoadError("This registration hasn't synced yet and isn't saved on this device.");
+        }
+      });
+      return;
+    }
+    const hadData = child !== null;
     api
       .get(`/children/${childId}`)
       .then((data) => {
         setChild(data);
         setEditForm(data);
       })
-      .catch((err) => setLoadError(err.message || "Failed to load this child's record."));
+      // Offline with a loaded record is normal (banner explains) — only
+      // complain when there is nothing to show at all.
+      .catch((err) => {
+        if (!err.network || !hadData) setLoadError(err.message || "Failed to load this child's record.");
+      });
   }
 
   function loadAssessments() {
     setAssessmentsError("");
+    if (isTmpId(childId)) {
+      getOfflineChildBundle(childId).then((bundle) => {
+        setAssessments(bundle?.assessments || []);
+      });
+      return;
+    }
+    const hadData = assessments.length > 0;
     api
       .get(`/assessments?childId=${childId}`)
       .then(setAssessments)
-      .catch((err) => setAssessmentsError(err.message || "Failed to load checkup history."));
+      .catch((err) => {
+        if (!err.network || !hadData) setAssessmentsError(err.message || "Failed to load checkup history.");
+      });
   }
 
   useEffect(() => {
@@ -163,12 +197,28 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
       api
         .post("/assessments/preview", { child_id: childId, weight, height })
         .then(setPreview)
-        .catch(() => setPreview(null))
+        .catch((err) => {
+          // Offline: compute on-device from the mirrored WHO tables instead
+          // of leaving the preview blank. Proven identical to the server by
+          // the offline-status equivalence test.
+          if (err.network && child?.dob) {
+            const local = classifyNutritionStatusLocal({
+              sex: child.gender,
+              dob: child.dob,
+              dateMeasured: todayInManila(),
+              weightKg: weight,
+              heightCm: height,
+            });
+            setPreview(local ? { ...local, _local: true } : null);
+          } else {
+            setPreview(null);
+          }
+        })
         .finally(() => setPreviewLoading(false));
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [assessmentForm.weight, assessmentForm.height, childId]);
+  }, [assessmentForm.weight, assessmentForm.height, childId, child]);
 
   if (!child) {
     return (
@@ -198,22 +248,34 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   async function handleSaveInfo(e) {
     e.preventDefault();
     setInfoError("");
+    setInfoNotice("");
     if (editForm.parent_contact && !isValidPhContact(editForm.parent_contact)) {
       setInfoError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
       return;
     }
     setSavingInfo(true);
     try {
-      const updated = await api.patch(`/children/${childId}`, {
-        name: editForm.name,
-        parent_name: editForm.parent_name,
-        parent_contact: editForm.parent_contact,
-        purok: editForm.purok,
-        gender: editForm.gender,
-        is_ip: editForm.is_ip,
-      });
-      setChild(updated);
-      setEditing(false);
+      const updated = await api.patch(
+        `/children/${childId}`,
+        {
+          name: editForm.name,
+          parent_name: editForm.parent_name,
+          parent_contact: editForm.parent_contact,
+          purok: editForm.purok,
+          gender: editForm.gender,
+          is_ip: editForm.is_ip,
+        },
+        { baseRev: child?.updated_at }
+      );
+      if (updated?._queued) {
+        // Offline: reflect the edit locally; the queue sends it on reconnect.
+        setChild({ ...child, ...editForm });
+        setEditing(false);
+        setInfoNotice("Saved on this device — will sync when you're back online.");
+      } else {
+        setChild(updated);
+        setEditing(false);
+      }
       onChanged?.();
     } catch (err) {
       setInfoError(err.message);
@@ -222,18 +284,37 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     }
   }
 
+  async function handleRemoveChild() {
+    setRemoveError("");
+    setRemoving(true);
+    try {
+      await api.delete(`/children/${childId}`);
+      onChanged?.();
+      onClose?.();
+    } catch (err) {
+      setRemoveError(err.message || "Failed to remove this registration. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   async function handleAddAssessment(e) {
     e.preventDefault();
     setAssessmentError("");
+    setAssessmentNotice("");
     setSavingAssessment(true);
     try {
-      await api.post("/assessments", {
+      const result = await api.post("/assessments", {
         child_id: childId,
         date_measured: todayInManila(),
         weight: Number(assessmentForm.weight),
         height: Number(assessmentForm.height),
       });
-      setAssessmentForm({ weight: "", height: "" });
+      if (result?._queued) {
+        setAssessmentNotice("Checkup saved on this device — will sync when you're back online.");
+      } else {
+        setAssessmentForm({ weight: "", height: "" });
+      }
       loadAssessments();
       onChanged?.();
     } catch (err) {
@@ -287,6 +368,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
         <div className="tab-content">
           {tab === "info" && !editing && (
             <div>
+              {infoNotice && <div className="banner banner-success">{infoNotice}</div>}
               <div className="section-title" style={{ marginTop: 0 }}>
                 Birth & Location
               </div>
@@ -388,21 +470,64 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                   Indigenous Person (IP)
                 </label>
               </div>
-              {infoError && <p className="error-text">{infoError}</p>}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setEditForm(child);
-                    setEditing(false);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button className="btn" type="submit" disabled={savingInfo}>
-                  {savingInfo ? "Saving..." : "Save Changes"}
-                </button>
+              {infoError && <p className="error-text" style={{ gridColumn: "1 / -1", margin: 0 }}>{infoError}</p>}
+              {removeError && <p className="error-text" style={{ gridColumn: "1 / -1", margin: 0 }}>{removeError}</p>}
+              {confirmingRemove && (
+                <div className="banner banner-warning" style={{ gridColumn: "1 / -1" }}>
+                  Remove {child.name}&apos;s registration? Their checkups and supplement records will also be removed.
+                  This cannot be undone.
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", gridColumn: "1 / -1" }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={removing}
+                    onClick={() => {
+                      setEditForm(child);
+                      setEditing(false);
+                      setConfirmingRemove(false);
+                      setRemoveError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  {!confirmingRemove && (
+                    <button className="btn" type="submit" disabled={savingInfo || removing}>
+                      {savingInfo ? "Saving..." : "Save Changes"}
+                    </button>
+                  )}
+                </div>
+                {!confirmingRemove ? (
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={savingInfo || removing}
+                    onClick={() => setConfirmingRemove(true)}
+                  >
+                    Remove Child Registration
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={removing}
+                      onClick={() => setConfirmingRemove(false)}
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      disabled={removing}
+                      onClick={handleRemoveChild}
+                    >
+                      {removing ? "Removing..." : "Confirm Remove"}
+                    </button>
+                  </div>
+                )}
               </div>
             </form>
           )}
@@ -412,7 +537,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
               <div className="section-title" style={{ marginTop: 0 }}>
                 Vitamin A &amp; Deworming Compliance
               </div>
-              <SupplementTracker childId={childId} onChanged={onChanged} readOnly={readOnly} />
+              <SupplementTracker childId={childId} childDob={child?.dob} onChanged={onChanged} readOnly={readOnly} />
             </div>
           )}
 
@@ -472,6 +597,9 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                     Computed Nutritional Status
                     {previewLoading && <span className="computed-status-loading"> · computing…</span>}
                   </div>
+                  {preview?._local && (
+                    <div className="computed-status-local">Computed on this device — no internet needed.</div>
+                  )}
                   <div className="computed-status-row">
                     <div className="computed-status-item">
                       <div className="computed-status-label">WFA</div>
@@ -495,6 +623,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 </div>
 
                     {assessmentError && <p className="error-text">{assessmentError}</p>}
+                    {assessmentNotice && <div className="banner banner-success">{assessmentNotice}</div>}
                     <button className="btn btn-block" type="submit" disabled={savingAssessment}>
                       {savingAssessment ? "Saving..." : "Save Monthly Assessment"}
                     </button>
