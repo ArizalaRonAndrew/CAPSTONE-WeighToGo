@@ -23,7 +23,11 @@ function signToken(user) {
 function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax",
+    // Split-domain deploys (e.g. Vercel frontend + Render backend) are
+    // cross-site, so the session cookie needs SameSite=None (with Secure,
+    // already on in production) to be sent on fetch requests. Same-domain
+    // or same-parent-domain deploys keep the stricter Lax default.
+    sameSite: process.env.COOKIE_SAMESITE || "lax",
     secure: process.env.NODE_ENV === "production",
   };
 }
