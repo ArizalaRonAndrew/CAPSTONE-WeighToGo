@@ -1,5 +1,5 @@
 const { Router } = require("express");
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const {
   listUsers,
   getUser,
@@ -29,7 +29,7 @@ const router = Router();
 const loginAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
-  keyGenerator: (req) => `login:${String(req.body?.email || "").toLowerCase().trim() || req.ip}`,
+  keyGenerator: (req) => `login:${String(req.body?.email || "").toLowerCase().trim() || ipKeyGenerator(req.ip)}`,
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
