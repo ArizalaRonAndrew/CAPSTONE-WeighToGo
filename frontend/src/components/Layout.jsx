@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import InstallBanner from "./InstallBanner";
 
 function MenuIcon() {
   return (
@@ -32,6 +33,8 @@ export default function Layout() {
       <main className="main-content">
         <Outlet />
       </main>
+
+      <InstallBanner />
     </div>
   );
 }

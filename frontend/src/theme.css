@@ -1073,6 +1073,37 @@ tr.clickable:hover {
   margin-bottom: 24px;
 }
 
+.password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrap .input {
+  width: 100%;
+  padding-right: 40px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
 .form-grid {
   display: grid;
   gap: 14px;
