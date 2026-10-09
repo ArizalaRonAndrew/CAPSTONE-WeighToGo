@@ -8,7 +8,7 @@ const { isValidPhContact } = require("../utils/phone");
 const { pickFields } = require("../utils/pickFields");
 
 const CHILD_UPDATE_FIELDS = ["name", "dob", "parent_name", "parent_contact", "barangay", "purok", "gender", "is_ip"];
-const REQUIRED_CHILD_FIELDS = ["name", "dob", "parent_name", "barangay", "purok", "gender"];
+const REQUIRED_CHILD_FIELDS = ["name", "dob", "parent_name", "parent_contact", "barangay", "purok", "gender"];
 
 // A typo'd or since-renamed barangay silently drops a child out of the
 // Barangay Map and every barangay-scoped report (they just don't match any
@@ -65,20 +65,20 @@ async function getChild(req, res, next) {
 
 async function createChild(req, res, next) {
   try {
-    const { name, dob, parent_name, purok, gender } = req.body;
+    const { name, dob, parent_name, parent_contact, purok, gender } = req.body;
     let { barangay } = req.body;
     if (req.user.role === "BNS") {
       barangay = req.user.assigned_barangay;
     }
-    if (!name || !dob || !parent_name || !barangay || !purok || !gender) {
+    if (!name || !dob || !parent_name || !parent_contact || !barangay || !purok || !gender) {
       return res.status(400).json({
-        error: "name, dob, parent_name, barangay, purok, and gender are required",
+        error: "name, dob, parent_name, parent_contact, barangay, purok, and gender are required",
       });
     }
     if (!isValidBarangay(barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
     }
-    if (req.body.parent_contact && !isValidPhContact(req.body.parent_contact)) {
+    if (!isValidPhContact(parent_contact)) {
       return res.status(400).json({
         error: "parent_contact must be an 11-digit mobile number starting with 09",
       });
@@ -115,7 +115,7 @@ async function updateChild(req, res, next) {
     if (fields.barangay && !isValidBarangay(fields.barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
     }
-    if (fields.parent_contact && !isValidPhContact(fields.parent_contact)) {
+    if ("parent_contact" in fields && !isValidPhContact(fields.parent_contact)) {
       return res.status(400).json({
         error: "parent_contact must be an 11-digit mobile number starting with 09",
       });

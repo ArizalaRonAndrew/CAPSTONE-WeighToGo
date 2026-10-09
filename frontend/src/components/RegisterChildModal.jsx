@@ -36,7 +36,11 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
       setError("First name and last name are required.");
       return;
     }
-    if (form.parent_contact && !isValidPhContact(form.parent_contact)) {
+    if (!form.parent_contact) {
+      setError("Contact number is required.");
+      return;
+    }
+    if (!isValidPhContact(form.parent_contact)) {
       setError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
       return;
     }
@@ -136,7 +140,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 />
               </div>
               <div className="field">
-                <label>Contact Number</label>
+                <label className="required">Contact Number</label>
                 <input
                   className="input"
                   type="tel"
@@ -145,6 +149,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                   placeholder="09XXXXXXXXX"
                   value={form.parent_contact}
                   onChange={(e) => update("parent_contact", sanitizePhoneInput(e.target.value))}
+                  required
                 />
               </div>
             </div>
