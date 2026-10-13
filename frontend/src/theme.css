@@ -234,6 +234,25 @@ h4 {
   background: rgba(255, 255, 255, 0.12);
   color: var(--color-primary-200);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar-brand-mark-img {
+  background: #fff;
+  padding: 0;
+}
+
+.sidebar-brand-mark-img .app-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.app-logo {
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #fff;
 }
 
 .sidebar-user {
@@ -1041,38 +1060,484 @@ tr.clickable:hover {
   font-weight: 700;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Split-card login (see pages/Login.jsx) — reference LoginReference /
+   login.jpg mock: gray page, white rounded card, green brand panel with a
+   circular curve on the left, white form panel with corner accents. */
 .login-page {
   min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    160deg,
-    var(--color-primary-700),
-    var(--color-primary-900)
-  );
+  padding: 16px;
+  background: #4b5563;
+  font-family: var(--sans);
 }
 
-.login-card {
+.login-split {
+  display: flex;
+  flex-direction: row;
   width: 100%;
-  max-width: 380px;
-  background: var(--color-surface);
-  border-radius: 16px;
+  max-width: 896px;
+  height: 500px;
+  max-height: calc(100svh - 32px);
+  background: #fff;
+  border-radius: 32px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.login-brand {
+  position: relative;
+  width: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-primary-600);
+  min-height: 0;
+}
+
+/* Large curved background shape — circle(75% at 0% 50%) like the reference. */
+.login-brand-curve {
+  position: absolute;
+  inset: 0;
+  background: var(--color-primary-500);
+  clip-path: circle(75% at 0% 50%);
+}
+
+.login-brand-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Logo — white ring holding our WeighToGo logo. */
+.login-logo-ring {
+  width: 96px;
+  height: 96px;
+  background: #fff;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  padding: 6px;
+  overflow: hidden;
+}
+
+.login-logo-ring .login-logo-img {
+  border-radius: 999px;
+}
+
+.login-brand-title {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+/* Right Panel - Login Form side with corner accents. */
+.login-form-side {
+  position: relative;
+  width: 50%;
+  flex-shrink: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 32px;
-  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  min-height: 0;
 }
 
-.login-card h1 {
-  color: var(--color-primary-700);
-  font-size: 22px;
+.login-accent {
+  position: absolute;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.login-accent-tr {
+  top: 0;
+  right: 0;
+  width: 128px;
+  height: 128px;
+  background: linear-gradient(to bottom left, var(--color-primary-600), var(--color-primary-400));
+  border-bottom-left-radius: 100%;
+}
+
+.login-accent-bl {
+  bottom: 0;
+  left: 0;
+  width: 96px;
+  height: 96px;
+  background: linear-gradient(to top right, var(--color-primary-600), var(--color-primary-400));
+  border-top-right-radius: 100%;
+}
+
+.login-form {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.login-welcome {
+  margin: 0 0 28px;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-primary-600);
   text-align: center;
 }
 
-.login-card .subtitle {
-  text-align: center;
+.login-fields {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.login-pill {
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary-100);
+  padding: 12px 24px;
+  font-size: 14px;
+  min-width: 0;
+  width: 100%;
+  color: var(--color-text);
+}
+
+.login-pill::placeholder {
+  color: var(--color-primary-400);
+}
+
+.login-pill:focus {
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--color-primary-600);
+}
+
+.login-form .password-wrap .input {
+  padding-right: 46px;
+}
+
+.login-form .password-toggle {
+  right: 8px;
+  border-radius: 999px;
   color: var(--color-text-muted);
+}
+
+.login-form .password-toggle:hover {
+  background: rgba(40, 90, 72, 0.1);
+  color: var(--color-primary-600);
+}
+
+/* Fixed-reservation error slot so the card never changes shape. */
+.login-error {
+  margin: 10px 0 0;
+  min-height: 20px;
+  text-align: center;
+  width: 100%;
   font-size: 13px;
-  margin-bottom: 24px;
+}
+
+.login-offline-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  font-size: 12.5px;
+  z-index: 2;
+}
+
+.login-privacy-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0 4px;
+}
+
+.login-privacy-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary-600);
+  border: 2px solid var(--color-primary-600);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.login-privacy-row label {
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.login-submit {
+  margin-top: 14px;
+  width: 210px;
+  min-width: 210px;
+  padding: 10px 20px;
+  text-align: center;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary-500);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(52, 113, 90, 0.35);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  box-shadow: 0 6px 16px rgba(52, 113, 90, 0.45);
+}
+
+.login-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Privacy Policy overlay — covers the login until the checkbox is ticked. */
+.login-privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(17, 24, 20, 0.62);
+  animation: login-overlay-in 0.18s ease;
+}
+
+@keyframes login-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.login-privacy-card {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100svh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 20px;
+  padding: 26px 26px 22px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+.login-privacy-card h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary-600);
+  text-align: center;
+}
+
+.login-privacy-card .login-privacy-sub {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.login-privacy-body {
+  min-height: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  scrollbar-width: thin;
+}
+
+.login-privacy-body p {
+  margin: 0 0 10px;
+}
+
+.login-privacy-body p:last-child {
+  margin-bottom: 0;
+}
+
+.login-privacy-card .login-privacy-check {
+  margin-top: 14px;
+  flex-shrink: 0;
+}
+
+.login-privacy-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+  line-height: 1.55;
+  font-size: 13.5px;
+  color: var(--color-text);
+}
+
+.login-privacy-check input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary-600);
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .login-page {
+    align-items: flex-start;
+    padding: 20px 12px;
+  }
+
+  .login-split {
+    flex-direction: column;
+    max-width: 420px;
+    height: auto;
+    max-height: none;
+    margin: auto;
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  .login-brand {
+    width: 100%;
+    min-height: 230px;
+    padding: 34px 24px 46px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+  }
+
+  .login-logo-ring {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 12px;
+  }
+
+  .login-brand-title {
+    font-size: 30px;
+  }
+
+  .login-form-side {
+    width: 100%;
+    padding: 30px 22px 32px;
+    overflow: hidden;
+  }
+
+  .login-accent-tr {
+    width: 96px;
+    height: 96px;
+  }
+
+  .login-accent-bl {
+    width: 72px;
+    height: 72px;
+  }
+
+  .login-form {
+    overflow: visible;
+    max-width: 100%;
+  }
+
+  .login-welcome {
+    font-size: 30px;
+    margin-bottom: 22px;
+  }
+
+  /* 16px prevents iOS Safari auto-zoom on input focus. */
+  .login-pill {
+    font-size: 16px;
+    padding: 13px 24px;
+  }
+
+  .login-submit {
+    width: 100%;
+    max-width: 280px;
+    min-width: 0;
+  }
+
+  .login-offline-float {
+    left: 0;
+    right: 0;
+  }
+
+  .login-privacy-card {
+    padding: 20px 18px 18px;
+    border-radius: 18px;
+  }
+
+  .login-privacy-body {
+    max-height: 52svh;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-brand-title {
+    font-size: 27px;
+  }
+
+  .login-welcome {
+    font-size: 27px;
+  }
+
+  .login-form-side {
+    padding: 26px 16px 28px;
+  }
+
+  .login-privacy-row label {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-submit,
+  .login-privacy-overlay {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+  }
 }
 
 .password-wrap {

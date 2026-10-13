@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AppLogo from "./AppLogo";
 
 const BNS_LINKS = [
   { to: "/bns/masterlist", label: "Masterlist", icon: "list" },
@@ -115,19 +116,8 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
         </button>
 
         <div className="sidebar-brand" title="WeighToGo">
-          <span className="sidebar-brand-mark">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              width="18"
-              height="18"
-            >
-              <path d="M5 20c9 0 14-5 14-14V5h-1C9 5 4 10 4 19v1Z" />
-            </svg>
+          <span className="sidebar-brand-mark sidebar-brand-mark-img">
+            <AppLogo size={32} />
           </span>
           <span className="sidebar-label">WeighToGo</span>
         </div>

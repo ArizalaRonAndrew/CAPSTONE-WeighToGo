@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'favicon.png', 'icons.svg', 'apple-touch-icon.png', 'weightogo.jpg', 'logo.jpg'],
       // Enable the SW in `npm run dev` so the install prompt can fire on
       // localhost during development (production builds are unaffected).
       // suppressWarnings silences the dev-only "glob patterns don't match
@@ -25,6 +25,11 @@ export default defineConfig({
         background_color: '#f5f6f7',
         theme_color: '#20483a',
         icons: [
+          {
+            src: 'weightogo.jpg',
+            sizes: '512x512',
+            type: 'image/jpeg',
+          },
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
