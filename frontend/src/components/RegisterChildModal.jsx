@@ -1,14 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
-import { combineChildName } from "../utils/name";
+import {
+  combineChildName,
+  sanitizeNameInput,
+  isValidPersonName,
+  PERSON_NAME_HINT,
+} from "../utils/name";
+import { ageInMonths } from "../utils/age";
+import { todayInManila } from "../utils/month";
+
+const MAX_REGISTRATION_AGE_MONTHS = 59;
 
 const EMPTY_FORM = {
   firstName: "",
   middleName: "",
   lastName: "",
+  suffix: "",
   dob: "",
   parent_name: "",
   parent_contact: "",
@@ -18,15 +28,73 @@ const EMPTY_FORM = {
   is_ip: false,
 };
 
+function draftKey(userId) {
+  return `wtg:register-child-draft:v1:${userId || "anon"}`;
+}
+
+function loadDraft(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { form: EMPTY_FORM, restored: false };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return { form: EMPTY_FORM, restored: false };
+    const hasContent = ["firstName", "middleName", "lastName", "suffix", "dob", "parent_name", "parent_contact", "purok"].some(
+      (k) => typeof parsed[k] === "string" && parsed[k].trim() !== ""
+    );
+    if (!hasContent && parsed.is_ip !== true && parsed.gender !== "Female") {
+      return { form: EMPTY_FORM, restored: false };
+    }
+    return { form: { ...EMPTY_FORM, ...parsed }, restored: hasContent || parsed.is_ip === true };
+  } catch {
+    return { form: EMPTY_FORM, restored: false };
+  }
+}
+
 export default function RegisterChildModal({ onClose, onRegistered }) {
   useLockBodyScroll();
   const { user } = useAuth();
-  const [form, setForm] = useState(EMPTY_FORM);
+  const key = draftKey(user?.id);
+  const [form, setForm] = useState(() => loadDraft(draftKey(user?.id)).form);
+  const [draftRestored, setDraftRestored] = useState(() => loadDraft(draftKey(user?.id)).restored);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // If the auth user resolves after first render, pull in that user's saved
+  // draft — but never wipe what was already typed when there is no draft.
+  useEffect(() => {
+    const { form: saved, restored } = loadDraft(key);
+    if (restored) {
+      setForm(saved);
+      setDraftRestored(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Persist every keystroke so an accidental navigation, reload, or
+  // dismissed modal never wipes what was already typed. Cleared on successful register.
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(form));
+    } catch {
+      // storage full / private mode — form still works, just not persisted
+    }
+  }, [form, key]);
+
+  const today = todayInManila();
+
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function clearDraft() {
+    setForm(EMPTY_FORM);
+    setDraftRestored(false);
+    setError("");
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
   }
 
   async function handleSubmit(e) {
@@ -34,6 +102,44 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
     setError("");
     if (!form.firstName.trim() || !form.lastName.trim()) {
       setError("First name and last name are required.");
+      return;
+    }
+    if (!isValidPersonName(form.firstName)) {
+      setError(`First name: ${PERSON_NAME_HINT}`);
+      return;
+    }
+    if (form.middleName.trim() && !isValidPersonName(form.middleName, { minLength: 1 })) {
+      setError(`Middle name: ${PERSON_NAME_HINT}`);
+      return;
+    }
+    if (!isValidPersonName(form.lastName)) {
+      setError(`Last name: ${PERSON_NAME_HINT}`);
+      return;
+    }
+    if (form.suffix.trim() && !isValidPersonName(form.suffix, { minLength: 1 })) {
+      setError(`Suffix: ${PERSON_NAME_HINT}`);
+      return;
+    }
+    if (!form.dob) {
+      setError("Date of birth is required.");
+      return;
+    }
+    if (form.dob > today) {
+      setError("Date of birth cannot be in the future.");
+      return;
+    }
+    if (ageInMonths(form.dob) > MAX_REGISTRATION_AGE_MONTHS) {
+      setError(
+        `Only children ${MAX_REGISTRATION_AGE_MONTHS} months old or younger can be registered. This child is ${ageInMonths(form.dob)} months old.`
+      );
+      return;
+    }
+    if (!form.parent_name.trim()) {
+      setError("Parent / Guardian name is required.");
+      return;
+    }
+    if (!isValidPersonName(form.parent_name)) {
+      setError(`Parent / Guardian name: ${PERSON_NAME_HINT}`);
       return;
     }
     if (!form.parent_contact) {
@@ -46,9 +152,14 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
     }
     setSubmitting(true);
     try {
-      const { firstName, middleName, lastName, ...rest } = form;
-      const payload = { ...rest, name: combineChildName({ firstName, middleName, lastName }) };
+      const { firstName, middleName, lastName, suffix, ...rest } = form;
+      const payload = { ...rest, name: combineChildName({ firstName, middleName, lastName, suffix }) };
       const child = await api.post("/children", payload);
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
       onRegistered(child);
     } catch (err) {
       setError(err.message);
@@ -58,10 +169,9 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <form
         className="modal-card modal-card-lg register-modal"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
@@ -76,15 +186,27 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
         </div>
 
         <div className="register-modal-body">
+          {draftRestored && (
+            <div className="banner banner-warning" style={{ marginBottom: 14 }}>
+              Restored your unsaved entries from last time.{" "}
+              <button type="button" className="btn btn-sm btn-secondary" onClick={clearDraft}>
+                Clear form
+              </button>
+            </div>
+          )}
           <div className="form-section">
             <div className="section-title">Child Information</div>
-            <div className="form-grid cols-3">
+            <div className="form-grid cols-4 register-name-grid">
               <div className="field">
                 <label className="required">First Name</label>
                 <input
                   className="input"
                   value={form.firstName}
-                  onChange={(e) => update("firstName", e.target.value)}
+                  onChange={(e) => update("firstName", sanitizeNameInput(e.target.value))}
+                  placeholder="e.g. Juan"
+                  title={PERSON_NAME_HINT}
+                  autoComplete="given-name"
+                  maxLength={50}
                   required
                 />
               </div>
@@ -93,7 +215,11 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 <input
                   className="input"
                   value={form.middleName}
-                  onChange={(e) => update("middleName", e.target.value)}
+                  onChange={(e) => update("middleName", sanitizeNameInput(e.target.value))}
+                  placeholder="e.g. Santos"
+                  title={PERSON_NAME_HINT}
+                  autoComplete="additional-name"
+                  maxLength={50}
                 />
               </div>
               <div className="field">
@@ -101,8 +227,24 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 <input
                   className="input"
                   value={form.lastName}
-                  onChange={(e) => update("lastName", e.target.value)}
+                  onChange={(e) => update("lastName", sanitizeNameInput(e.target.value))}
+                  placeholder="e.g. Dela Cruz"
+                  title={PERSON_NAME_HINT}
+                  autoComplete="family-name"
+                  maxLength={50}
                   required
+                />
+              </div>
+              <div className="field field-suffix">
+                <label>Suffix</label>
+                <input
+                  className="input"
+                  value={form.suffix}
+                  onChange={(e) => update("suffix", sanitizeNameInput(e.target.value))}
+                  placeholder="e.g. Jr."
+                  title={PERSON_NAME_HINT}
+                  autoComplete="off"
+                  maxLength={10}
                 />
               </div>
             </div>
@@ -113,6 +255,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                   className="input"
                   type="date"
                   value={form.dob}
+                  max={today}
                   onChange={(e) => update("dob", e.target.value)}
                   required
                 />
@@ -135,7 +278,11 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 <input
                   className="input"
                   value={form.parent_name}
-                  onChange={(e) => update("parent_name", e.target.value)}
+                  onChange={(e) => update("parent_name", sanitizeNameInput(e.target.value))}
+                  placeholder="e.g. Maria Dela Cruz"
+                  title={PERSON_NAME_HINT}
+                  autoComplete="name"
+                  maxLength={100}
                   required
                 />
               </div>
@@ -167,7 +314,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />
               </div>
             </div>
-            <div className="checkbox-card" style={{ marginTop: 14 }}>
+            <div className="checkbox-card register-ip-card">
               <label>
                 <input
                   type="checkbox"

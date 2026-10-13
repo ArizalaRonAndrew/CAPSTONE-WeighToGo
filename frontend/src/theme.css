@@ -1119,6 +1119,30 @@ tr.clickable:hover {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.form-grid.cols-4 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.55fr);
+}
+
+/* Register a Child: keep Suffix narrow so First/Middle/Last get max space,
+   and keep all four inputs on the same horizontal line. */
+.register-modal .register-name-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.55fr);
+  align-items: start;
+}
+
+.register-modal .register-name-grid .field-suffix {
+  min-width: 0;
+}
+
+.register-modal .register-name-grid .field label {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  min-height: 1.4em;
+}
+
 .form-grid .field,
 .filter-bar .field {
   min-width: 0;
@@ -1337,6 +1361,34 @@ tr.clickable:hover {
 
 .modal-card-xl {
   max-width: 760px;
+}
+
+/* Register a Child: give the bottom of the form (Location, IP checkbox,
+   action buttons) breathing room — it was too cramped. */
+.register-modal .form-section {
+  margin-bottom: 26px;
+}
+
+.register-modal .form-section:last-of-type {
+  margin-bottom: 28px;
+}
+
+.register-modal .register-ip-card {
+  margin-top: 20px;
+  margin-bottom: 6px;
+}
+
+.register-modal .register-modal-body .banner-danger {
+  margin-top: 18px;
+}
+
+.register-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
 }
 
 .modal-close {
@@ -2208,11 +2260,11 @@ tr.clickable:hover {
   }
 
   .register-modal .form-section {
-    margin-bottom: 14px;
+    margin-bottom: 22px;
   }
 
   .register-modal .form-section:last-of-type {
-    margin-bottom: 0;
+    margin-bottom: 28px;
   }
 
   .register-modal .section-title {
@@ -2250,11 +2302,17 @@ tr.clickable:hover {
     height: 14px;
   }
 
+  .register-modal .register-ip-card {
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
   .register-modal-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 20px 14px 14px;
     border-top: 1px solid var(--color-border);
     flex-shrink: 0;
     background: var(--color-surface);
@@ -2266,9 +2324,16 @@ tr.clickable:hover {
 }
 
 /* Collapse multi-column forms and info grids to a single column. */
+@media (max-width: 900px) {
+  .form-grid.cols-4 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 560px) {
   .form-grid.cols-2,
-  .form-grid.cols-3 {
+  .form-grid.cols-3,
+  .form-grid.cols-4 {
     grid-template-columns: 1fr;
   }
 

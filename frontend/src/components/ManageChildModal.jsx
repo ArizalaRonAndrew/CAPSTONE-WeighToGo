@@ -5,6 +5,7 @@ import { isTmpId, getOfflineChildBundle } from "../utils/outbox";
 import { ageInMonths } from "../utils/age";
 import { currentMonth, todayInManila } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
+import { sanitizeNameInput, isValidPersonName, PERSON_NAME_HINT } from "../utils/name";
 import { sanitizeDecimalInput } from "../utils/decimal";
 import { classifyNutritionStatusLocal } from "../utils/nutritionStatus";
 import StatusBadge from "./StatusBadge";
@@ -249,6 +250,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     e.preventDefault();
     setInfoError("");
     setInfoNotice("");
+    if (!isValidPersonName(editForm.name)) {
+      setInfoError(`Child's full name: ${PERSON_NAME_HINT}`);
+      return;
+    }
+    if (!isValidPersonName(editForm.parent_name)) {
+      setInfoError(`Parent / Guardian name: ${PERSON_NAME_HINT}`);
+      return;
+    }
     if (editForm.parent_contact && !isValidPhContact(editForm.parent_contact)) {
       setInfoError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
       return;
@@ -418,7 +427,9 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 <input
                   className="input"
                   value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, name: sanitizeNameInput(e.target.value) })}
+                  title={PERSON_NAME_HINT}
+                  maxLength={100}
                 />
               </div>
               <div className="field">
@@ -445,7 +456,9 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 <input
                   className="input"
                   value={editForm.parent_name}
-                  onChange={(e) => setEditForm({ ...editForm, parent_name: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, parent_name: sanitizeNameInput(e.target.value) })}
+                  title={PERSON_NAME_HINT}
+                  maxLength={100}
                 />
               </div>
               <div className="field">

@@ -5,7 +5,23 @@ const barangayModel = require("../models/barangay.model");
 const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
+const { isValidPersonName } = require("../utils/names");
+const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { pickFields } = require("../utils/pickFields");
+
+// Under-5 program scope: only children 59 months old or younger can be registered.
+const MAX_REGISTRATION_AGE_MONTHS = 59;
+
+function ageValidationError(dob) {
+  if (!dob) return null;
+  if (String(dob).slice(0, 10) > todayInManila()) {
+    return "dob cannot be in the future";
+  }
+  if (calculateAgeInMonths(dob) > MAX_REGISTRATION_AGE_MONTHS) {
+    return `only children ${MAX_REGISTRATION_AGE_MONTHS} months old or younger can be registered`;
+  }
+  return null;
+}
 
 const CHILD_UPDATE_FIELDS = ["name", "dob", "parent_name", "parent_contact", "barangay", "purok", "gender", "is_ip"];
 const REQUIRED_CHILD_FIELDS = ["name", "dob", "parent_name", "parent_contact", "barangay", "purok", "gender"];
@@ -78,6 +94,20 @@ async function createChild(req, res, next) {
     if (!isValidBarangay(barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
     }
+    if (!isValidPersonName(name)) {
+      return res.status(400).json({
+        error: "name must use letters only — no numbers or special characters",
+      });
+    }
+    if (!isValidPersonName(parent_name)) {
+      return res.status(400).json({
+        error: "parent_name must use letters only — no numbers or special characters",
+      });
+    }
+    const dobError = ageValidationError(dob);
+    if (dobError) {
+      return res.status(400).json({ error: dobError });
+    }
     if (!isValidPhContact(parent_contact)) {
       return res.status(400).json({
         error: "parent_contact must be an 11-digit mobile number starting with 09",
@@ -114,6 +144,22 @@ async function updateChild(req, res, next) {
     }
     if (fields.barangay && !isValidBarangay(fields.barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
+    }
+    if ("name" in fields && !isValidPersonName(fields.name)) {
+      return res.status(400).json({
+        error: "name must use letters only — no numbers or special characters",
+      });
+    }
+    if ("parent_name" in fields && !isValidPersonName(fields.parent_name)) {
+      return res.status(400).json({
+        error: "parent_name must use letters only — no numbers or special characters",
+      });
+    }
+    if ("dob" in fields) {
+      const dobError = ageValidationError(fields.dob);
+      if (dobError) {
+        return res.status(400).json({ error: dobError });
+      }
     }
     if ("parent_contact" in fields && !isValidPhContact(fields.parent_contact)) {
       return res.status(400).json({
