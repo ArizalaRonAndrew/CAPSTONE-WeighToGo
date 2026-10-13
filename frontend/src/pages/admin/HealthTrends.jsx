@@ -144,6 +144,14 @@ function formatMonthLabel(monthString) {  const [year, month] = monthString.spli
   });
 }
 
+function formatMonthShort(monthString) {
+  const [, month] = monthString.split("-").map(Number);
+  return new Date(Date.UTC(2000, month - 1, 1)).toLocaleDateString(undefined, {
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
 function monthsBetween(from, to) {
   const out = [];
   let cursor = from;
@@ -164,10 +172,13 @@ export default function HealthTrends() {
   const [lineBarangay, setLineBarangay] = useState("");
   const [barMonth, setBarMonth] = useState(currentMonth());
 
+  // Line chart always spans January–December of the current year.
+  const trendYear = currentMonth().slice(0, 4);
+
   // Rev-gated: cached snapshots render instantly; the heavy endpoints
   // refetch only when revision counters moved server-side.
-  const trendFrom = addMonths(currentMonth(), -5);
-  const trendTo = currentMonth();
+  const trendFrom = `${trendYear}-01`;
+  const trendTo = `${trendYear}-12`;
   const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: lineIndicator });
   if (lineBarangay) trendParams.set("barangay", lineBarangay);
   const trendMonths = useMemo(() => monthsBetween(trendFrom, trendTo), [trendFrom, trendTo]);
@@ -186,10 +197,12 @@ export default function HealthTrends() {
   const barColor = "var(--status-severe-text)";
 
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
-  const currentMonthCount = useMemo(
-    () => trendRowTotal(trend[trend.length - 1], trendStatuses),
-    [trend, trendStatuses],
-  );
+  const calloutTarget = currentMonth();
+  const currentMonthCount = useMemo(() => {
+    const row =
+      trend.find((r) => r.month === calloutTarget) || trend[trend.length - 1];
+    return trendRowTotal(row, trendStatuses);
+  }, [trend, trendStatuses, calloutTarget]);
 
   return (
     <div>
@@ -218,7 +231,7 @@ export default function HealthTrends() {
                 margin: 0,
               }}
             >
-              Monthly case count over the last 6 months
+              Monthly case count for January–December {trendYear}
               {lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
             </p>
           </div>
@@ -326,7 +339,7 @@ export default function HealthTrends() {
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart
               data={trend}
-              margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+              margin={{ top: 8, right: 16, left: 12, bottom: 24 }}
             >
               <CartesianGrid
                 stroke="var(--color-border)"
@@ -335,11 +348,15 @@ export default function HealthTrends() {
               />
               <XAxis
                 dataKey="month"
-                tickFormatter={formatMonthLabel}
+                tickFormatter={formatMonthShort}
                 stroke="var(--color-text-muted)"
-                fontSize={12.5}
+                fontSize={12}
                 tickLine={false}
                 axisLine={{ stroke: "var(--color-border)" }}
+                interval={0}
+                angle={-25}
+                textAnchor="end"
+                height={48}
               />
               <YAxis
                 allowDecimals={false}
@@ -347,7 +364,8 @@ export default function HealthTrends() {
                 fontSize={12.5}
                 tickLine={false}
                 axisLine={false}
-                width={36}
+                width={52}
+                tickMargin={8}
               />
               <Tooltip
                 labelFormatter={formatMonthLabel}
@@ -433,7 +451,7 @@ export default function HealthTrends() {
           <ResponsiveContainer width="100%" height={320}>
             <BarChart
               data={barData}
-              margin={{ top: 8, right: 16, left: 0, bottom: 48 }}
+              margin={{ top: 8, right: 16, left: 12, bottom: 48 }}
             >
               <CartesianGrid
                 stroke="var(--color-border)"
@@ -452,6 +470,10 @@ export default function HealthTrends() {
                 allowDecimals={false}
                 stroke="var(--color-text-muted)"
                 fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                width={52}
+                tickMargin={8}
               />
               <Tooltip
                 cursor={{ fill: "var(--color-row-hover)" }}
