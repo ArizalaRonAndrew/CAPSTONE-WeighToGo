@@ -63,6 +63,27 @@ function PrintIcon() {
   );
 }
 
+// Print-sheet status abbreviations: the print columns are only ~5% wide,
+// so full words like "Severely Underweight" always clip mid-word. Short
+// codes keep every value on one clean line (full text stays in `title`).
+const PRINT_STATUS_ABBR = {
+  Normal: "Normal",
+  Underweight: "UW",
+  "Severely Underweight": "SUW",
+  Overweight: "OW",
+  Stunted: "ST",
+  "Severely Stunted": "SST",
+  Tall: "Tall",
+  Wasted: "W",
+  "Severely Wasted": "SW",
+  Obese: "OB",
+};
+
+function printStatusAbbr(status) {
+  if (!status) return "--";
+  return PRINT_STATUS_ABBR[status] ?? status;
+}
+
 // Blank follow-up columns appended to the printed sheet (Date Measured
 // through WFL/H Status). Cells stay empty for manual recording of the next
 // measurement round after 3 months.
@@ -463,6 +484,10 @@ export default function AdminMasterlist() {
           <p className="ml-print-note">
             Blank follow-up columns are for manual recording of the next measurement round after 3 months.
           </p>
+          <p className="ml-print-legend">
+            Status codes: UW = Underweight, SUW = Severely Underweight, OW = Overweight, ST = Stunted, SST =
+            Severely Stunted, W = Wasted, SW = Severely Wasted, OB = Obese.
+          </p>
           <table className="ml-print-table">
             <colgroup>
               <col className="ml-col-num" />
@@ -495,19 +520,19 @@ export default function AdminMasterlist() {
                 <th rowSpan={2}>Name of Child</th>
                 <th rowSpan={2}>IP</th>
                 <th rowSpan={2}>Sex</th>
-                <th rowSpan={2}>Date of Birth</th>
+                <th rowSpan={2}>Birth Date</th>
                 <th colSpan={7}>Current — {monthLabel(month)}</th>
                 <th colSpan={7}>Follow-up (after 3 months)</th>
               </tr>
               <tr>
-                <th>Date Measured</th>
+                <th>Date Meas.</th>
                 <th>Wt (kg)</th>
                 <th>Ht (cm)</th>
                 <th>Age</th>
                 <th>WFA</th>
                 <th>HFA</th>
                 <th>WFL/H</th>
-                <th>Date Measured</th>
+                <th>Date Meas.</th>
                 <th>Wt (kg)</th>
                 <th>Ht (cm)</th>
                 <th>Age</th>
@@ -526,23 +551,29 @@ export default function AdminMasterlist() {
               )}
               {printRows.map((row, index) => (
                 <tr key={row.assessment_id}>
-                  <td>{index + 1}</td>
+                  <td className="ml-print-num">{index + 1}</td>
                   <td>
                     <div className="ml-print-barangay">{row.barangay}</div>
                     <div>{row.purok}</div>
                   </td>
                   <td>{formatNameForTable(row.parent_name)}</td>
                   <td>{formatNameForTable(row.name)}</td>
-                  <td>{row.is_ip ? "YES" : "NO"}</td>
-                  <td>{row.gender?.charAt(0)}</td>
-                  <td>{formatShortDate(row.dob)}</td>
-                  <td>{formatShortDate(row.date_measured)}</td>
-                  <td>{row.weight}</td>
-                  <td>{row.height}</td>
-                  <td>{row.age_in_months}</td>
-                  <td>{row.wfa_status}</td>
-                  <td>{row.hfa_status}</td>
-                  <td>{row.wfl_h_status}</td>
+                  <td className="ml-print-center">{row.is_ip ? "YES" : "NO"}</td>
+                  <td className="ml-print-center">{row.gender?.charAt(0)}</td>
+                  <td className="ml-print-center">{formatShortDate(row.dob)}</td>
+                  <td className="ml-print-center">{formatShortDate(row.date_measured)}</td>
+                  <td className="ml-print-center">{row.weight}</td>
+                  <td className="ml-print-center">{row.height}</td>
+                  <td className="ml-print-center">{row.age_in_months}</td>
+                  <td className="ml-print-status" title={row.wfa_status}>
+                    {printStatusAbbr(row.wfa_status)}
+                  </td>
+                  <td className="ml-print-status" title={row.hfa_status}>
+                    {printStatusAbbr(row.hfa_status)}
+                  </td>
+                  <td className="ml-print-status" title={row.wfl_h_status}>
+                    {printStatusAbbr(row.wfl_h_status)}
+                  </td>
                   {FOLLOW_UP_COLUMNS.map((col) => (
                     <td key={col} className="ml-blank">
                       &nbsp;
