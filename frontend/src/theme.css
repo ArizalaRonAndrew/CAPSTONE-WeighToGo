@@ -3045,6 +3045,13 @@ tr.clickable:hover {
    (scrolling) content, so it stays put as a constant edge vignette — and
    reads correctly no matter which row — white, gray, or the WFL/H tint —
    happens to sit under it. */
+/* Print-only title block for the OPT+ sheet (screen-hidden; revealed in
+   the print block below). Paper shows exactly which barangay + month was
+   printed, while the interactive screen header + tiles stay off the paper. */
+.growth-summary-print-head {
+  display: none;
+}
+
 .growth-summary-wrap {
   border: 1px solid var(--color-border);
   border-radius: 14px;
@@ -3055,14 +3062,22 @@ tr.clickable:hover {
     inset 10px 0 8px -8px rgba(0, 0, 0, 0.15);
 }
 
+/* 21-column OPT+ matrix. min-width pins each data column to a readable
+   width on screen — the wrap scrolls horizontally instead of squeezing
+   columns until the last "Birth to 5 Years (0-59 Mos)" header clips. */
 .growth-summary-table {
   width: 100%;
+  min-width: 1280px;
   table-layout: fixed;
   border-collapse: collapse;
 }
 
 .growth-summary-indicator-col {
-  width: 120px;
+  width: 170px;
+}
+
+.growth-summary-prev-col {
+  width: 64px;
 }
 
 .growth-summary-table th,
@@ -3071,7 +3086,9 @@ tr.clickable:hover {
   padding: 6px 4px;
   border: 1px solid var(--color-border);
   font-size: 12px;
+  white-space: normal;
   overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .growth-summary-table thead th {
@@ -3082,6 +3099,15 @@ tr.clickable:hover {
   letter-spacing: 0.01em;
   text-transform: uppercase;
   line-height: 1.3;
+  vertical-align: middle;
+}
+
+.growth-summary-bracket-head,
+.growth-summary-overall-head {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.25;
 }
 
 .growth-summary-row-head {
@@ -3463,6 +3489,129 @@ body.map-printing .barangay-map-page .map-side-card {
     box-shadow: none;
     padding: 0;
     margin: 0;
+    width: 100%;
+  }
+
+  /* Print sheet = title + table only. Screen header, tiles, filters and
+     refresh line stay off the paper; the dedicated print head carries the
+     barangay + month instead. */
+  .reports-page .growth-summary-header,
+  .reports-page .growth-summary-totals {
+    display: none !important;
+  }
+
+  .growth-summary-print-head {
+    display: block !important;
+    margin: 0 0 6mm;
+    color: #000;
+  }
+
+  .growth-summary-print-head h1 {
+    font-size: 15pt;
+    line-height: 1.25;
+    margin: 0 0 2mm;
+    color: #000;
+  }
+
+  .growth-summary-print-head p {
+    font-size: 9pt;
+    line-height: 1.4;
+    margin: 0;
+    color: #333;
+  }
+
+  /* A4 landscape sheet: kill the screen scroll container (scroll boxes clip
+     on paper — that clipping is what cut off "Birth to 5 Years (0-59 Mos)")
+     and pin the 21-column matrix to the printable width with fixed layout
+     so every column, including the last two, fits on one A4 page. */
+  .reports-page .growth-summary-wrap {
+    overflow: visible !important;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .reports-page .growth-summary-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    border-collapse: collapse;
+    page-break-inside: auto;
+  }
+
+  .reports-page .growth-summary-table thead {
+    display: table-header-group;
+  }
+
+  .reports-page .growth-summary-table tr {
+    page-break-inside: avoid;
+  }
+
+  .reports-page .growth-summary-indicator-col {
+    width: 14%;
+  }
+
+  .reports-page .growth-summary-data-col {
+    width: 4.21%;
+  }
+
+  .reports-page .growth-summary-prev-col {
+    width: 6%;
+  }
+
+  .reports-page .growth-summary-table th,
+  .reports-page .growth-summary-table td {
+    border: 1px solid #000;
+    padding: 1.2mm 1mm;
+    font-size: 7pt;
+    line-height: 1.3;
+    text-align: center;
+    vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    color: #000;
+    background: #fff !important;
+  }
+
+  .reports-page .growth-summary-table thead th {
+    background: #e8e8e8 !important;
+    color: #000;
+    font-size: 6.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .reports-page .growth-summary-overall-head {
+    font-size: 6.5pt;
+    line-height: 1.25;
+  }
+
+  .reports-page .growth-summary-row-head {
+    text-align: left !important;
+    font-weight: 700;
+    padding-left: 1.5mm !important;
+    font-size: 7pt;
+  }
+
+  .reports-page .growth-summary-subtotal {
+    font-weight: 700;
+  }
+
+  .reports-page .growth-summary-total-row td {
+    background: #e8e8e8 !important;
+    color: #000;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .reports-page .growth-summary-total-row td.growth-summary-row-head {
+    background: #e8e8e8 !important;
   }
 
   .growth-summary-total-tile,

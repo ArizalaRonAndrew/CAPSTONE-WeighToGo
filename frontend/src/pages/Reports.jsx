@@ -59,7 +59,15 @@ function GrowthSummaryReport({ summary }) {
 
   return (
     <div className="card growth-summary-card">
-      <div className="growth-summary-header">
+      <div className="growth-summary-print-head">
+        <h1>
+          Growth Summary Report (OPT+) — {summary.barangay}
+        </h1>
+        <p>
+          Nutritional status by age bracket and sex, birth to 5 years, for {monthLabel(summary.month)}.
+        </p>
+      </div>
+      <div className="growth-summary-header print-hide">
         <div>
           <h3 className="section-title" style={{ margin: 0 }}>
             Growth Summary Report (OPT+) — {summary.barangay}
@@ -73,7 +81,7 @@ function GrowthSummaryReport({ summary }) {
         </button>
       </div>
 
-      <div className="growth-summary-totals">
+      <div className="growth-summary-totals print-hide">
         {GROWTH_SUMMARY_SECTIONS.map((section) => (
           <div className="growth-summary-total-tile" key={section.indicator}>
             <span className="label">Total {section.indicator.toUpperCase().replace("_", "/")}</span>
@@ -95,12 +103,12 @@ function GrowthSummaryReport({ summary }) {
           <colgroup>
             <col className="growth-summary-indicator-col" />
             {ageBrackets.flatMap((bracket) => [
-              <col key={`${bracket.key}-boys-col`} />,
-              <col key={`${bracket.key}-girls-col`} />,
-              <col key={`${bracket.key}-total-col`} />,
+              <col key={`${bracket.key}-boys-col`} className="growth-summary-data-col" />,
+              <col key={`${bracket.key}-girls-col`} className="growth-summary-data-col" />,
+              <col key={`${bracket.key}-total-col`} className="growth-summary-data-col growth-summary-data-col-total" />,
             ])}
-            <col />
-            <col />
+            <col className="growth-summary-data-col growth-summary-data-col-total" />
+            <col className="growth-summary-prev-col" />
           </colgroup>
           <thead>
             <tr>
@@ -108,11 +116,13 @@ function GrowthSummaryReport({ summary }) {
                 Indicator
               </th>
               {ageBrackets.map((bracket) => (
-                <th colSpan={3} key={bracket.key}>
+                <th colSpan={3} key={bracket.key} className="growth-summary-bracket-head">
                   {bracket.label}
                 </th>
               ))}
-              <th colSpan={2}>Birth to 5 Years (0-59 Mos)</th>
+              <th colSpan={2} className="growth-summary-overall-head">
+                Birth to 5 Years (0-59 Mos)
+              </th>
             </tr>
             <tr>
               {ageBrackets.flatMap((bracket) => [
@@ -202,10 +212,12 @@ export default function Reports() {
         </div>
       </div>
 
-      {loading && <div className="loading-state">Loading...</div>}
+      {loading && <div className="loading-state print-hide">Loading...</div>}
 
       {!loading && (
-        <RefreshLine refreshing={growthQuery.refreshing} updatedAt={growthQuery.updatedAt} onRefresh={growthQuery.refresh} />
+        <div className="print-hide">
+          <RefreshLine refreshing={growthQuery.refreshing} updatedAt={growthQuery.updatedAt} onRefresh={growthQuery.refresh} />
+        </div>
       )}
 
       {!loading && growth && <GrowthSummaryReport summary={growth} />}
