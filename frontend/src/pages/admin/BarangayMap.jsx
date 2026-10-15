@@ -7,6 +7,7 @@ import { useRevReport, loadRevGated } from "../../hooks/useRevReport";
 import RefreshLine from "../../components/RefreshLine";
 import StatusBadge from "../../components/StatusBadge";
 import BarangayAiPanel from "../../components/BarangayAiPanel";
+import Dropdown from "../../components/Dropdown";
 
 const INDICATOR_DEFS = [
   { key: "wfa", label: "Weight-for-Age", abbr: "WFA" },
@@ -26,6 +27,77 @@ const SEVERITY_META = {
 };
 
 const PIN_ICON_CACHE = {};
+
+const INDICATOR_FILTER_OPTIONS = [
+  { value: "overall", label: "Overall significance" },
+  { value: "underweight", label: "Underweight" },
+  { value: "stunted", label: "Stunted" },
+  { value: "wasted", label: "Wasted" },
+  { value: "overweight", label: "Overweight" },
+];
+
+// Prevalence keys on each barangay-health-status row, per filter value.
+const INDICATOR_PCT_KEY = {
+  underweight: "underweightPct",
+  stunted: "stuntedPct",
+  wasted: "wastedPct",
+  overweight: "overweightPct",
+};
+
+const INDICATOR_SHORT_LABEL = {
+  overall: "Overall",
+  underweight: "Underweight",
+  stunted: "Stunted",
+  wasted: "Wasted",
+  overweight: "Overweight",
+};
+
+const SEVERITY_SHORT_LABEL = {
+  "very-low": "Very low",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  "very-high": "Very high",
+  "no-data": "No data",
+};
+
+// Client-side mirror of backend/src/utils/publicHealthSignificance.js so the
+// map can recolor pins per indicator without another round trip. Keep the
+// cutoffs in sync with the backend (WHO / de Onis et al. 2018; underweight
+// uses the older WHO/UNICEF 1995 4-tier scale with no "very low" band).
+function classifyUnderweight(pct) {
+  if (pct < 10) return "low";
+  if (pct < 20) return "medium";
+  if (pct < 30) return "high";
+  return "very-high";
+}
+
+function classifyStunting(pct) {
+  if (pct < 2.5) return "very-low";
+  if (pct < 10) return "low";
+  if (pct < 20) return "medium";
+  if (pct < 30) return "high";
+  return "very-high";
+}
+
+function classifyWastingOrOverweight(pct) {
+  if (pct < 2.5) return "very-low";
+  if (pct < 5) return "low";
+  if (pct < 10) return "medium";
+  if (pct < 15) return "high";
+  return "very-high";
+}
+
+// Severity tier to display for a barangay under the active indicator filter.
+// "overall" falls back to the backend-computed worst-tier severity.
+function severityForIndicator(health, filter) {
+  if (!health || !health.totalAssessed) return "no-data";
+  if (!filter || filter === "overall") return health.severity || "no-data";
+  const pct = Number(health[INDICATOR_PCT_KEY[filter]] ?? 0);
+  if (filter === "underweight") return classifyUnderweight(pct);
+  if (filter === "stunted") return classifyStunting(pct);
+  return classifyWastingOrOverweight(pct);
+}
 
 function pinIcon(severity) {
   if (PIN_ICON_CACHE[severity]) return PIN_ICON_CACHE[severity];
@@ -60,6 +132,7 @@ export default function BarangayMap() {
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [indicatorFilter, setIndicatorFilter] = useState("overall");
 
   // Rev-gated: cached map data paints instantly; the two month scans refetch
   // only when revision counters moved server-side.
@@ -111,6 +184,10 @@ export default function BarangayMap() {
 
   const selectedHealth = selected ? healthByBarangay[selected.name] : null;
   const selectedSeverity = selectedHealth?.severity || "no-data";
+  // Pin/panel classification under the active indicator filter. The AI
+  // explainer stays gated on the overall (worst-tier) severity.
+  const selectedDisplaySeverity = severityForIndicator(selectedHealth, indicatorFilter);
+  const activeIndicatorLabel = INDICATOR_SHORT_LABEL[indicatorFilter] || "Overall";
 
   const legendItems = useMemo(
     () => [
@@ -130,21 +207,26 @@ export default function BarangayMap() {
         <div>
           <h1>Barangay Map — Balayan, Batangas</h1>
           <p className="subtitle" style={{ color: "var(--color-text-muted)", margin: 0 }}>
-            Marker color shows each barangay's public health significance for {monthLabel(month)}, based on WHO / de
-            Onis et al. (2018) prevalence thresholds for underweight, stunting, wasting, and overweight.
+            {indicatorFilter === "overall"
+              ? `Marker color shows each barangay's overall public health significance for ${monthLabel(month)} (worst of underweight, stunting, wasting, and overweight), based on WHO / de Onis et al. (2018) prevalence thresholds.`
+              : `Marker color shows each barangay's ${activeIndicatorLabel.toLowerCase()} significance for ${monthLabel(month)}, based on WHO / de Onis et al. (2018) prevalence thresholds.`}
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label htmlFor="map-month" className="label" style={{ margin: 0, whiteSpace: "nowrap" }}>
-            Month
-          </label>
-          <input
-            id="map-month"
-            className="input"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+          <div className="field">
+            <label>Indicator</label>
+            <Dropdown value={indicatorFilter} options={INDICATOR_FILTER_OPTIONS} onChange={setIndicatorFilter} />
+          </div>
+          <div className="field">
+            <label htmlFor="map-month">Month</label>
+            <input
+              id="map-month"
+              className="input"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -160,6 +242,12 @@ export default function BarangayMap() {
       <RefreshLine refreshing={mapRefreshing} updatedAt={mapUpdatedAt} onRefresh={refreshAll} />
 
       <div className="map-legend">
+        <span className="map-legend-item" style={{ color: "var(--color-text)" }}>
+          Showing: <strong style={{ marginLeft: 4 }}>{activeIndicatorLabel}</strong>
+        </span>
+        <span className="map-legend-item" aria-hidden="true" style={{ opacity: 0.4 }}>
+          |
+        </span>
         {legendItems.map((item) => (
           <span className="map-legend-item" key={item.severity}>
             <span className={`map-legend-dot barangay-pin-${item.severity}`} />
@@ -179,7 +267,9 @@ export default function BarangayMap() {
               .filter((b) => b.lat && b.lng)
               .map((b) => {
                 const health = healthByBarangay[b.name];
-                const severity = health?.severity || "no-data";
+                const severity = severityForIndicator(health, indicatorFilter);
+                const indicatorPct =
+                  indicatorFilter === "overall" ? null : health?.[INDICATOR_PCT_KEY[indicatorFilter]];
                 return (
                   <Marker
                     key={b.name}
@@ -195,7 +285,14 @@ export default function BarangayMap() {
                       <br />
                       {b.childCount} registered child{b.childCount === 1 ? "" : "ren"}
                       <br />
-                      {SEVERITY_META[severity].label}
+                      {indicatorFilter === "overall" ? (
+                        SEVERITY_META[severity].label
+                      ) : (
+                        <>
+                          {activeIndicatorLabel} {indicatorPct != null ? pct(indicatorPct) : "—"} —{" "}
+                          {SEVERITY_META[severity].label}
+                        </>
+                      )}
                     </Popup>
                   </Marker>
                 );
@@ -209,8 +306,10 @@ export default function BarangayMap() {
             <>
               <div className="map-panel-header">
                 <h3 style={{ margin: 0 }}>{selected.name}</h3>
-                <span className={`badge ${SEVERITY_META[selectedSeverity].badgeClass}`}>
-                  {SEVERITY_META[selectedSeverity].label}
+                <span className={`badge ${SEVERITY_META[selectedDisplaySeverity].badgeClass}`}>
+                  {indicatorFilter === "overall"
+                    ? SEVERITY_META[selectedDisplaySeverity].label
+                    : `${activeIndicatorLabel}: ${SEVERITY_META[selectedDisplaySeverity].label}`}
                 </span>
               </div>
 
@@ -227,22 +326,31 @@ export default function BarangayMap() {
 
               {selectedHealth && selectedHealth.totalAssessed > 0 && (
                 <div className="map-prevalence-row">
-                  <div>
-                    <div className="map-prevalence-value">{pct(selectedHealth.underweightPct)}</div>
-                    <div className="map-prevalence-label">Underweight</div>
-                  </div>
-                  <div>
-                    <div className="map-prevalence-value">{pct(selectedHealth.stuntedPct)}</div>
-                    <div className="map-prevalence-label">Stunted</div>
-                  </div>
-                  <div>
-                    <div className="map-prevalence-value">{pct(selectedHealth.wastedPct)}</div>
-                    <div className="map-prevalence-label">Wasted</div>
-                  </div>
-                  <div>
-                    <div className="map-prevalence-value">{pct(selectedHealth.overweightPct)}</div>
-                    <div className="map-prevalence-label">Overweight</div>
-                  </div>
+                  {[
+                    { key: "underweight", label: "Underweight", pctKey: "underweightPct" },
+                    { key: "stunted", label: "Stunted", pctKey: "stuntedPct" },
+                    { key: "wasted", label: "Wasted", pctKey: "wastedPct" },
+                    { key: "overweight", label: "Overweight", pctKey: "overweightPct" },
+                  ].map((item) => {
+                    const tier = severityForIndicator(selectedHealth, item.key);
+                    const isActive = indicatorFilter === item.key;
+                    return (
+                      <div
+                        key={item.key}
+                        className={isActive ? "map-prevalence-cell-active" : undefined}
+                        style={isActive ? { padding: "6px 4px", margin: "-7px -5px" } : undefined}
+                      >
+                        <div className="map-prevalence-value">{pct(selectedHealth[item.pctKey])}</div>
+                        <div className="map-prevalence-label">{item.label}</div>
+                        <span
+                          className={`badge ${SEVERITY_META[tier].badgeClass}`}
+                          style={{ marginTop: 6, fontSize: 10, padding: "2px 8px" }}
+                        >
+                          {SEVERITY_SHORT_LABEL[tier]}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
