@@ -171,6 +171,77 @@ function pct(value) {
   return `${Number(value ?? 0).toFixed(1)}%`;
 }
 
+function PrintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M6 9V3h12v6" />
+      <rect x="4" y="9" width="16" height="8" rx="1.5" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
+  );
+}
+
+// Exposes the Leaflet map instance to the Print button handler.
+function RegisterMapInstance({ mapRef }) {
+  const map = useMap();
+  useEffect(() => {
+    mapRef.current = map;
+    return () => {
+      mapRef.current = null;
+    };
+  }, [map, mapRef]);
+  return null;
+}
+
+// Waits until the tile layer finished loading (or a timeout) so the paper
+// snapshot never catches half-loaded gray tiles.
+function waitForMapTiles(map, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    let tileLayer = null;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) tileLayer = layer;
+    });
+    if (tileLayer) tileLayer.once("load", done);
+    else map.once("moveend", done);
+    setTimeout(done, timeoutMs);
+  });
+}
+
+// Fixed print width (px) for the map card: the print CSS reuses exactly
+// this width, so the paper renders the tile layout prepared on screen
+// (Leaflet does not re-render tiles for the print pass). 1000px fits the
+// A4 landscape printable width (~1032px) with room to center.
+const MAP_PRINT_WIDTH = 1000;
+
+// Keeps the printed map faithful: an open popup would cover neighboring
+// markers, so close it before printing and heal the layout afterwards.
+function PrintMapHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const onBefore = () => {
+      map.closePopup();
+      map.invalidateSize(false);
+    };
+    const onAfter = () => {
+      map.invalidateSize(false);
+    };
+    window.addEventListener("beforeprint", onBefore);
+    window.addEventListener("afterprint", onAfter);
+    return () => {
+      window.removeEventListener("beforeprint", onBefore);
+      window.removeEventListener("afterprint", onAfter);
+    };
+  }, [map]);
+  return null;
+}
+
 export default function BarangayMap() {
   const [month, setMonth] = useState(currentMonth());
   const [selected, setSelected] = useState(null);
@@ -234,6 +305,56 @@ export default function BarangayMap() {
     }
   }
 
+  // Full-width map printing: hiding the side panel widens the map, and the
+  // print pass reuses the live tile layout — so widen on screen first,
+  // re-fit all markers into the wide view, wait for tiles, then print.
+  // Cleanup runs only on afterprint: window.print() can return while the
+  // dialog is still open, and restoring early would blank the preview.
+  const mapRef = useRef(null);
+  const mapCardRef = useRef(null);
+  const savedViewRef = useRef(null);
+  const [preparingPrint, setPreparingPrint] = useState(false);
+
+  useEffect(() => {
+    const onAfterPrint = () => {
+      document.body.classList.remove("map-printing");
+      if (mapCardRef.current) mapCardRef.current.style.width = "";
+      const map = mapRef.current;
+      if (map) {
+        map.invalidateSize(false);
+        if (savedViewRef.current) {
+          map.setView(savedViewRef.current.center, savedViewRef.current.zoom, { animate: false });
+          savedViewRef.current = null;
+        }
+      }
+      setPreparingPrint(false);
+    };
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => window.removeEventListener("afterprint", onAfterPrint);
+  }, []);
+
+  async function handlePrint() {
+    if (preparingPrint) return;
+    const map = mapRef.current;
+    if (!map) {
+      window.print();
+      return;
+    }
+    setPreparingPrint(true);
+    savedViewRef.current = { center: map.getCenter(), zoom: map.getZoom() };
+    map.closePopup();
+    document.body.classList.add("map-printing");
+    if (mapCardRef.current) mapCardRef.current.style.width = `${MAP_PRINT_WIDTH}px`;
+    map.invalidateSize(false);
+    if (markerPositions.length) {
+      map.fitBounds(L.latLngBounds(markerPositions).pad(0.15), { animate: false });
+    }
+    await waitForMapTiles(map);
+    // Let markers settle a frame before snapshotting to paper.
+    await new Promise((r) => setTimeout(r, 200));
+    window.print();
+  }
+
   const selectedHealth = selected ? healthByBarangay[selected.name] : null;
   const selectedSeverity = selectedHealth?.severity || "no-data";
   // Pin/panel classification under the active indicator filter. The AI
@@ -253,8 +374,31 @@ export default function BarangayMap() {
     []
   );
 
+  // Printed stamp — properly formatted long date (e.g. "October 15, 2026").
+  // The month itself renders via monthLabel() (e.g. "October 2026").
+  const printDate = useMemo(
+    () => new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }),
+    []
+  );
+
   return (
-    <div>
+    <div className="barangay-map-page">
+      <div className="map-print-header">
+        <h1>Barangay Map — Balayan, Batangas</h1>
+        <p className="map-print-meta">
+          Showing: <strong>{activeIndicatorLabel} significance</strong>
+          <span aria-hidden="true"> · </span>
+          Month: <strong>{monthLabel(month)}</strong>
+          <span aria-hidden="true"> · </span>
+          Printed: <strong>{printDate}</strong>
+        </p>
+        <p className="map-print-sub">
+          {indicatorFilter === "overall"
+            ? `Marker color shows each barangay's overall public health significance for ${monthLabel(month)} (worst of underweight, stunting, wasting, and overweight), based on WHO / de Onis et al. (2018) prevalence thresholds.`
+            : `Marker color shows each barangay's ${activeIndicatorLabel.toLowerCase()} significance for ${monthLabel(month)}, based on WHO / de Onis et al. (2018) prevalence thresholds.`}
+        </p>
+      </div>
+
       <div className="page-header">
         <div>
           <h1>Barangay Map — Balayan, Batangas</h1>
@@ -264,7 +408,7 @@ export default function BarangayMap() {
               : `Marker color shows each barangay's ${activeIndicatorLabel.toLowerCase()} significance for ${monthLabel(month)}, based on WHO / de Onis et al. (2018) prevalence thresholds.`}
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+        <div className="print-hide" style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <div className="field">
             <label>Indicator</label>
             <Dropdown value={indicatorFilter} options={INDICATOR_FILTER_OPTIONS} onChange={setIndicatorFilter} />
@@ -279,11 +423,14 @@ export default function BarangayMap() {
               onChange={(e) => setMonth(e.target.value)}
             />
           </div>
+          <button type="button" className="btn btn-secondary" onClick={handlePrint} disabled={preparingPrint}>
+            <PrintIcon /> {preparingPrint ? "Preparing…" : "Print"}
+          </button>
         </div>
       </div>
 
       {mapError && (
-        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+        <div className="banner banner-warning print-hide" style={{ marginBottom: 20 }}>
           {mapError}{" "}
           <button type="button" className="btn btn-sm" onClick={refreshAll}>
             Retry
@@ -291,7 +438,9 @@ export default function BarangayMap() {
         </div>
       )}
 
-      <RefreshLine refreshing={mapRefreshing} updatedAt={mapUpdatedAt} onRefresh={refreshAll} />
+      <div className="print-hide">
+        <RefreshLine refreshing={mapRefreshing} updatedAt={mapUpdatedAt} onRefresh={refreshAll} />
+      </div>
 
       <div className="map-legend">
         <span className="map-legend-item" style={{ color: "var(--color-text)" }}>
@@ -308,8 +457,8 @@ export default function BarangayMap() {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
-        <div className="card" style={{ flex: 2, padding: 0, overflow: "hidden", height: 560 }}>
+      <div className="map-layout" style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
+        <div ref={mapCardRef} className="card map-main-card" style={{ flex: 2, padding: 0, overflow: "hidden", height: 560 }}>
           <MapContainer
             center={BALAYAN_CENTER}
             zoom={13}
@@ -320,6 +469,8 @@ export default function BarangayMap() {
             style={{ height: 560, width: "100%" }}
           >
             <FitBarangayBounds positions={markerPositions} />
+            <RegisterMapInstance mapRef={mapRef} />
+            <PrintMapHandler />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -361,7 +512,7 @@ export default function BarangayMap() {
           </MapContainer>
         </div>
 
-        <div className="card" style={{ flex: 1, minWidth: 280, height: 560, overflowY: "auto" }}>
+        <div className="card map-side-card" style={{ flex: 1, minWidth: 280, height: 560, overflowY: "auto" }}>
           {!selected && <p className="empty-state">Click a barangay marker to see its summary.</p>}
           {selected && (
             <>

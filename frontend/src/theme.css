@@ -3392,12 +3392,38 @@ tr.clickable:hover {
   color: var(--color-text);
 }
 
+/* Barangay Map print header: carries the active indicator filter, the
+   formatted month and the print date on paper. Screen-hidden; the print
+   block below reveals it while hiding the interactive page header. */
+.map-print-header {
+  display: none;
+}
+
+/* Screen print-prep state (set briefly by the Print button before
+   window.print()): hide the detail panel and widen the map on screen so
+   tiles for the full-width paper layout load first. Restored afterprint. */
+body.map-printing {
+  overflow-x: hidden;
+}
+
+body.map-printing .barangay-map-page .map-layout {
+  gap: 0 !important;
+}
+
+body.map-printing .barangay-map-page .map-main-card {
+  flex: none !important;
+}
+
+body.map-printing .barangay-map-page .map-side-card {
+  display: none !important;
+}
+
 /* Print: the app chrome (nav rail, top bar, filters, the Print button itself)
    has no business on a printed page, and the OPT+ matrix is wide enough that
    portrait clips it — so printing goes full-width landscape with just the
    report content. `@page` is document-wide, not scopable to one route, but
-   the only two "Print" buttons in the app (here and the BNS Monthly Report)
-   both print a wide table, so landscape suits both. */
+   the "Print" buttons in the app (growth summary, BNS Monthly Report, and
+   the Barangay Map) all print wide content, so landscape suits all of them. */
 @media print {
   @page {
     size: A4 landscape;
@@ -3435,6 +3461,79 @@ tr.clickable:hover {
   .growth-summary-total-tile,
   .growth-summary-table thead th,
   .growth-summary-total-row td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Barangay Map print (same A4 landscape @page as the reports): the
+     screen page header (title + indicator/month filters) is replaced by
+     the compact print header above so the paper shows exactly which
+     significance filter and month was printed. The side detail panel
+     stays on screen only — paper gets the full-width map with all
+     markers. The map keeps its exact 560px screen height and the fixed
+     1000px width prepared on screen before printing (see handlePrint),
+     so the paper reuses already-loaded tiles with no gaps. Legend, pins,
+     badges and tiles keep exact colors on paper. */
+  .barangay-map-page .page-header {
+    display: none !important;
+  }
+
+  .map-print-header {
+    display: block !important;
+    margin-bottom: 8px;
+  }
+
+  .map-print-header h1 {
+    font-size: 18px;
+    line-height: 1.25;
+    margin: 0 0 2px;
+    color: #000;
+  }
+
+  .map-print-header .map-print-meta {
+    font-size: 12.5px;
+    margin: 0;
+    color: #000;
+  }
+
+  .map-print-header .map-print-sub {
+    font-size: 11px;
+    line-height: 1.45;
+    margin: 2px 0 0;
+    color: #333;
+  }
+
+  .barangay-map-page .map-legend {
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    box-shadow: none;
+    gap: 12px;
+  }
+
+  .barangay-map-page .map-layout {
+    display: block !important;
+  }
+
+  .barangay-map-page .map-side-card {
+    display: none !important;
+  }
+
+  .barangay-map-page .map-main-card {
+    width: 1000px !important;
+    max-width: 100% !important;
+    margin: 0 auto;
+    box-shadow: none;
+  }
+
+  .barangay-map-page .leaflet-control-zoom {
+    display: none !important;
+  }
+
+  .barangay-map-page .leaflet-container,
+  .barangay-map-page .map-legend,
+  .barangay-map-page .map-legend-dot,
+  .barangay-map-page .barangay-pin,
+  .barangay-map-page .badge {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
