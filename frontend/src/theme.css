@@ -625,6 +625,13 @@ table {
   font-size: 12.5px;
 }
 
+/* Admin Masterlist print sheet: rendered only for paper (all filtered rows
+   plus blank follow-up columns). Screen-hidden; the print block reveals it
+   while hiding the paged screen table, pagination and filters. */
+.masterlist-print {
+  display: none;
+}
+
 /* Checkup History tab (ManageChildModal): same nowrap-forces-scroll issue,
    cramped further by the modal's narrower width. Compact status badges plus
    a fixed layout keep it inside the modal without a horizontal scrollbar. */
@@ -3527,6 +3534,154 @@ body.map-printing .barangay-map-page .map-side-card {
 
   .barangay-map-page .leaflet-control-zoom {
     display: none !important;
+  }
+
+  /* Admin Masterlist print (same A4 landscape @page): the screen chrome —
+     page header with month picker, KPI strip, filter card, refresh line,
+     results count, the paged table card (with its Action column and
+     Previous/Next pagination) and any open modal — stays off the paper.
+     Instead the print sheet shows an organized filter header plus the full
+     filtered roster with blank follow-up columns (Date Measured through
+     WFL/H Status) left empty for manual recording after 3 months. */
+  .admin-masterlist-page .page-header,
+  .admin-masterlist-page .kpi-strip,
+  .admin-masterlist-page .filter-card,
+  .admin-masterlist-page .results-count,
+  .admin-masterlist-page .masterlist-screen-card,
+  .admin-masterlist-page .modal-overlay {
+    display: none !important;
+  }
+
+  .masterlist-print {
+    display: block !important;
+    color: #000;
+  }
+
+  .masterlist-print h1 {
+    font-size: 17px;
+    line-height: 1.25;
+    margin: 0 0 6px;
+    color: #000;
+  }
+
+  .ml-print-filters {
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid #555;
+    margin: 0 0 6px;
+  }
+
+  .ml-print-filter {
+    flex: 1 1 24%;
+    min-width: 0;
+    padding: 4px 8px;
+  }
+
+  .ml-print-filter-label {
+    display: block;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #444;
+  }
+
+  .ml-print-filter-value {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #000;
+    overflow-wrap: break-word;
+  }
+
+  .ml-print-note {
+    font-size: 10px;
+    font-style: italic;
+    color: #333;
+    margin: 0 0 8px;
+  }
+
+  .ml-print-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  .ml-print-table thead {
+    display: table-header-group;
+  }
+
+  .ml-print-table tr {
+    page-break-inside: avoid;
+  }
+
+  .ml-print-table th,
+  .ml-print-table td {
+    border: 1px solid #555;
+    padding: 3px 4px;
+    font-size: 9px;
+    line-height: 1.3;
+    text-align: left;
+    vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: break-word;
+    color: #000;
+    background: #fff;
+  }
+
+  .ml-print-table thead th {
+    background: #e8e8e8;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: center;
+    vertical-align: bottom;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .ml-print-table .ml-col-num {
+    width: 2.5%;
+  }
+
+  .ml-print-table .ml-col-place {
+    width: 7.5%;
+  }
+
+  .ml-print-table .ml-col-name {
+    width: 7%;
+  }
+
+  .ml-print-table .ml-col-flag {
+    width: 3%;
+  }
+
+  .ml-print-table .ml-col-date {
+    width: 5%;
+  }
+
+  .ml-print-table .ml-col-measure {
+    width: 4%;
+  }
+
+  .ml-print-table .ml-col-status {
+    width: 4.5%;
+  }
+
+  .ml-print-table .ml-print-barangay {
+    font-size: 8px;
+    color: #333;
+  }
+
+  .ml-print-table td.ml-blank {
+    height: 22px;
+  }
+
+  .ml-print-table .ml-print-empty {
+    text-align: center;
+    padding: 12px;
+    font-size: 10px;
   }
 
   .barangay-map-page .leaflet-container,

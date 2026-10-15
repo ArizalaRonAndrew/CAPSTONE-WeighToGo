@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useBarangays } from "../../hooks/useBarangays";
 import { useRevReport } from "../../hooks/useRevReport";
+import { api } from "../../api/client";
 import RefreshLine from "../../components/RefreshLine";
 import { currentMonth } from "../../utils/month";
 import { formatNameForTable } from "../../utils/name";
@@ -47,6 +48,34 @@ function SearchIcon() {
 
 const PAGE_SIZE = 7;
 
+// Server caps pageSize at 100 — the print sheet pages through with this
+// size until every filtered row is collected.
+const PRINT_PAGE_SIZE = 100;
+const PRINT_MAX_PAGES = 50;
+
+function PrintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+      <path d="M6 9V3h12v6" />
+      <rect x="4" y="9" width="16" height="8" rx="1.5" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
+  );
+}
+
+// Blank follow-up columns appended to the printed sheet (Date Measured
+// through WFL/H Status). Cells stay empty for manual recording of the next
+// measurement round after 3 months.
+const FOLLOW_UP_COLUMNS = [
+  "Date Measured",
+  "Weight (kg)",
+  "Height (cm)",
+  "Age (mos)",
+  "WFA Status",
+  "HFA Status",
+  "WFL/H Status",
+];
+
 const KPI_TILES = [
   { key: "totalRegistered", label: "Total Registered" },
   { key: "totalAssessed", label: "Total Assessed" },
@@ -68,6 +97,11 @@ export default function AdminMasterlist() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [viewChildId, setViewChildId] = useState(null);
+  // Print sheet state: the full filtered row set (all pages) rendered into
+  // a print-only table. Kept after printing so reprints skip the refetch.
+  const [printRows, setPrintRows] = useState(null);
+  const [preparingPrint, setPreparingPrint] = useState(false);
+  const [printError, setPrintError] = useState("");
 
   // Debounced search: each keystroke must not become a server round trip.
   useEffect(() => {
@@ -87,11 +121,18 @@ export default function AdminMasterlist() {
   if (purokFilter) summaryParams.set("purok", purokFilter);
   const summaryQuery = useRevReport(`/reports/monthly-masterlist/summary?${summaryParams.toString()}`, [month]);
 
-  const rowsParams = new URLSearchParams({ month, page: String(page), pageSize: String(PAGE_SIZE) });
-  if (barangayFilter) rowsParams.set("barangay", barangayFilter);
-  if (purokFilter) rowsParams.set("purok", purokFilter);
-  if (debouncedSearch) rowsParams.set("search", debouncedSearch);
-  if (statusFilter) rowsParams.set("status", statusFilter);
+  // Shared filter params for the paged screen table and the print sheet,
+  // so the paper always matches exactly what the admin filtered on screen.
+  function buildRowsParams(pageNum, pageSize) {
+    const params = new URLSearchParams({ month, page: String(pageNum), pageSize: String(pageSize) });
+    if (barangayFilter) params.set("barangay", barangayFilter);
+    if (purokFilter) params.set("purok", purokFilter);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (statusFilter) params.set("status", statusFilter);
+    return params;
+  }
+
+  const rowsParams = buildRowsParams(page, PAGE_SIZE);
   const rowsQuery = useRevReport(`/reports/monthly-masterlist/rows?${rowsParams.toString()}`, [month]);
 
   const summary = summaryQuery.data;
@@ -107,6 +148,42 @@ export default function AdminMasterlist() {
     summaryQuery.refresh();
     rowsQuery.refresh();
   }
+
+  // Collects every filtered row across all server pages, then prints the
+  // print-only sheet (screen table + pagination stay off the paper via
+  // print CSS). Any open fetch failure surfaces next to the button.
+  async function handlePrint() {
+    if (preparingPrint) return;
+    setPrintError("");
+    setPreparingPrint(true);
+    try {
+      const collected = [];
+      let totalCount = Infinity;
+      let pageNum = 1;
+      while (collected.length < totalCount && pageNum <= PRINT_MAX_PAGES) {
+        const body = await api.get(`/reports/monthly-masterlist/rows?${buildRowsParams(pageNum, PRINT_PAGE_SIZE).toString()}`);
+        totalCount = body?.total ?? 0;
+        const pageRows = body?.rows || [];
+        collected.push(...pageRows);
+        if (pageRows.length === 0) break;
+        pageNum += 1;
+      }
+      setPrintRows(collected);
+      // Let React paint the print-only table before snapshotting to paper.
+      await new Promise((r) => setTimeout(r, 150));
+      window.print();
+    } catch (err) {
+      setPrintError(err.message || "Failed to prepare the print sheet");
+    } finally {
+      setPreparingPrint(false);
+    }
+  }
+
+  const printDate = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   // Rows arrive already filtered, globally sorted, and paged — the table
   // renders the page as-is.
@@ -127,8 +204,18 @@ export default function AdminMasterlist() {
     setPage(1);
   }
 
+  const printFilterDetails = [
+    { label: "Month", value: monthLabel(month) },
+    { label: "Barangay", value: barangayFilter || "All barangays" },
+    { label: "Purok / Sitio", value: purokFilter || "All puroks" },
+    { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
+    { label: "Search", value: debouncedSearch ? `“${debouncedSearch}”` : "—" },
+    { label: "Records", value: String(printRows?.length ?? total) },
+    { label: "Printed", value: printDate },
+  ];
+
   return (
-    <div>
+    <div className="admin-masterlist-page">
       <div className="page-header">
         <div>
           <h1>Masterlist — All Barangays</h1>
@@ -136,10 +223,24 @@ export default function AdminMasterlist() {
             Checkup data for {monthLabel(month)}.
           </p>
         </div>
-        <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        <div className="print-hide" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <button type="button" className="btn btn-secondary" onClick={handlePrint} disabled={preparingPrint}>
+            <PrintIcon /> {preparingPrint ? "Preparing…" : "Print"}
+          </button>
+        </div>
       </div>
 
-      <div className="card kpi-strip">
+      {printError && (
+        <div className="banner banner-warning print-hide" style={{ marginBottom: 20 }}>
+          {printError}{" "}
+          <button type="button" className="btn btn-sm" onClick={handlePrint}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="card kpi-strip print-hide">
         {KPI_TILES.map((tile) => (
           <div className="kpi-strip-item" key={tile.key}>
             <div className="kpi-strip-value" style={tile.color ? { color: tile.color } : undefined}>
@@ -150,7 +251,7 @@ export default function AdminMasterlist() {
         ))}
       </div>
 
-      <div className="card filter-card">
+      <div className="card filter-card print-hide">
         <div className="filter-bar" style={{ marginBottom: 0 }}>
           <div className="field search-field">
             <label>Search</label>
@@ -198,7 +299,7 @@ export default function AdminMasterlist() {
       </div>
 
       {error && (
-        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+        <div className="banner banner-warning print-hide" style={{ marginBottom: 20 }}>
           {error}{" "}
           <button type="button" className="btn btn-sm" onClick={refreshAll}>
             Retry
@@ -207,11 +308,13 @@ export default function AdminMasterlist() {
       )}
 
       {!loading && (
-        <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
+        <div className="print-hide">
+          <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
+        </div>
       )}
 
       {!loading && !error && (
-        <p className="results-count">
+        <p className="results-count print-hide">
           {debouncedSearch || statusFilter
             ? `${total} match${total === 1 ? "" : "es"}${debouncedSearch ? ` for “${debouncedSearch}”` : ""}${
                 statusFilter ? ` with status “${statusLabel}”` : ""
@@ -220,7 +323,7 @@ export default function AdminMasterlist() {
         </p>
       )}
 
-      <div className="card">
+      <div className="card masterlist-screen-card">
         <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>
@@ -345,6 +448,112 @@ export default function AdminMasterlist() {
           </div>
         </div>
       </div>
+
+      {printRows && (
+        <div className="masterlist-print">
+          <h1>Masterlist — {barangayFilter || "All Barangays"}</h1>
+          <div className="ml-print-filters">
+            {printFilterDetails.map((item) => (
+              <div className="ml-print-filter" key={item.label}>
+                <span className="ml-print-filter-label">{item.label}</span>
+                <span className="ml-print-filter-value">{item.value}</span>
+              </div>
+            ))}
+          </div>
+          <p className="ml-print-note">
+            Blank follow-up columns are for manual recording of the next measurement round after 3 months.
+          </p>
+          <table className="ml-print-table">
+            <colgroup>
+              <col className="ml-col-num" />
+              <col className="ml-col-place" />
+              <col className="ml-col-name" />
+              <col className="ml-col-name" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-date" />
+              <col className="ml-col-date" />
+              <col className="ml-col-measure" />
+              <col className="ml-col-measure" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-status" />
+              <col className="ml-col-status" />
+              <col className="ml-col-status" />
+              <col className="ml-col-date ml-col-blank" />
+              <col className="ml-col-measure ml-col-blank" />
+              <col className="ml-col-measure ml-col-blank" />
+              <col className="ml-col-flag ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th rowSpan={2}>#</th>
+                <th rowSpan={2}>Address / Purok</th>
+                <th rowSpan={2}>Mother / Caregiver</th>
+                <th rowSpan={2}>Name of Child</th>
+                <th rowSpan={2}>IP</th>
+                <th rowSpan={2}>Sex</th>
+                <th rowSpan={2}>Date of Birth</th>
+                <th colSpan={7}>Current — {monthLabel(month)}</th>
+                <th colSpan={7}>Follow-up (after 3 months)</th>
+              </tr>
+              <tr>
+                <th>Date Measured</th>
+                <th>Wt (kg)</th>
+                <th>Ht (cm)</th>
+                <th>Age</th>
+                <th>WFA</th>
+                <th>HFA</th>
+                <th>WFL/H</th>
+                <th>Date Measured</th>
+                <th>Wt (kg)</th>
+                <th>Ht (cm)</th>
+                <th>Age</th>
+                <th>WFA</th>
+                <th>HFA</th>
+                <th>WFL/H</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printRows.length === 0 && (
+                <tr>
+                  <td colSpan={21} className="ml-print-empty">
+                    No checkups recorded for {monthLabel(month)} under the current filters.
+                  </td>
+                </tr>
+              )}
+              {printRows.map((row, index) => (
+                <tr key={row.assessment_id}>
+                  <td>{index + 1}</td>
+                  <td>
+                    <div className="ml-print-barangay">{row.barangay}</div>
+                    <div>{row.purok}</div>
+                  </td>
+                  <td>{formatNameForTable(row.parent_name)}</td>
+                  <td>{formatNameForTable(row.name)}</td>
+                  <td>{row.is_ip ? "YES" : "NO"}</td>
+                  <td>{row.gender?.charAt(0)}</td>
+                  <td>{formatShortDate(row.dob)}</td>
+                  <td>{formatShortDate(row.date_measured)}</td>
+                  <td>{row.weight}</td>
+                  <td>{row.height}</td>
+                  <td>{row.age_in_months}</td>
+                  <td>{row.wfa_status}</td>
+                  <td>{row.hfa_status}</td>
+                  <td>{row.wfl_h_status}</td>
+                  {FOLLOW_UP_COLUMNS.map((col) => (
+                    <td key={col} className="ml-blank">
+                      &nbsp;
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {viewChildId && (
         <ManageChildModal childId={viewChildId} onClose={() => setViewChildId(null)} readOnly />
