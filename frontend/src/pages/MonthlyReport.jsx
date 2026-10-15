@@ -90,6 +90,12 @@ function SendIcon() {
 
 const PAGE_SIZE = 10;
 
+function scrollToTopOnMobile() {
+  if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 700px)").matches) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
 export default function MonthlyReport() {
   const [month, setMonth] = useState(currentMonth());
   const [submitting, setSubmitting] = useState(false);
@@ -381,7 +387,7 @@ export default function MonthlyReport() {
               type="button"
               className="btn btn-secondary"
               disabled={page <= 1}
-              onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              onClick={() => { setPage((p) => Math.max(1, p - 1)); scrollToTopOnMobile(); }}
             >
               Previous
             </button>
@@ -392,7 +398,7 @@ export default function MonthlyReport() {
               type="button"
               className="btn btn-secondary"
               disabled={page >= totalPages}
-              onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); scrollToTopOnMobile(); }}
             >
               Next
             </button>
