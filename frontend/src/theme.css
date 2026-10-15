@@ -28,16 +28,19 @@
   /* Barangay Map public-health-significance tiers (WHO / de Onis et al. 2018
      5-tier scale). Distinct from the --status-* tokens above, which encode a
      single child's growth status, not population prevalence severity.
-     Vivid heat scale — green → blue → gold → orange → red — so adjacent
-     tiers stay distinguishable at small pin sizes on busy map tiles. */
+     Heat scale — green → blue → yellow → brown → red — so adjacent tiers
+     stay distinguishable at small pin sizes on busy map tiles. The medium
+     pin/dot fill is a softened golden yellow (not neon), set clearly apart
+     in lightness from the high brown; the medium badge pairs a soft yellow
+     fill with dark text (see .badge-severity-medium) to stay readable. */
   --severity-very-low-bg: #dcfce7;
   --severity-very-low-text: #15803d;
   --severity-low-bg: #e0f2fe;
   --severity-low-text: #0369a1;
-  --severity-medium-bg: #fef3c7;
-  --severity-medium-text: #a16207;
-  --severity-high-bg: #ffedd5;
-  --severity-high-text: #c2410c;
+  --severity-medium-bg: #fde68a;
+  --severity-medium-text: #d9a400;
+  --severity-high-bg: #fef3c7;
+  --severity-high-text: #a16207;
   --severity-very-high-bg: #fee2e2;
   --severity-very-high-text: #b91c1c;
 
@@ -742,7 +745,9 @@ tr.clickable:hover {
 
 .badge-severity-medium {
   background: var(--severity-medium-bg);
-  color: var(--severity-medium-text);
+  /* Pins/legend dots use the softer yellow token above; badge text needs a
+     dark bronze tone on the yellow fill to stay readable (~7:1). */
+  color: #713f12;
 }
 
 .badge-severity-high {
