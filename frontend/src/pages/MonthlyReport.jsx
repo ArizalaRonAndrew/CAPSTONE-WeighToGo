@@ -6,6 +6,8 @@ import { currentMonth, monthLabel } from "../utils/month";
 import { colorVarForStatus } from "../utils/statusGroups";
 import { formatNameForTable } from "../utils/name";
 import StatusBadge from "../components/StatusBadge";
+import Dropdown from "../components/Dropdown";
+import { STATUS_FILTER_OPTIONS, matchesNutritionStatus, statusLabelFor } from "../utils/nutritionStatusFilter";
 
 function formatShortDate(dateStr) {
   if (!dateStr) return "--";
@@ -94,6 +96,7 @@ export default function MonthlyReport() {
   const [submitNotice, setSubmitNotice] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
 
   // Rev-gated: snapshots render instantly; the heavy payloads refetch only
   // when revision counters moved server-side.
@@ -113,7 +116,7 @@ export default function MonthlyReport() {
 
   useEffect(() => {
     setPage(1);
-  }, [month]);
+  }, [month, statusFilter]);
 
   async function handleSubmit() {
     setSubmitError("");
@@ -135,10 +138,20 @@ export default function MonthlyReport() {
 
   const rows = report?.rows || [];
   const totalAssessed = rows.length;
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const rangeStart = rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, rows.length);
+  // The table filters client-side: this endpoint already returns the full
+  // barangay-scoped row set, so no extra round trip is needed. The indicator
+  // cards above always tally the full month (global summary).
+  const statusLabel = statusLabelFor(statusFilter);
+  const filteredRows = statusFilter ? rows.filter((row) => matchesNutritionStatus(row, statusFilter)) : rows;
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const rangeStart = filteredRows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, filteredRows.length);
+
+  function clearFilters() {
+    setStatusFilter("");
+    setPage(1);
+  }
 
   return (
     <div>
@@ -255,6 +268,24 @@ export default function MonthlyReport() {
 
       <div className="card">
         <h3>Masterlist Report Data</h3>
+        <div className="card filter-card" style={{ marginBottom: 16 }}>
+          <div className="filter-bar" style={{ marginBottom: 0 }}>
+            <div className="field">
+              <label>Nutrition Status</label>
+              <Dropdown value={statusFilter} options={STATUS_FILTER_OPTIONS} onChange={setStatusFilter} />
+            </div>
+            {statusFilter && (
+              <button type="button" className="btn btn-secondary" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+        {!loading && statusFilter && (
+          <p className="results-count">
+            {filteredRows.length} match{filteredRows.length === 1 ? "" : "es"} with status “{statusLabel}”
+          </p>
+        )}
         <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>
@@ -304,6 +335,16 @@ export default function MonthlyReport() {
                   </td>
                 </tr>
               )}
+              {!loading && rows.length > 0 && filteredRows.length === 0 && (
+                <tr>
+                  <td colSpan={13} className="empty-state">
+                    <div>No checkups match your filters.</div>
+                    <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
+                      Clear filters
+                    </button>
+                  </td>
+                </tr>
+              )}
               {pageRows.map((row) => (
                 <tr key={row.assessment_id}>
                   <td data-label="Address / Purok">{row.purok}</td>
@@ -333,7 +374,7 @@ export default function MonthlyReport() {
 
         <div className="pagination-bar">
           <span className="pagination-info">
-            {rows.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${rows.length}`}
+            {filteredRows.length === 0 ? "No records" : `Showing ${rangeStart}–${rangeEnd} of ${filteredRows.length}`}
           </span>
           <div className="pagination-controls">
             <button

@@ -85,12 +85,52 @@ function escapeIlike(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
+// General nutrition-status predicate for the masterlist rows query (see
+// fetchMasterlistPage). Exact status values match ANY indicator via a single
+// PostgREST `or` clause; group keys mirror tallyMasterlistKpis in the
+// controller so the filter options and the KPI tiles always agree.
+function applyGeneralStatusFilter(query, status) {
+  const value = String(status).trim();
+  const key = value.toLowerCase();
+  if (key === "normal") {
+    return query.eq("wfa_status", "Normal").eq("hfa_status", "Normal").eq("wfl_h_status", "Normal");
+  }
+  if (key === "at-risk" || key === "at_risk" || key === "malnourished") {
+    return query.or(
+      "wfa_status.in.(Underweight,Severely Underweight)," +
+        "hfa_status.in.(Stunted,Severely Stunted)," +
+        "wfl_h_status.in.(Wasted,Severely Wasted)"
+    );
+  }
+  if (key === "severe") {
+    return query.or(
+      "wfa_status.eq.Severely Underweight," +
+        "hfa_status.eq.Severely Stunted," +
+        "wfl_h_status.eq.Severely Wasted"
+    );
+  }
+  if (key === "over-obese" || key === "overweight-obese" || key === "overweight/obese") {
+    return query.or("wfa_status.eq.Overweight,wfl_h_status.in.(Overweight,Obese)");
+  }
+  return query.or(`wfa_status.eq.${value},hfa_status.eq.${value},wfl_h_status.eq.${value}`);
+}
+
 // Server-paginated masterlist detail page: filters, global sort, and the
 // total all resolve in Postgres (one round trip), so the admin table never
 // transfers the month's full row set. The child join is !inner so barangay /
 // purok / name predicates apply before paging, not after. MNAO callers are
 // restricted to submitted rows in-query, mirroring filterSubmittedForRole.
-async function fetchMasterlistPage({ start, end, barangay, purok, search, page, pageSize, submittedOnly }) {
+//
+// Nutrition-status filtering resolves in-query too (so the exact total still
+// matches the pages):
+// - wfa / hfa / wfl_h narrow one indicator to an exact status (ANDed).
+// - status is the general filter: an exact status value matches ANY
+//   indicator (OR), while group keys match the shared KPI buckets —
+//   "normal" (all three Normal), "at-risk" (any underweight/stunted/wasted),
+//   "severe" (any Severely ...), "over-obese" (Overweight/Obese anywhere).
+// Values are whitelisted in the controller; anything reaching the fallthrough
+// below is an exact status matched against all three indicators.
+async function fetchMasterlistPage({ start, end, barangay, purok, search, page, pageSize, submittedOnly, wfa, hfa, wfl_h, status }) {
   requireSupabase();
   let query = supabase
     .from("tbl_assessments")
@@ -106,6 +146,10 @@ async function fetchMasterlistPage({ start, end, barangay, purok, search, page, 
   if (barangay) query = query.eq("tbl_children.barangay", barangay);
   if (purok) query = query.eq("tbl_children.purok", purok);
   if (search) query = query.ilike("tbl_children.name", `%${escapeIlike(search)}%`);
+  if (wfa) query = query.eq("wfa_status", wfa);
+  if (hfa) query = query.eq("hfa_status", hfa);
+  if (wfl_h) query = query.eq("wfl_h_status", wfl_h);
+  if (status) query = applyGeneralStatusFilter(query, status);
   query = query
     .order("purok", { foreignTable: "tbl_children", ascending: true })
     .order("name", { foreignTable: "tbl_children", ascending: true });

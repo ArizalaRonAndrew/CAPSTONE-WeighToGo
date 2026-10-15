@@ -7,6 +7,7 @@ import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
 import ManageChildModal from "../../components/ManageChildModal";
 import Dropdown from "../../components/Dropdown";
+import { STATUS_FILTER_OPTIONS, statusLabelFor } from "../../utils/nutritionStatusFilter";
 
 function formatShortDate(dateStr) {
   if (!dateStr) return "--";
@@ -64,6 +65,7 @@ export default function AdminMasterlist() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [viewChildId, setViewChildId] = useState(null);
 
@@ -75,7 +77,7 @@ export default function AdminMasterlist() {
 
   useEffect(() => {
     setPage(1);
-  }, [month, barangayFilter, purokFilter, debouncedSearch]);
+  }, [month, barangayFilter, purokFilter, debouncedSearch, statusFilter]);
 
   // Rev-gated split: KPI summary + one server-paginated page of rows.
   // Filtering, global sort, and the total resolve in Postgres — the table
@@ -89,6 +91,7 @@ export default function AdminMasterlist() {
   if (barangayFilter) rowsParams.set("barangay", barangayFilter);
   if (purokFilter) rowsParams.set("purok", purokFilter);
   if (debouncedSearch) rowsParams.set("search", debouncedSearch);
+  if (statusFilter) rowsParams.set("status", statusFilter);
   const rowsQuery = useRevReport(`/reports/monthly-masterlist/rows?${rowsParams.toString()}`, [month]);
 
   const summary = summaryQuery.data;
@@ -112,13 +115,15 @@ export default function AdminMasterlist() {
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
-  const hasActiveFilters = Boolean(search || purokFilter || barangayFilter);
+  const hasActiveFilters = Boolean(search || purokFilter || barangayFilter || statusFilter);
+  const statusLabel = statusLabelFor(statusFilter);
 
   function clearFilters() {
     setSearch("");
     setDebouncedSearch("");
     setPurokFilter("");
     setBarangayFilter("");
+    setStatusFilter("");
     setPage(1);
   }
 
@@ -180,6 +185,10 @@ export default function AdminMasterlist() {
               disabled={!barangayFilter}
             />
           </div>
+          <div className="field">
+            <label>Nutrition Status</label>
+            <Dropdown value={statusFilter} options={STATUS_FILTER_OPTIONS} onChange={setStatusFilter} />
+          </div>
           {hasActiveFilters && (
             <button type="button" className="btn btn-secondary" onClick={clearFilters}>
               Clear filters
@@ -203,8 +212,10 @@ export default function AdminMasterlist() {
 
       {!loading && !error && (
         <p className="results-count">
-          {debouncedSearch
-            ? `${total} match${total === 1 ? "" : "es"} for “${debouncedSearch}”`
+          {debouncedSearch || statusFilter
+            ? `${total} match${total === 1 ? "" : "es"}${debouncedSearch ? ` for “${debouncedSearch}”` : ""}${
+                statusFilter ? ` with status “${statusLabel}”` : ""
+              }`
             : `Showing ${total} checkups this month`}
         </p>
       )}
@@ -257,7 +268,16 @@ export default function AdminMasterlist() {
               {!loading && !error && rows.length === 0 && (
                 <tr>
                   <td colSpan={14} className="empty-state">
-                    No checkups recorded for {monthLabel(month)}.
+                    {hasActiveFilters ? (
+                      <>
+                        <div>No checkups match your filters.</div>
+                        <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={clearFilters}>
+                          Clear filters
+                        </button>
+                      </>
+                    ) : (
+                      <>No checkups recorded for {monthLabel(month)}.</>
+                    )}
                   </td>
                 </tr>
               )}

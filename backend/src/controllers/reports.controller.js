@@ -12,6 +12,33 @@ const STATUS_VALUES = {
   wfl_h: ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"],
 };
 
+// Every value the general `status` query param on GET /reports/monthly-
+// masterlist/rows accepts: exact statuses (match ANY indicator) plus the
+// group keys (match the KPI buckets). Lowercase group keys are canonical;
+// "Normal" doubles as the all-normal group.
+const GENERAL_STATUS_VALUES = new Set([
+  ...STATUS_VALUES.wfa,
+  ...STATUS_VALUES.hfa,
+  ...STATUS_VALUES.wfl_h,
+  "normal",
+  "at-risk",
+  "severe",
+  "over-obese",
+]);
+
+function parseGeneralStatus(value) {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower === "normal") return "normal";
+  if (lower === "at-risk" || lower === "at_risk" || lower === "malnourished") return "at-risk";
+  if (lower === "severe") return "severe";
+  if (lower === "over-obese" || lower === "overweight-obese" || lower === "overweight/obese") return "over-obese";
+  if (GENERAL_STATUS_VALUES.has(trimmed)) return trimmed;
+  return undefined;
+}
+
 const INDICATOR_COLUMNS = {
   wfa: "wfa_status",
   hfa: "hfa_status",
@@ -491,6 +518,16 @@ async function getMasterlistRows(req, res, next) {
     const search = (req.query.search || "").trim() || null;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 7));
+    const wfa = (req.query.wfa || "").trim() || null;
+    const hfa = (req.query.hfa || "").trim() || null;
+    const wfl_h = (req.query.wfl_h || "").trim() || null;
+    const status = parseGeneralStatus(req.query.status);
+    if ((wfa && !STATUS_VALUES.wfa.includes(wfa)) || (hfa && !STATUS_VALUES.hfa.includes(hfa)) || (wfl_h && !STATUS_VALUES.wfl_h.includes(wfl_h))) {
+      return res.status(400).json({ error: "wfa, hfa, and wfl_h must be valid nutrition statuses" });
+    }
+    if (status === undefined) {
+      return res.status(400).json({ error: "status must be a valid nutrition status or group (normal, at-risk, severe, over-obese)" });
+    }
     const { start, end } = toMonthRange(month);
 
     const { rows: raw, total } = await reportsModel.fetchMasterlistPage({
@@ -502,6 +539,10 @@ async function getMasterlistRows(req, res, next) {
       page,
       pageSize,
       submittedOnly: req.user.role === "MNAO",
+      wfa,
+      hfa,
+      wfl_h,
+      status,
     });
 
     const rows = raw
