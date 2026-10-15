@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { currentMonth, monthLabel } from "../../utils/month";
@@ -122,6 +122,51 @@ function pinIcon(severity) {
 
 const BALAYAN_CENTER = [13.9576, 120.7306];
 
+// Fallback viewport cap before marker data loads: barangay extent
+// (lat 13.9123–14.0130, lng 120.6618–120.7851) with a generous margin so
+// edge-marker popups (e.g. Sukol in the north) can autopan without fighting
+// the clamp. Once markers load, FitBarangayBounds refines this with the
+// exact data-driven bounds.
+const BALAYAN_MAX_BOUNDS = [
+  [13.8722, 120.6195],
+  [14.0531, 120.8274],
+];
+
+// Fits the view to all loaded markers exactly once on first paint, then
+// locks the furthest zoom-out to that fit. Panning uses a looser outer cap
+// so Leaflet's popup autopan near edge markers doesn't fight maxBounds.
+// The one-shot guard also stops background refetches from yanking the view
+// while the admin is interacting with a marker.
+function FitBarangayBounds({ positions }) {
+  const map = useMap();
+  const boundsRef = useRef(null);
+  const fittedRef = useRef(false);
+
+  useEffect(() => {
+    if (!positions.length || fittedRef.current) return;
+    fittedRef.current = true;
+    const fitBounds = L.latLngBounds(positions).pad(0.15);
+    const panBounds = fitBounds.pad(0.6);
+    boundsRef.current = fitBounds;
+    map.fitBounds(fitBounds, { animate: false });
+    map.setMinZoom(map.getBoundsZoom(fitBounds));
+    map.setMaxBounds(panBounds);
+  }, [map, positions]);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (!boundsRef.current) return;
+      map.setMinZoom(map.getBoundsZoom(boundsRef.current));
+    };
+    map.on("resize", onResize);
+    return () => {
+      map.off("resize", onResize);
+    };
+  }, [map]);
+
+  return null;
+}
+
 function pct(value) {
   return `${Number(value ?? 0).toFixed(1)}%`;
 }
@@ -148,6 +193,13 @@ export default function BarangayMap() {
     (!barangaysQuery.data && barangaysQuery.error) || (!healthQuery.data && healthQuery.error) || "";
   const mapRefreshing = barangaysQuery.refreshing || healthQuery.refreshing;
   const mapUpdatedAt = Math.max(barangaysQuery.updatedAt || 0, healthQuery.updatedAt || 0) || null;
+  // Stable coordinate list driving the zoom-out lock; memoized so the fit
+  // effect runs only when the loaded marker set actually changes.
+  const markerPositions = useMemo(
+    () => barangays.filter((b) => b.lat && b.lng).map((b) => [b.lat, b.lng]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- barangays derives from stable query data; re-fit only when it changes
+    [barangaysQuery.data]
+  );
 
   function refreshAll() {
     barangaysQuery.refresh();
@@ -256,9 +308,18 @@ export default function BarangayMap() {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-        <div className="card" style={{ flex: 2, padding: 0, overflow: "hidden" }}>
-          <MapContainer center={BALAYAN_CENTER} zoom={13} style={{ height: 560, width: "100%" }}>
+      <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
+        <div className="card" style={{ flex: 2, padding: 0, overflow: "hidden", height: 560 }}>
+          <MapContainer
+            center={BALAYAN_CENTER}
+            zoom={13}
+            minZoom={12}
+            maxZoom={18}
+            maxBounds={BALAYAN_MAX_BOUNDS}
+            maxBoundsViscosity={0.8}
+            style={{ height: 560, width: "100%" }}
+          >
+            <FitBarangayBounds positions={markerPositions} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -300,7 +361,7 @@ export default function BarangayMap() {
           </MapContainer>
         </div>
 
-        <div className="card" style={{ flex: 1, minWidth: 280 }}>
+        <div className="card" style={{ flex: 1, minWidth: 280, height: 560, overflowY: "auto" }}>
           {!selected && <p className="empty-state">Click a barangay marker to see its summary.</p>}
           {selected && (
             <>
