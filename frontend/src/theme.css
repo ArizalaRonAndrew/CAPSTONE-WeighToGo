@@ -3690,7 +3690,7 @@ body.map-printing .barangay-map-page .map-side-card {
      results count, the paged table card (with its Action column and
      Previous/Next pagination) and any open modal — stays off the paper.
      Instead the print sheet shows an organized filter header plus the full
-     filtered roster with blank follow-up columns (Date Measured through
+     filtered roster with blank follow-up columns (Date Meas. through
      WFL/H Status) left empty for manual recording after 3 months. */
   .admin-masterlist-page .page-header,
   .admin-masterlist-page .kpi-strip,
@@ -3698,6 +3698,19 @@ body.map-printing .barangay-map-page .map-side-card {
   .admin-masterlist-page .results-count,
   .admin-masterlist-page .masterlist-screen-card,
   .admin-masterlist-page .modal-overlay {
+    display: none !important;
+  }
+
+  /* BNS Monthly Report print: same sheet as the admin masterlist print —
+     indicator cards, banners, the paged screen table card and pagination
+     stay off the paper; only the print-only masterlist sheet prints. */
+  .bns-monthly-report-page .page-header,
+  .bns-monthly-report-page .indicator-grid,
+  .bns-monthly-report-page .filter-card,
+  .bns-monthly-report-page .results-count,
+  .bns-monthly-report-page .bns-screen-card,
+  .bns-monthly-report-page .banner,
+  .bns-monthly-report-page .error-text {
     display: none !important;
   }
 

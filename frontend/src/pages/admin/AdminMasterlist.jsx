@@ -84,7 +84,7 @@ function printStatusAbbr(status) {
   return PRINT_STATUS_ABBR[status] ?? status;
 }
 
-// Blank follow-up columns appended to the printed sheet (Date Measured
+// Blank follow-up columns appended to the printed sheet (Date Meas.
 // through WFL/H Status). Cells stay empty for manual recording of the next
 // measurement round after 3 months.
 const FOLLOW_UP_COLUMNS = [

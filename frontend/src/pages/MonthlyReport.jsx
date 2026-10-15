@@ -48,6 +48,41 @@ function tallyBy(rows, key) {
   return counts;
 }
 
+// Print-sheet status abbreviations (same as the admin masterlist print):
+// the print columns are only ~5% wide, so full words like
+// "Severely Underweight" always clip mid-word. Short codes keep every
+// value on one clean line (full text stays in `title`).
+const PRINT_STATUS_ABBR = {
+  Normal: "Normal",
+  Underweight: "UW",
+  "Severely Underweight": "SUW",
+  Overweight: "OW",
+  Stunted: "ST",
+  "Severely Stunted": "SST",
+  Tall: "Tall",
+  Wasted: "W",
+  "Severely Wasted": "SW",
+  Obese: "OB",
+};
+
+function printStatusAbbr(status) {
+  if (!status) return "--";
+  return PRINT_STATUS_ABBR[status] ?? status;
+}
+
+// Blank follow-up columns appended to the printed sheet (same as admin:
+// Date Meas. through WFL/H). Cells stay empty for manual recording of the
+// next measurement round after 3 months.
+const FOLLOW_UP_COLUMNS = [
+  "Date Meas.",
+  "Wt (kg)",
+  "Ht (cm)",
+  "Age",
+  "WFA",
+  "HFA",
+  "WFL/H",
+];
+
 function UsersIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
@@ -103,6 +138,11 @@ export default function MonthlyReport() {
   const [submitError, setSubmitError] = useState("");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
+  // Print sheet state (same pattern as the admin masterlist print): the
+  // filtered row set rendered into a print-only table with the same
+  // layout. Kept after printing so reprints skip the rebuild.
+  const [printRows, setPrintRows] = useState(null);
+  const [preparingPrint, setPreparingPrint] = useState(false);
 
   // Rev-gated: snapshots render instantly; the heavy payloads refetch only
   // when revision counters moved server-side.
@@ -159,8 +199,45 @@ export default function MonthlyReport() {
     setPage(1);
   }
 
+  // Same print flow as the admin masterlist: snapshot the filtered rows
+  // into the print-only sheet (this endpoint already returns the full
+  // barangay-scoped set, so no paging round trips are needed), let React
+  // paint it, then print. Screen chrome stays off the paper via print CSS.
+  async function handlePrint() {
+    if (preparingPrint || loading) return;
+    setPreparingPrint(true);
+    try {
+      setPrintRows(filteredRows);
+      // Let React paint the print-only table before snapshotting to paper.
+      await new Promise((r) => setTimeout(r, 150));
+      window.print();
+    } finally {
+      setPreparingPrint(false);
+    }
+  }
+
+  const barangayName = report?.barangay || rows[0]?.barangay || "—";
+
+  const printDate = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // Same filter header as the admin print (BNS is barangay-locked with no
+  // purok/search inputs, so those boxes show the matching fixed values).
+  const printFilterDetails = [
+    { label: "Month", value: monthLabel(month) },
+    { label: "Barangay", value: barangayName },
+    { label: "Purok / Sitio", value: "All puroks" },
+    { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
+    { label: "Search", value: "—" },
+    { label: "Records", value: String(printRows?.length ?? filteredRows.length) },
+    { label: "Printed", value: printDate },
+  ];
+
   return (
-    <div>
+    <div className="bns-monthly-report-page">
       <div className="page-header">
         <div>
           <h1>Monthly Barangay Report</h1>
@@ -170,8 +247,8 @@ export default function MonthlyReport() {
         </div>
         <div className="page-header-actions" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-          <button className="btn btn-secondary hide-on-mobile" onClick={() => window.print()}>
-            <PrintIcon /> Print Report
+          <button className="btn btn-secondary hide-on-mobile print-hide" onClick={handlePrint} disabled={preparingPrint || loading}>
+            <PrintIcon /> {preparingPrint ? "Preparing…" : "Print Report"}
           </button>
           <button className="btn btn-accent" onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
@@ -190,39 +267,41 @@ export default function MonthlyReport() {
       </div>
 
       {error && (
-        <p className="error-text" style={{ marginBottom: 12 }}>
+        <p className="error-text print-hide" style={{ marginBottom: 12 }}>
           {error}
         </p>
       )}
       {submitError && (
-        <p className="error-text" style={{ marginBottom: 12 }}>
+        <p className="error-text print-hide" style={{ marginBottom: 12 }}>
           {submitError}
         </p>
       )}
       {submitNotice && (
-        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+        <div className="banner banner-warning print-hide" style={{ marginBottom: 20 }}>
           {submitNotice}
         </div>
       )}
 
       {submission?.submitted && (
-        <div className="banner banner-success" style={{ marginBottom: 20 }}>
+        <div className="banner banner-success print-hide" style={{ marginBottom: 20 }}>
           ✓ Submitted to admin for {monthLabel(month)}. The admin can now view this barangay's {monthLabel(month)}{" "}
           checkup data.
         </div>
       )}
       {submission && !submission.submitted && (
-        <div className="banner banner-warning" style={{ marginBottom: 20 }}>
+        <div className="banner banner-warning print-hide" style={{ marginBottom: 20 }}>
           ⚠ Not yet submitted — the admin cannot see this barangay&apos;s {monthLabel(month)} checkup data until you
           submit.
         </div>
       )}
 
       {!loading && (
-        <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
+        <div className="print-hide">
+          <RefreshLine refreshing={refreshing} updatedAt={updatedAt} onRefresh={refreshAll} />
+        </div>
       )}
 
-      <div className="indicator-grid">
+      <div className="indicator-grid print-hide">
         <div className="card indicator-card">
           <div className="indicator-card-header">
             <div>
@@ -272,7 +351,7 @@ export default function MonthlyReport() {
         })}
       </div>
 
-      <div className="card">
+      <div className="card bns-screen-card">
         <h3>Masterlist Report Data</h3>
         <div className="card filter-card" style={{ marginBottom: 16 }}>
           <div className="filter-bar" style={{ marginBottom: 0 }}>
@@ -405,6 +484,122 @@ export default function MonthlyReport() {
           </div>
         </div>
       </div>
+
+      {printRows && (
+        <div className="masterlist-print">
+          <h1>Masterlist — {barangayName}</h1>
+          <div className="ml-print-filters">
+            {printFilterDetails.map((item) => (
+              <div className="ml-print-filter" key={item.label}>
+                <span className="ml-print-filter-label">{item.label}</span>
+                <span className="ml-print-filter-value">{item.value}</span>
+              </div>
+            ))}
+          </div>
+          <p className="ml-print-note">
+            Blank follow-up columns are for manual recording of the next measurement round after 3 months.
+          </p>
+          <p className="ml-print-legend">
+            Status codes: UW = Underweight, SUW = Severely Underweight, OW = Overweight, ST = Stunted, SST =
+            Severely Stunted, W = Wasted, SW = Severely Wasted, OB = Obese.
+          </p>
+          <table className="ml-print-table">
+            <colgroup>
+              <col className="ml-col-num" />
+              <col className="ml-col-place" />
+              <col className="ml-col-name" />
+              <col className="ml-col-name" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-date" />
+              <col className="ml-col-date" />
+              <col className="ml-col-measure" />
+              <col className="ml-col-measure" />
+              <col className="ml-col-flag" />
+              <col className="ml-col-status" />
+              <col className="ml-col-status" />
+              <col className="ml-col-status" />
+              <col className="ml-col-date ml-col-blank" />
+              <col className="ml-col-measure ml-col-blank" />
+              <col className="ml-col-measure ml-col-blank" />
+              <col className="ml-col-flag ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+              <col className="ml-col-status ml-col-blank" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th rowSpan={2}>#</th>
+                <th rowSpan={2}>Address / Purok</th>
+                <th rowSpan={2}>Mother / Caregiver</th>
+                <th rowSpan={2}>Name of Child</th>
+                <th rowSpan={2}>IP</th>
+                <th rowSpan={2}>Sex</th>
+                <th rowSpan={2}>Birth Date</th>
+                <th colSpan={7}>Current — {monthLabel(month)}</th>
+                <th colSpan={7}>Follow-up (after 3 months)</th>
+              </tr>
+              <tr>
+                <th>Date Meas.</th>
+                <th>Wt (kg)</th>
+                <th>Ht (cm)</th>
+                <th>Age</th>
+                <th>WFA</th>
+                <th>HFA</th>
+                <th>WFL/H</th>
+                <th>Date Meas.</th>
+                <th>Wt (kg)</th>
+                <th>Ht (cm)</th>
+                <th>Age</th>
+                <th>WFA</th>
+                <th>HFA</th>
+                <th>WFL/H</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printRows.length === 0 && (
+                <tr>
+                  <td colSpan={21} className="ml-print-empty">
+                    No checkups recorded for {monthLabel(month)} under the current filters.
+                  </td>
+                </tr>
+              )}
+              {printRows.map((row, index) => (
+                <tr key={row.assessment_id}>
+                  <td className="ml-print-num">{index + 1}</td>
+                  <td>
+                    <div className="ml-print-barangay">{row.barangay}</div>
+                    <div>{row.purok}</div>
+                  </td>
+                  <td>{formatNameForTable(row.parent_name)}</td>
+                  <td>{formatNameForTable(row.name)}</td>
+                  <td className="ml-print-center">{row.is_ip ? "YES" : "NO"}</td>
+                  <td className="ml-print-center">{row.gender?.charAt(0)}</td>
+                  <td className="ml-print-center">{formatShortDate(row.dob)}</td>
+                  <td className="ml-print-center">{formatShortDate(row.date_measured)}</td>
+                  <td className="ml-print-center">{row.weight}</td>
+                  <td className="ml-print-center">{row.height}</td>
+                  <td className="ml-print-center">{row.age_in_months}</td>
+                  <td className="ml-print-status" title={row.wfa_status}>
+                    {printStatusAbbr(row.wfa_status)}
+                  </td>
+                  <td className="ml-print-status" title={row.hfa_status}>
+                    {printStatusAbbr(row.hfa_status)}
+                  </td>
+                  <td className="ml-print-status" title={row.wfl_h_status}>
+                    {printStatusAbbr(row.wfl_h_status)}
+                  </td>
+                  {FOLLOW_UP_COLUMNS.map((col) => (
+                    <td key={col} className="ml-blank">
+                      &nbsp;
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
