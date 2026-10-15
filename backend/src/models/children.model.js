@@ -50,4 +50,31 @@ async function softDelete(id) {
   return update(id, { status: "reject" });
 }
 
-module.exports = { findAll, findById, create, update, softDelete };
+function normalizeChildName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function findDuplicate({ name, dob, barangay, excludeId } = {}) {
+  requireSupabase();
+  if (!name || !dob || !barangay) return null;
+  const dobDay = String(dob).slice(0, 10);
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("id, name, dob, barangay")
+    .eq("barangay", barangay)
+    .eq("dob", dobDay)
+    .eq("status", "active");
+  if (error) throw error;
+  const wanted = normalizeChildName(name);
+  const match = (data || []).find(
+    (row) =>
+      normalizeChildName(row.name) === wanted &&
+      String(row.id) !== String(excludeId || "")
+  );
+  return match || null;
+}
+
+module.exports = { findAll, findById, create, update, softDelete, findDuplicate, normalizeChildName };

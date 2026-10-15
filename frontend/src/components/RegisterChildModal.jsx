@@ -11,6 +11,7 @@ import {
 } from "../utils/name";
 import { ageInMonths } from "../utils/age";
 import { todayInManila } from "../utils/month";
+import { listEntries } from "../utils/outbox.js";
 
 const MAX_REGISTRATION_AGE_MONTHS = 59;
 
@@ -154,6 +155,33 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
     try {
       const { firstName, middleName, lastName, suffix, ...rest } = form;
       const payload = { ...rest, name: combineChildName({ firstName, middleName, lastName, suffix }) };
+      // Client-side duplicate guard: same name (case/space-insensitive) +
+      // same birthdate. The server re-checks scoped to the barangay and
+      // returns 409, but catching it here gives instant feedback without a
+      // failed round trip. Queued (still-offline) registrations count too so
+      // the same child can't be enqueued twice while offline.
+      const norm = (v) => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
+      const dobDay = String(payload.dob).slice(0, 10);
+      const isSameChild = (c) => norm(c?.name) === norm(payload.name) && String(c?.dob || "").slice(0, 10) === dobDay;
+      try {
+        const queued = await listEntries().catch(() => []);
+        if (Array.isArray(queued) && queued.some((e) => e.method === "POST" && String(e.path).split("?")[0] === "/children" && isSameChild(e.body))) {
+          setError("This child is already registered (same name and birthdate).");
+          return;
+        }
+      } catch {
+        // queue scan is best-effort — roster + server checks still apply
+      }
+      try {
+        const roster = await api.get("/children");
+        if (Array.isArray(roster) && roster.some(isSameChild)) {
+          setError("This child is already registered (same name and birthdate).");
+          return;
+        }
+      } catch {
+        // Roster pre-check is best-effort (offline/uncached) — the server's
+        // 409 below is the authoritative guard.
+      }
       const child = await api.post("/children", payload);
       try {
         localStorage.removeItem(key);

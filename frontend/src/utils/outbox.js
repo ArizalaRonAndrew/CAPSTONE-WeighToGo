@@ -521,6 +521,14 @@ export async function flushOutbox() {
           flushed += 1;
           continue;
         }
+        // 409 on a queued registration is the server's duplicate-child
+        // signal (same name + birthdate in the barangay) — treat as
+        // success-with-note so it doesn't loop as an error.
+        if (err && err.status === 409 && entry.method === "POST" && String(entry.path).split("?")[0] === "/children") {
+          await updateEntry(entry, { status: "done", resultNote: "This child was already registered on the server." });
+          flushed += 1;
+          continue;
+        }
         await updateEntry(entry, { status: "failed", lastError: err?.message || "Sync failed." });
       }
     }

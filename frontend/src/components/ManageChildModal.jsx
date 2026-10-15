@@ -487,7 +487,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
               {removeError && <p className="error-text" style={{ gridColumn: "1 / -1", margin: 0 }}>{removeError}</p>}
               {confirmingRemove && (
                 <div className="banner banner-warning" style={{ gridColumn: "1 / -1" }}>
-                  Remove {child.name}&apos;s registration? Their checkups and supplement records will also be removed.
+                  Remove {child.name}&apos;s registration? They will be removed from the masterlist, but their saved checkups and supplement records will be kept.
                   This cannot be undone.
                 </div>
               )}

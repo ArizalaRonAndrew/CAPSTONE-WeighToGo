@@ -1,6 +1,5 @@
 const childrenModel = require("../models/children.model");
 const assessmentModel = require("../models/assessment.model");
-const supplementModel = require("../models/supplement.model");
 const barangayModel = require("../models/barangay.model");
 const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
@@ -113,6 +112,16 @@ async function createChild(req, res, next) {
         error: "parent_contact must be an 11-digit mobile number starting with 09",
       });
     }
+    // Same credentials (name + birthdate within the same barangay) must not
+    // be registered twice. Name comparison is case/whitespace-insensitive so
+    // "juan Dela Cruz" and "Juan Dela Cruz " still collide.
+    const duplicate = await childrenModel.findDuplicate({ name, dob, barangay });
+    if (duplicate) {
+      return res.status(409).json({
+        error: "This child is already registered in this barangay (same name and birthdate).",
+        existingId: duplicate.id,
+      });
+    }
     const child = await childrenModel.create({ ...req.body, barangay });
     // Roster, map counts, and reports all derive from the children table.
     await bustAll(["children:*", "barangays:*", "reports:*"]);
@@ -166,6 +175,22 @@ async function updateChild(req, res, next) {
         error: "parent_contact must be an 11-digit mobile number starting with 09",
       });
     }
+    // Editing name/dob into another active record's credentials is the same
+    // duplicate as registering twice — block it, excluding this record itself.
+    if ("name" in fields || "dob" in fields) {
+      const duplicate = await childrenModel.findDuplicate({
+        name: merged.name,
+        dob: String(merged.dob).slice(0, 10),
+        barangay: merged.barangay,
+        excludeId: req.params.id,
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          error: "Another child with the same name and birthdate is already registered in this barangay.",
+          existingId: duplicate.id,
+        });
+      }
+    }
     const child = await childrenModel.update(req.params.id, fields);
     await bustAll(["children:*", "barangays:*", "reports:*"]);
     await touchRevs([]);
@@ -181,13 +206,10 @@ async function deleteChild(req, res, next) {
     assertBarangayAccess(req, existing);
 
     const child = await childrenModel.softDelete(req.params.id);
-    // Cascade the delete: without this, the child's checkups/supplement
-    // records stayed "active" and kept counting in every report and the
-    // Barangay Map even though the child itself was gone.
-    await Promise.all([
-      assessmentModel.rejectAllForChild(req.params.id),
-      supplementModel.rejectAllForChild(req.params.id),
-    ]);
+    // Registration-only delete: the child's saved monthly assessments and
+    // supplement records stay "active" so historical checkups keep counting
+    // in reports. Only the roster entry itself is archived (status=reject,
+    // hidden from list queries).
     await bustAll(["children:*", "barangays:*", "reports:*", "assessments:*", "supplements:*"]);
     await touchRevs([]);
     res.json(child);
