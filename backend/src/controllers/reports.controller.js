@@ -1,7 +1,18 @@
 const reportsModel = require("../models/reports.model");
 const assessmentModel = require("../models/assessment.model");
 const childrenModel = require("../models/children.model");
-const { toMonthRange, addMonths, formatMonth, isValidMonthString } = require("../utils/date");
+const {
+  toMonthRange,
+  toPeriodRange,
+  isValidMonthString,
+  isQ1Month,
+  periodKeyForDate,
+  periodKeyForMonth,
+  expandPeriodToMonths,
+  periodsBetween,
+  periodLabel,
+} = require("../utils/date");
+const { dedupeByChildPerPeriod } = require("../utils/periodDedupe");
 const { filterSubmittedForRole } = require("../utils/submission");
 const { computeBarangayHealthStatus } = require("../services/barangayHealth.service");
 const { bustAll, touchRevs, getRevs } = require("../config/redis");
@@ -107,10 +118,13 @@ async function getGrowthSummaryReport(req, res, next) {
       return res.status(400).json({ error: "month is required in YYYY-MM format" });
     }
     const barangay = effectiveBarangay(req);
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    const { start, end } = toPeriodRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchGrowthRows({ start, end }), barangay);
-    const rows = filterSubmittedForRole(req, scopedRows).filter(
+    // Jan–Mar is one month: one record per child for the quarter, never the
+    // sum of the three calendar months.
+    const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows)).filter(
       (row) => row.tbl_children && bracketForAge(row.age_in_months)
     );
     const totalRegistered = await reportsModel.countChildren({ barangay });
@@ -157,6 +171,8 @@ async function getGrowthSummaryReport(req, res, next) {
 
     res.json({
       month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
       barangay: barangay || "All Barangays",
       totalRegistered,
       ageBrackets: AGE_BRACKETS.map(({ key, label }) => ({ key, label })),
@@ -175,13 +191,17 @@ async function getNutritionReport(req, res, next) {
       return res.status(400).json({ error: "month is required in YYYY-MM format" });
     }
     const barangay = effectiveBarangay(req);
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    const { start, end } = toPeriodRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
-    const rows = filterSubmittedForRole(req, scopedRows);
+    // Jan–Mar is one month: one record per child for the quarter.
+    const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows));
 
     res.json({
       month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
       barangay: barangay || "All barangays",
       totalAssessments: rows.length,
       wfa: tally(rows, "wfa_status"),
@@ -239,10 +259,13 @@ async function getMonthlyMasterlistReport(req, res, next) {
     }
     const barangay = effectiveBarangay(req);
     const purok = req.query.purok || null;
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    const { start, end } = toPeriodRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchAssessmentsWithChildren({ start, end }), barangay);
-    const rawRows = filterSubmittedForRole(req, scopedRows);
+    // Jan–Mar is one month: one record per child for the quarter, even if the
+    // database still holds separate Jan/Feb/Mar rows.
+    const rawRows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows));
     const totalRegistered = await reportsModel.countChildren({ barangay, purok });
 
     const rows = rawRows
@@ -280,6 +303,8 @@ async function getMonthlyMasterlistReport(req, res, next) {
 
     res.json({
       month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
       barangay: barangay || "All barangays",
       totalRegistered,
       totalAssessed: kpiRows.length,
@@ -329,40 +354,41 @@ async function getTrends(req, res, next) {
     }
     const barangay = req.query.barangay || null;
 
+    // Q1-aware range: from/to are calendar months, but Jan–Mar collapses to
+    // a single "YYYY-Q1" data point since that quarter holds one assessment
+    // per child. The underlying fetch still spans the full calendar range.
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
     const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
-    const rows = filterSubmittedForRole(req, scopedRows);
+    // Jan–Mar is one month: collapse to one record per (child, period) so the
+    // Q1 point never sums Jan+Feb+Mar into 3x.
+    const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows));
 
-    const months = [];
-    let cursor = from;
-    while (cursor <= to) {
-      months.push(cursor);
-      cursor = addMonths(cursor, 1);
-    }
+    const periods = periodsBetween(from, to);
 
     if (status) {
-      const buckets = new Map(months.map((m) => [m, 0]));
+      const buckets = new Map(periods.map((m) => [m, 0]));
       for (const row of rows) {
         if (row[column] !== status) continue;
-        const month = formatMonth(row.date_measured);
-        if (buckets.has(month)) buckets.set(month, buckets.get(month) + 1);
+        const period = periodKeyForDate(row.date_measured);
+        if (period && buckets.has(period)) buckets.set(period, buckets.get(period) + 1);
       }
-      return res.json(months.map((month) => ({ month, count: buckets.get(month) })));
+      return res.json(periods.map((month) => ({ month, count: buckets.get(month) })));
     }
 
-    // No status filter: break each month down by every status for this
-    // indicator, so the caller can plot one line per status.
+    // No status filter: break each assessment period down by every status
+    // for this indicator, so the caller can plot one line per status.
+    // Jan–Mar rows all land in the single "YYYY-Q1" bucket.
     const statuses = STATUS_VALUES[indicatorKey] || [];
-    const buckets = new Map(months.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
+    const buckets = new Map(periods.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
     for (const row of rows) {
       const value = row[column];
       if (!statuses.includes(value)) continue;
-      const month = formatMonth(row.date_measured);
-      if (buckets.has(month)) buckets.get(month)[value] += 1;
+      const period = periodKeyForDate(row.date_measured);
+      if (period && buckets.has(period)) buckets.get(period)[value] += 1;
     }
 
-    res.json(months.map((month) => ({ month, ...buckets.get(month) })));
+    res.json(periods.map((month) => ({ month, ...buckets.get(month) })));
   } catch (err) {
     next(err);
   }
@@ -381,9 +407,11 @@ async function getBarangayComparison(req, res, next) {
       return res.status(400).json({ error: "month (YYYY-MM) is required" });
     }
 
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    // One record per child for the quarter — never Jan+Feb+Mar summed.
+    const { start, end } = toPeriodRange(month);
     const allRows = await reportsModel.fetchTrendRows({ start, end });
-    const rows = filterSubmittedForRole(req, allRows);
+    const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, allRows));
 
     const buckets = new Map();
     for (const row of rows) {
@@ -442,7 +470,8 @@ async function submitMonthlyReport(req, res, next) {
       return res.status(400).json({ error: "No barangay is assigned to this account" });
     }
 
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: submitting any of Jan/Feb/Mar submits the whole quarter once.
+    const { start, end } = toPeriodRange(month);
     const children = await childrenModel.findAll({ barangay });
     const childIds = children.map((c) => c.id);
     const updated = await assessmentModel.submitForChildren({ childIds, start, end });
@@ -450,8 +479,17 @@ async function submitMonthlyReport(req, res, next) {
     // Flipping draft->submitted changes what MNAO sees in assessments,
     // the masterlist, and every submission-gated report.
     await bustAll(["reports:*", "assessments:*", "children:*"]);
-    await touchRevs([month]);
-    res.status(200).json({ barangay, month, submitted: true, count: updated.length });
+    await touchRevs(expandPeriodToMonths(periodKeyForMonth(month)));
+    // Jan–Mar is one month: report distinct children, not Jan+Feb+Mar rows.
+    const distinctCount = new Set((updated || []).map((r) => r.child_id)).size;
+    res.status(200).json({
+      barangay,
+      month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
+      submitted: true,
+      count: distinctCount,
+    });
   } catch (err) {
     next(err);
   }
@@ -471,10 +509,12 @@ async function getMasterlistSummary(req, res, next) {
     // BNS accounts are barangay-locked server-side, same as the legacy route.
     if (req.user.role === "BNS") barangay = req.user.assigned_barangay;
     const purok = req.query.purok || null;
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    const { start, end } = toPeriodRange(month);
 
     const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
-    const rows = filterSubmittedForRole(req, scopedRows);
+    // Jan–Mar is one month: one record per child for the quarter.
+    const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows));
     const kpiRows = purok ? rows.filter((row) => row.tbl_children?.purok === purok) : rows;
     // Trend rows carry the child join but not purok — resolve it for the
     // purok-scoped KPIs via the (small, barangay-scoped) roster below.
@@ -487,6 +527,8 @@ async function getMasterlistSummary(req, res, next) {
 
     res.json({
       month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
       barangay: barangay || "All barangays",
       totalRegistered,
       totalAssessed: kpiRows.length,
@@ -528,7 +570,70 @@ async function getMasterlistRows(req, res, next) {
     if (status === undefined) {
       return res.status(400).json({ error: "status must be a valid nutrition status or group (normal, at-risk, severe, over-obese)" });
     }
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+    const { start, end } = toPeriodRange(month);
+
+    function mapMasterlistRows(raw) {
+      return raw
+        .filter((row) => row.tbl_children)
+        .map((row) => {
+          const child = row.tbl_children;
+          return {
+            assessment_id: row.id,
+            child_id: child.id,
+            purok: child.purok,
+            barangay: child.barangay,
+            parent_name: child.parent_name,
+            name: child.name,
+            is_ip: child.is_ip,
+            gender: child.gender,
+            dob: child.dob,
+            date_measured: row.date_measured,
+            weight: row.weight,
+            height: row.height,
+            age_in_months: row.age_in_months,
+            wfa_status: row.wfa_status,
+            hfa_status: row.hfa_status,
+            wfl_h_status: row.wfl_h_status,
+          };
+        });
+    }
+
+    // Jan–Mar is one month: collapse to one record per child for the quarter
+    // before paging, so the table/total never show Jan+Feb+Mar summed.
+    if (isQ1Month(month)) {
+      const all = await reportsModel.fetchMasterlistAll({
+        start,
+        end,
+        barangay,
+        purok,
+        search,
+        submittedOnly: req.user.role === "MNAO",
+        wfa,
+        hfa,
+        wfl_h,
+        status,
+      });
+      const deduped = dedupeByChildPerPeriod(all.filter((row) => row.tbl_children));
+      deduped.sort(
+        (a, b) =>
+          String(a.tbl_children.purok || "").localeCompare(String(b.tbl_children.purok || "")) ||
+          String(a.tbl_children.name || "").localeCompare(String(b.tbl_children.name || ""))
+      );
+      const total = deduped.length;
+      const paged = deduped.slice((page - 1) * pageSize, page * pageSize);
+      const rows = mapMasterlistRows(paged);
+      return res.json({
+        month,
+        period: periodKeyForMonth(month),
+        periodLabel: periodLabel(month),
+        barangay: barangay || "All barangays",
+        page,
+        pageSize,
+        total,
+        rows,
+      });
+    }
 
     const { rows: raw, total } = await reportsModel.fetchMasterlistPage({
       start,
@@ -545,31 +650,18 @@ async function getMasterlistRows(req, res, next) {
       status,
     });
 
-    const rows = raw
-      .filter((row) => row.tbl_children)
-      .map((row) => {
-        const child = row.tbl_children;
-        return {
-          assessment_id: row.id,
-          child_id: child.id,
-          purok: child.purok,
-          barangay: child.barangay,
-          parent_name: child.parent_name,
-          name: child.name,
-          is_ip: child.is_ip,
-          gender: child.gender,
-          dob: child.dob,
-          date_measured: row.date_measured,
-          weight: row.weight,
-          height: row.height,
-          age_in_months: row.age_in_months,
-          wfa_status: row.wfa_status,
-          hfa_status: row.hfa_status,
-          wfl_h_status: row.wfl_h_status,
-        };
-      });
+    const rows = mapMasterlistRows(raw);
 
-    res.json({ month, barangay: barangay || "All barangays", page, pageSize, total, rows });
+    res.json({
+      month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
+      barangay: barangay || "All barangays",
+      page,
+      pageSize,
+      total,
+      rows,
+    });
   } catch (err) {
     next(err);
   }
@@ -583,13 +675,21 @@ async function getMasterlistRows(req, res, next) {
 // Redis everything comes back null and clients simply refetch as today.
 async function getSyncStatus(req, res, next) {
   try {
-    const months = String(req.query.months || "")
+    // Accepts both "YYYY-MM" and grouped "YYYY-Q1" keys; Q1 expands to its
+    // three calendar months so a single quarter write invalidates together.
+    const requested = String(req.query.months || "")
       .split(",")
       .map((m) => m.trim())
-      .filter((m) => isValidMonthString(m))
+      .filter(Boolean)
       .slice(0, 24);
-    const revs = await getRevs(months);
-    res.json({ months, global: revs?.global ?? null, revs: revs?.months ?? {} });
+    const months = [];
+    for (const m of requested) {
+      if (isValidMonthString(m)) months.push(m);
+      else if (/^\d{4}-Q1$/.test(m)) months.push(...expandPeriodToMonths(m));
+    }
+    const uniqueMonths = [...new Set(months)].slice(0, 24);
+    const revs = await getRevs(uniqueMonths);
+    res.json({ months: uniqueMonths, global: revs?.global ?? null, revs: revs?.months ?? {} });
   } catch (err) {
     next(err);
   }
@@ -606,11 +706,22 @@ async function getSubmissionStatus(req, res, next) {
       return res.status(400).json({ error: "barangay is required" });
     }
 
-    const { start, end } = toMonthRange(month);
-    const rows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
+    // Q1-aware: any Jan/Feb/Mar query reflects the whole quarter's submit state.
+    // One record per child — never Jan+Feb+Mar summed.
+    const { start, end } = toPeriodRange(month);
+    const rows = dedupeByChildPerPeriod(
+      filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay)
+    );
     const submitted = rows.length > 0 && rows.every((row) => row.submission_status === "submitted");
 
-    res.json({ barangay, month, submitted, total: rows.length });
+    res.json({
+      barangay,
+      month,
+      period: periodKeyForMonth(month),
+      periodLabel: periodLabel(month),
+      submitted,
+      total: rows.length,
+    });
   } catch (err) {
     next(err);
   }

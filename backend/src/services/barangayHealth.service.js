@@ -1,6 +1,7 @@
 const reportsModel = require("../models/reports.model");
 const barangayModel = require("../models/barangay.model");
-const { toMonthRange } = require("../utils/date");
+const { toPeriodRange } = require("../utils/date");
+const { dedupeByChildPerPeriod } = require("../utils/periodDedupe");
 const { filterSubmittedForRole } = require("../utils/submission");
 const {
   classifyUnderweight,
@@ -21,9 +22,11 @@ const OVERWEIGHT_WFL_H = new Set(["Overweight", "Obese"]);
 // and the AI significance explainer, so both work off the same real data
 // instead of trusting client-supplied numbers.
 async function computeBarangayHealthStatus({ req, month }) {
-  const { start, end } = toMonthRange(month);
+  // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
+  // One record per child for the quarter — never Jan+Feb+Mar summed.
+  const { start, end } = toPeriodRange(month);
   const allRows = await reportsModel.fetchTrendRows({ start, end });
-  const rows = filterSubmittedForRole(req, allRows);
+  const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, allRows));
 
   const totals = new Map();
   for (const b of barangayModel.getAll()) {

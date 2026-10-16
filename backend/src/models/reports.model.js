@@ -51,15 +51,15 @@ async function fetchAssessmentsWithChildren({ start, end }) {
 }
 
 // Slim projection for tally-only endpoints (trends, comparison, map health,
-// nutrition, masterlist summary): same rows as fetchAssessmentsWithBarangay
-// but 7 columns instead of the full assessment record, so multi-month scans
-// move far less data per page. Not for endpoints that return row details.
+// nutrition, masterlist summary). Includes id/child_id/date_measured so the
+// Q1 dedupe (one record per child for Jan–Mar) can pick the earliest row per
+// (child, period) instead of triple-counting duplicates.
 async function fetchTrendRows({ start, end }) {
   requireSupabase();
   return fetchAllPages(() =>
     supabase
       .from("tbl_assessments")
-      .select("date_measured,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,purok)")
+      .select("id,child_id,date_measured,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,purok)")
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -69,12 +69,13 @@ async function fetchTrendRows({ start, end }) {
 // Growth-summary projection: everything getGrowthSummaryReport tallies
 // (brackets from age_in_months, gender split, statuses) plus the barangay
 // join for scoping — without the weight/height/measurement columns.
+// Includes id/child_id/date_measured for the same Q1 dedupe.
 async function fetchGrowthRows({ start, end }) {
   requireSupabase();
   return fetchAllPages(() =>
     supabase
       .from("tbl_assessments")
-      .select("age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,gender)")
+      .select("id,child_id,date_measured,age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,gender)")
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -159,6 +160,37 @@ async function fetchMasterlistPage({ start, end, barangay, purok, search, page, 
   return { rows: data || [], total: count ?? (data || []).length };
 }
 
+// Unpaged variant used only for the Jan–Mar quarter: fetches every matching
+// row (same filters as fetchMasterlistPage, plus submission_status for the
+// MNAO gate) so the controller can collapse to one record per child for the
+// quarter and then paginate in memory. Regular months keep the SQL-paged
+// path above; Q1 needs this because Postgres would otherwise page over the
+// pre-consolidation duplicates (Jan+Feb+Mar rows) and triple-count them.
+async function fetchMasterlistAll({ start, end, barangay, purok, search, submittedOnly, wfa, hfa, wfl_h, status }) {
+  requireSupabase();
+  const build = () => {
+    let query = supabase
+      .from("tbl_assessments")
+      .select(
+        "id,child_id,date_measured,weight,height,age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status," +
+          "tbl_children!inner(id,name,dob,parent_name,barangay,purok,gender,is_ip)"
+      )
+      .eq("status", "active")
+      .gte("date_measured", start)
+      .lt("date_measured", end);
+    if (submittedOnly) query = query.eq("submission_status", "submitted");
+    if (barangay) query = query.eq("tbl_children.barangay", barangay);
+    if (purok) query = query.eq("tbl_children.purok", purok);
+    if (search) query = query.ilike("tbl_children.name", `%${escapeIlike(search)}%`);
+    if (wfa) query = query.eq("wfa_status", wfa);
+    if (hfa) query = query.eq("hfa_status", hfa);
+    if (wfl_h) query = query.eq("wfl_h_status", wfl_h);
+    if (status) query = applyGeneralStatusFilter(query, status);
+    return query.order("date_measured", { ascending: true }).order("id", { ascending: true });
+  };
+  return fetchAllPages(build);
+}
+
 // Distinct puroks for a barangay's filter dropdown (slim two-column scan).
 async function fetchPuroks({ barangay } = {}) {
   requireSupabase();
@@ -213,6 +245,7 @@ module.exports = {
   fetchTrendRows,
   fetchGrowthRows,
   fetchMasterlistPage,
+  fetchMasterlistAll,
   fetchPuroks,
   countChildren,
   countNewChildren,

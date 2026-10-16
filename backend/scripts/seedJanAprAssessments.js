@@ -24,7 +24,7 @@ require("dotenv").config();
 const supabase = require("../src/config/supabase");
 const { weightForAgeZ, heightForAgeZ } = require("../src/services/growthReference");
 const { classifyNutritionStatus } = require("../src/services/nutritionStatus.service");
-const { calculateAgeInMonths, todayInManila, toMonthRange } = require("../src/utils/date");
+const { calculateAgeInMonths, todayInManila, toMonthRange, periodKeyForMonth } = require("../src/utils/date");
 const { WEIGHT_RANGE, HEIGHT_RANGE } = require("../src/utils/measurements");
 const { bustAll, touchRevs } = require("../src/config/redis");
 
@@ -160,7 +160,9 @@ async function fetchExistingPairs(rangeStart, rangeEnd) {
       .lt("date_measured", rangeEnd)
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(`Failed to fetch existing assessments: ${error.message}`);
-    for (const r of data) pairs.add(`${r.child_id}|${String(r.date_measured).slice(0, 7)}`);
+    // Q1-aware: Jan/Feb/Mar of one year share a single "YYYY-Q1" key, since
+    // only one assessment per child exists for that quarter.
+    for (const r of data) pairs.add(`${r.child_id}|${periodKeyForMonth(String(r.date_measured).slice(0, 7))}`);
     if (data.length < PAGE_SIZE) break;
   }
   return pairs;
@@ -222,6 +224,9 @@ async function main() {
 
   for (const month of months) {
     const dateMeasured = `${month}-10`;
+    // Q1-aware: Jan/Feb/Mar share one assessment window, so Feb/Mar are
+    // skipped once the quarter already has a row (existing or seeded as Jan).
+    const period = periodKeyForMonth(month);
     const eligible = [];
     for (const child of children) {
       if (!child.dob || !child.gender) continue;
@@ -230,7 +235,7 @@ async function main() {
       if (child.dob > dateMeasured) continue;
       const age = calculateAgeInMonths(child.dob, dateMeasured);
       if (age < 0 || age > 60) continue;
-      if (existing.has(`${child.id}|${month}`)) {
+      if (existing.has(`${child.id}|${period}`)) {
         totalSkipped += 1;
         continue;
       }
@@ -276,15 +281,21 @@ async function main() {
     console.log(`    HFA: ${JSON.stringify(tally.hfa)}`);
     console.log(`    WFL: ${JSON.stringify(tally.wfl_h)}`);
 
-    const required = [
-      ["wfa", ["Normal", "Underweight", "Severely Underweight", "Overweight"]],
-      ["hfa", ["Normal", "Stunted", "Severely Stunted", "Tall"]],
-      ["wfl_h", ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"]],
-    ];
-    for (const [key, statuses] of required) {
-      for (const s of statuses) {
-        if (!tally[key][s]) coverageProblems.push(`${month}: ${key}.${s} has 0 rows`);
+    // Coverage is per assessment period: Feb/Mar intentionally seed 0 rows
+    // once Q1 (Jan) is filled, since the chart groups them into one point.
+    if (rows.length > 0) {
+      const required = [
+        ["wfa", ["Normal", "Underweight", "Severely Underweight", "Overweight"]],
+        ["hfa", ["Normal", "Stunted", "Severely Stunted", "Tall"]],
+        ["wfl_h", ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"]],
+      ];
+      for (const [key, statuses] of required) {
+        for (const s of statuses) {
+          if (!tally[key][s]) coverageProblems.push(`${month}: ${key}.${s} has 0 rows`);
+        }
       }
+    } else {
+      console.log(`    (skipped — ${period} already seeded; Jan–Mar is one assessment window)`);
     }
 
     if (!dryRun && rows.length) {
@@ -295,9 +306,12 @@ async function main() {
       }
       totalInserted += rows.length;
       totalMisfires += misfires;
-      for (const r of rows) existing.add(`${r.child_id}|${month}`);
+      for (const r of rows) existing.add(`${r.child_id}|${periodKeyForMonth(month)}`);
     } else if (dryRun) {
       totalMisfires += misfires;
+      // Dry-run still marks the period as seeded so Feb/Mar preview the same
+      // Q1-dedupe the real run will apply.
+      for (const r of rows) existing.add(`${r.child_id}|${periodKeyForMonth(month)}`);
     }
 
     process.stdout.write("\n");
@@ -316,7 +330,7 @@ async function main() {
     for (const p of coverageProblems) console.log(`  ! ${p}`);
     process.exitCode = 1;
   } else {
-    console.log("Coverage OK: every WFA/HFA/WFL status has >0 rows in each of Jan-Apr.");
+    console.log("Coverage OK: every WFA/HFA/WFL status has >0 rows in Jan–Mar (Q1) and Apr.");
   }
   console.log("");
   // Redis connects eagerly on import and keeps the event loop alive —

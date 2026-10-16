@@ -1,6 +1,12 @@
 const assessmentModel = require("../models/assessment.model");
 const childrenModel = require("../models/children.model");
-const { calculateAgeInMonths, todayInManila } = require("../utils/date");
+const {
+  calculateAgeInMonths,
+  todayInManila,
+  periodKeyForDate,
+  expandPeriodToMonths,
+  periodLabel,
+} = require("../utils/date");
 const { classifyNutritionStatus } = require("../services/nutritionStatus.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { filterSubmittedForRole } = require("../utils/submission");
@@ -92,13 +98,18 @@ async function createAssessment(req, res, next) {
     }
 
     const existingAssessments = await assessmentModel.findAll({ childId: child_id });
-    const targetMonth = date_measured.slice(0, 7);
+    // Jan–Mar is one on-time assessment window: a checkup dated in January,
+    // February, or March blocks any other checkup in that same quarter.
+    const targetPeriod = periodKeyForDate(date_measured);
     const alreadyAssessed = existingAssessments.some(
-      (a) => a.date_measured?.slice(0, 7) === targetMonth
+      (a) => a.date_measured && periodKeyForDate(a.date_measured) === targetPeriod
     );
     if (alreadyAssessed) {
+      const isQ1 = /^\d{4}-Q1$/.test(targetPeriod);
       return res.status(409).json({
-        error: "This child has already been assessed for this month.",
+        error: isQ1
+          ? `This child has already been assessed for ${periodLabel(targetPeriod)}. Only one assessment is allowed for January–March.`
+          : "This child has already been assessed for this month.",
       });
     }
 
@@ -121,7 +132,9 @@ async function createAssessment(req, res, next) {
     });
     // Checkups feed reports, the map, and the MNAO-visible masterlist.
     await bustAll(["assessments:*", "reports:*", "children:*"]);
-    await touchRevs([date_measured.slice(0, 7)]);
+    // Q1 writes bump all three month counters so any cached Jan/Feb/Mar or
+    // grouped Jan–Mar view invalidates together.
+    await touchRevs(expandPeriodToMonths(periodKeyForDate(date_measured)));
     res.status(201).json(assessment);
   } catch (err) {
     next(err);
@@ -188,19 +201,24 @@ async function updateAssessment(req, res, next) {
       return res.status(400).json({ error: AGE_LIMIT_ERROR });
     }
 
-    // Editing date_measured into a month that already has another active
+    // Editing date_measured into a period that already has another active
     // assessment for this child would silently recreate the same
-    // one-per-month violation createAssessment's 409 check exists to
+    // one-per-period violation createAssessment's 409 check exists to
     // prevent — re-check it here too, excluding this record itself.
+    // Jan–Mar counts as one period, so moving a record into Jan/Feb/Mar
+    // conflicts with any sibling already sitting in that quarter.
     if (fields.date_measured) {
       const siblings = await assessmentModel.findAll({ childId: existing.child_id });
-      const targetMonth = date_measured.slice(0, 7);
+      const targetPeriod = periodKeyForDate(date_measured);
       const conflict = siblings.some(
-        (a) => a.id !== existing.id && a.date_measured?.slice(0, 7) === targetMonth
+        (a) => a.id !== existing.id && a.date_measured && periodKeyForDate(a.date_measured) === targetPeriod
       );
       if (conflict) {
+        const isQ1 = /^\d{4}-Q1$/.test(targetPeriod);
         return res.status(409).json({
-          error: "This child already has another assessment for that month.",
+          error: isQ1
+            ? `This child already has another assessment for ${periodLabel(targetPeriod)}. Only one assessment is allowed for January–March.`
+            : "This child already has another assessment for that month.",
         });
       }
     }
@@ -222,7 +240,10 @@ async function updateAssessment(req, res, next) {
       wfl_h_status,
     });
     await bustAll(["assessments:*", "reports:*", "children:*"]);
-    await touchRevs([existing.date_measured?.slice(0, 7), date_measured.slice(0, 7)]);
+    await touchRevs([
+      ...expandPeriodToMonths(periodKeyForDate(existing.date_measured)),
+      ...expandPeriodToMonths(periodKeyForDate(date_measured)),
+    ]);
     res.json(assessment);
   } catch (err) {
     next(err);
@@ -237,7 +258,9 @@ async function deleteAssessment(req, res, next) {
 
     const assessment = await assessmentModel.softDelete(req.params.id);
     await bustAll(["assessments:*", "reports:*", "children:*"]);
-    await touchRevs([existing.date_measured?.slice(0, 7)]);
+    await touchRevs(
+      existing.date_measured ? expandPeriodToMonths(periodKeyForDate(existing.date_measured)) : []
+    );
     res.json(assessment);
   } catch (err) {
     next(err);

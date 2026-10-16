@@ -13,7 +13,7 @@ import {
 import { useBarangays } from "../../hooks/useBarangays";
 import { useRevReport } from "../../hooks/useRevReport";
 import RefreshLine from "../../components/RefreshLine";
-import { currentMonth, addMonths } from "../../utils/month";
+import { currentMonth, addMonths, periodKeyForMonth } from "../../utils/month";
 import Dropdown from "../../components/Dropdown";
 
 const INDICATOR_OPTIONS = [
@@ -136,7 +136,10 @@ function BarangayIssueTooltip({ active, payload }) {
   );
 }
 
-function formatMonthLabel(monthString) {  const [year, month] = monthString.split("-").map(Number);
+function formatMonthLabel(monthString) {
+  const key = periodKeyForMonth(monthString);
+  if (/^\d{4}-Q1$/.test(key)) return `Jan–Mar ${key.slice(0, 4)}`;
+  const [year, month] = key.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
@@ -145,7 +148,9 @@ function formatMonthLabel(monthString) {  const [year, month] = monthString.spli
 }
 
 function formatMonthShort(monthString) {
-  const [, month] = monthString.split("-").map(Number);
+  const key = periodKeyForMonth(monthString);
+  if (/^\d{4}-Q1$/.test(key)) return "Jan–Mar";
+  const [, month] = key.split("-").map(Number);
   return new Date(Date.UTC(2000, month - 1, 1)).toLocaleDateString(undefined, {
     month: "short",
     timeZone: "UTC",
@@ -160,6 +165,36 @@ function monthsBetween(from, to) {
     cursor = addMonths(cursor, 1);
   }
   return out;
+}
+
+// Groups Jan/Feb/Mar rows into a single "YYYY-Q1" point: one assessment per
+// child exists for that whole quarter, so the three calendar months are
+// summed rather than plotted separately. Handles both shapes — a legacy
+// 12-row monthly payload (groups client-side) and the current 10-row
+// period payload that already carries a "YYYY-Q1" entry.
+function periodSortValue(period) {
+  const year = Number(period.slice(0, 4));
+  if (period.endsWith("-Q1")) return year * 100 + 0;
+  return year * 100 + Number(period.slice(5, 7));
+}
+
+function groupTrendByPeriod(rows, statuses) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const buckets = new Map();
+  const order = [];
+  for (const row of rows) {
+    const period = periodKeyForMonth(row.month);
+    if (!buckets.has(period)) {
+      buckets.set(period, { month: period });
+      for (const s of statuses) buckets.get(period)[s] = 0;
+      order.push(period);
+    }
+    const bucket = buckets.get(period);
+    for (const s of statuses) bucket[s] += row[s] || 0;
+  }
+  // Chronological order with Q1 first (it represents Jan–Mar).
+  order.sort((a, b) => periodSortValue(a) - periodSortValue(b));
+  return order.map((p) => buckets.get(p));
 }
 
 export default function HealthTrends() {
@@ -185,7 +220,15 @@ export default function HealthTrends() {
   const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths);
   // Stabilized so downstream memos don't recompute on every render when
   // there is no snapshot yet (data null → fresh [] each render otherwise).
-  const trend = useMemo(() => trendQuery.data || [], [trendQuery.data]);
+  const trendStatuses = STATUS_OPTIONS[lineIndicator];
+  const rawTrend = useMemo(() => trendQuery.data || [], [trendQuery.data]);
+  // Jan–Mar renders as one "Jan–Mar" bracket: a single on-time assessment
+  // covers that quarter, so the three calendar months are summed.
+  const trend = useMemo(
+    () => groupTrendByPeriod(rawTrend, trendStatuses),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawTrend, lineIndicator]
+  );
   const trendLoading = trendQuery.loading;
   const trendError = trendQuery.error;
 
@@ -196,8 +239,8 @@ export default function HealthTrends() {
 
   const barColor = "var(--status-severe-text)";
 
-  const trendStatuses = STATUS_OPTIONS[lineIndicator];
-  const calloutTarget = currentMonth();
+  const calloutTarget = periodKeyForMonth(currentMonth());
+  const calloutLabel = calloutTarget.endsWith("-Q1") ? "Assessed Jan–Mar" : "Assessed this month";
   const currentMonthCount = useMemo(() => {
     const row =
       trend.find((r) => r.month === calloutTarget) || trend[trend.length - 1];
@@ -231,15 +274,16 @@ export default function HealthTrends() {
                 margin: 0,
               }}
             >
-              Monthly case count for January–December {trendYear}
-              {lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}.
+              Case count per assessment period for January–December {trendYear}
+              {lineBarangay ? ` in ${lineBarangay}` : " across all barangays"}. January–March
+              is one on-time assessment, shown as a single Jan–Mar point.
             </p>
           </div>
           <div className="stat-callout">
             <div className="stat-callout-value">
               {trendLoading ? "…" : currentMonthCount}
             </div>
-            <div className="stat-callout-label">Assessed this month</div>
+            <div className="stat-callout-label">{calloutLabel}</div>
           </div>
         </div>
         <div className="filter-bar">

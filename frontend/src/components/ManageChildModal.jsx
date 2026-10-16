@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { isTmpId, getOfflineChildBundle } from "../utils/outbox";
 import { ageInMonths } from "../utils/age";
-import { currentMonth, todayInManila } from "../utils/month";
+import { currentMonth, todayInManila, periodKeyForDate, periodKeyForMonth } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
 import { sanitizeNameInput, isValidPersonName, PERSON_NAME_HINT } from "../utils/name";
 import { sanitizeDecimalInput } from "../utils/decimal";
@@ -19,7 +19,10 @@ const ALL_TABS = [
 ];
 
 function monthLabel(monthString) {
-  const [year, month] = monthString.split("-").map(Number);
+  // Jan–Mar is one on-time assessment window, labelled as a single bracket.
+  const key = periodKeyForMonth(monthString);
+  if (/^\d{4}-Q1$/.test(key)) return `January–March ${key.slice(0, 4)}`;
+  const [year, month] = key.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
@@ -244,7 +247,11 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   }
 
   const month = currentMonth();
-  const isCheckedThisMonth = assessments.some((a) => a.date_measured?.slice(0, 7) === month);
+  // Jan–Mar counts as one assessment window: a checkup dated in any of those
+  // months blocks the rest of the quarter.
+  const period = periodKeyForMonth(month);
+  const isQ1Period = /^\d{4}-Q1$/.test(period);
+  const isCheckedThisMonth = assessments.some((a) => periodKeyForDate(a.date_measured) === period);
 
   async function handleSaveInfo(e) {
     e.preventDefault();
@@ -565,8 +572,9 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
               {isCheckedThisMonth ? (
                 <p style={{ marginTop: 20 }}>
                   This child has already been assessed for {monthLabel(month)}. Only one
-                  assessment per month is allowed — check the Checkup History tab for details, or
-                  come back next month.
+                  assessment {isQ1Period ? "for January–March" : "per month"} is allowed — check
+                  the Checkup History tab for details, or come back{" "}
+                  {isQ1Period ? "next quarter (April)" : "next month"}.
                 </p>
               ) : (
                 <>

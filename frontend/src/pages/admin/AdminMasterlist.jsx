@@ -19,7 +19,10 @@ function formatShortDate(dateStr) {
 }
 
 function monthLabel(monthString) {
-  const [year, month] = monthString.split("-").map(Number);
+  // Jan–Mar is one on-time assessment window, labelled as a single bracket.
+  if (/^\d{4}-Q1$/.test(monthString || "")) return `January–March ${monthString.slice(0, 4)}`;
+  if (/^\d{4}-(01|02|03)$/.test(monthString || "")) return `January–March ${monthString.slice(0, 4)}`;
+  const [year, month] = String(monthString).split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",

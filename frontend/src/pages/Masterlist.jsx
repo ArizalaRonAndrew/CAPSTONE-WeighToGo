@@ -4,7 +4,7 @@ import { useRevReport } from "../hooks/useRevReport";
 import RefreshLine from "../components/RefreshLine";
 import { subscribeOutbox } from "../utils/outbox";
 import { ageInMonths } from "../utils/age";
-import { currentMonth } from "../utils/month";
+import { currentMonth, periodKeyForDate, periodKeyForMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 import RegisterChildModal from "../components/RegisterChildModal";
 import ManageChildModal from "../components/ManageChildModal";
@@ -80,10 +80,13 @@ export default function Masterlist() {
     () => [...extraChildren, ...((childrenQuery.data || []).filter((c) => !extraChildren.some((x) => x.name === c.name && x.dob === c.dob)))],
     [extraChildren, childrenQuery.data]
   );
+  // Jan–Mar counts as one assessment window: a checkup dated in any of those
+  // months marks the child checked for the whole quarter.
+  const periodNow = periodKeyForMonth(monthNow);
   const checkedChildIds = useMemo(() => {
     const rows = assessmentsQuery.data || [];
-    return new Set(rows.filter((a) => a.date_measured?.slice(0, 7) === monthNow).map((a) => a.child_id));
-  }, [assessmentsQuery.data, monthNow]);
+    return new Set(rows.filter((a) => periodKeyForDate(a.date_measured) === periodNow).map((a) => a.child_id));
+  }, [assessmentsQuery.data, periodNow]);
   const loading = childrenQuery.loading && assessmentsQuery.loading;
   const error =
     (!childrenQuery.data && childrenQuery.error) || (!assessmentsQuery.data && assessmentsQuery.error) || "";
