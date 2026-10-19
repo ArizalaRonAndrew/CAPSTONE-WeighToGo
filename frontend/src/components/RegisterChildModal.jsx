@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
@@ -59,6 +59,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
   const [draftRestored, setDraftRestored] = useState(() => loadDraft(draftKey(user?.id)).restored);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const dobErrorTimer = useRef(null);
 
   // If the auth user resolves after first render, pull in that user's saved
   // draft — but never wipe what was already typed when there is no draft.
@@ -81,10 +82,47 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
     }
   }, [form, key]);
 
+  // Clear the pending dob-error timer if the modal closes before 5 seconds.
+  useEffect(() => {
+    return () => {
+      if (dobErrorTimer.current) {
+        clearTimeout(dobErrorTimer.current);
+        dobErrorTimer.current = null;
+      }
+    };
+  }, []);
+
   const today = todayInManila();
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function clearDobError() {
+    setError("");
+    if (dobErrorTimer.current) {
+      clearTimeout(dobErrorTimer.current);
+      dobErrorTimer.current = null;
+    }
+  }
+
+  function handleDobChange(value) {
+    clearDobError();
+    setForm((prev) => ({ ...prev, dob: value }));
+    if (!value) return;
+    if (ageInMonths(value) > MAX_REGISTRATION_AGE_MONTHS) {
+      // Empty the birthdate field and show the error for 5 seconds.
+      setForm((prev) => ({ ...prev, dob: "" }));
+      setError(
+        `Only children ${MAX_REGISTRATION_AGE_MONTHS} months old or younger can be registered. This child is ${ageInMonths(
+          value
+        )} months old.`
+      );
+      dobErrorTimer.current = setTimeout(() => {
+        setError("");
+        dobErrorTimer.current = null;
+      }, 5000);
+    }
   }
 
   function clearDraft() {
@@ -284,7 +322,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                   type="date"
                   value={form.dob}
                   max={today}
-                  onChange={(e) => update("dob", e.target.value)}
+                  onChange={(e) => handleDobChange(e.target.value)}
                   required
                 />
               </div>
