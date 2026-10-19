@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLogo from "../components/AppLogo";
+import MobileAccessBlockModal from "../components/MobileAccessBlockModal";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 // Login layout: full-viewport split screen.
 // Left (majority) = branding: top-left app logo + "WeighToGo",
@@ -16,6 +18,8 @@ export default function Login() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mobileBlocked, setMobileBlocked] = useState(false);
+  const isMobile = useIsMobile();
   const [isOffline, setIsOffline] = useState(
     () => typeof navigator !== "undefined" && navigator.onLine === false
   );
@@ -36,6 +40,13 @@ export default function Login() {
     setSubmitting(true);
     try {
       const user = await login(email, password);
+      // MNAO portal is desktop-only: block login on a mobile device or mobile
+      // viewport even when credentials are correct — show a modal instead of
+      // redirecting to the dashboard.
+      if (user.role === "MNAO" && isMobile) {
+        setMobileBlocked(true);
+        return;
+      }
       navigate(user.role === "MNAO" ? "/admin/trends" : "/bns/masterlist", { replace: true });
     } catch (err) {
       setError(err.message);
@@ -85,7 +96,7 @@ export default function Login() {
             {/* Form Elements */}
             <form className="login-form" onSubmit={handleSubmit}>
             <h2 className="login-welcome login-welcome-desktop">welcome</h2>
-            <h2 className="login-welcome login-welcome-mobile">WEIGHTOGO</h2>
+            <h2 className="login-welcome login-welcome-mobile">WeighToGo</h2>
 
             {isOffline && (
               <div className="banner banner-warning login-offline-float" role="alert">
@@ -234,6 +245,9 @@ export default function Login() {
             </label>
           </div>
         </div>
+      )}
+      {mobileBlocked && (
+        <MobileAccessBlockModal onClose={() => setMobileBlocked(false)} />
       )}
     </div>
   );
