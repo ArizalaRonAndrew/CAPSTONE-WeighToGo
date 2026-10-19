@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import {
   CartesianGrid,
   ComposedChart,
@@ -207,6 +207,11 @@ export default function HealthTrends() {
   const [lineBarangay, setLineBarangay] = useState("");
   const [barMonth, setBarMonth] = useState(currentMonth());
 
+  // Barangay comparison chart: 15 barangays per page, 3 pages max (45 barangays).
+  const BAR_PAGE_SIZE = 15;
+  const BAR_TOTAL_PAGES = 3;
+  const [barPage, setBarPage] = useState(1);
+
   // Line chart always spans January–December of the current year.
   const trendYear = currentMonth().slice(0, 4);
 
@@ -233,9 +238,24 @@ export default function HealthTrends() {
   const trendError = trendQuery.error;
 
   const barQuery = useRevReport(`/reports/barangay-comparison?month=${barMonth}`, [barMonth]);
-  const barData = (barQuery.data || []).slice(0, 15);
   const barLoading = barQuery.loading;
   const barError = barQuery.error;
+
+  // Reset to the first page whenever the month filter changes.
+  useEffect(() => {
+    setBarPage(1);
+  }, [barMonth]);
+
+  const allBarData = barQuery.data || [];
+  const barTotal = allBarData.length;
+  const barTotalPages = Math.min(BAR_TOTAL_PAGES, Math.ceil(barTotal / BAR_PAGE_SIZE) || 1);
+  useEffect(() => {
+    if (barPage > barTotalPages) setBarPage(barTotalPages);
+  }, [barPage, barTotalPages]);
+
+  const barData = allBarData.slice((barPage - 1) * BAR_PAGE_SIZE, barPage * BAR_PAGE_SIZE);
+  const rangeStart = (barPage - 1) * BAR_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(barPage * BAR_PAGE_SIZE, barTotal);
 
   const barColor = "var(--status-severe-text)";
 
@@ -531,6 +551,34 @@ export default function HealthTrends() {
               />
             </BarChart>
           </ResponsiveContainer>
+        )}
+        {!barLoading && !barError && barTotal > 0 && (
+          <div className="pagination-bar">
+            <span className="pagination-info">
+              Showing {rangeStart}–{rangeEnd} of {barTotal} barangay{barTotal === 1 ? "" : "s"}
+            </span>
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={barPage <= 1}
+                onClick={() => setBarPage(barPage - 1)}
+              >
+                Previous
+              </button>
+              <span className="pagination-page">
+                Page {barPage} of {barTotalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={barPage >= barTotalPages}
+                onClick={() => setBarPage(barPage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
