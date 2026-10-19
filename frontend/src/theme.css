@@ -1084,16 +1084,13 @@ tr.clickable:hover {
   border: 0;
 }
 
-/* Split-card login (see pages/Login.jsx) — reference LoginReference /
-   login.jpg mock: gray page, white rounded card, green brand panel with a
-   circular curve on the left, white form panel with corner accents. */
+/* Split-screen login (see pages/Login.jsx) — left branding panel takes the
+   majority of the view; right side centers the login modal. */
 .login-page {
   min-height: 100svh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: #4b5563;
+  padding: 0;
+  background: var(--color-primary-50);
   font-family: var(--sans);
 }
 
@@ -1101,25 +1098,22 @@ tr.clickable:hover {
   display: flex;
   flex-direction: row;
   width: 100%;
-  max-width: 896px;
-  height: 500px;
-  max-height: calc(100svh - 32px);
+  min-height: 100svh;
   background: #fff;
-  border-radius: 32px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
 
 .login-brand {
   position: relative;
-  width: 50%;
-  flex-shrink: 0;
+  flex: 1.65;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   overflow: hidden;
   background: var(--color-primary-600);
-  min-height: 0;
+  padding: 24px 44px 48px;
 }
 
 /* Large curved background shape — circle(75% at 0% 50%) like the reference. */
@@ -1130,15 +1124,91 @@ tr.clickable:hover {
   clip-path: circle(75% at 0% 50%);
 }
 
-.login-brand-content {
+/* Top-left corner row: app logo immediately followed by "WeighToGo",
+   plus the Municipality of Balayan logo placeholder slot.
+   Nudged slightly down + right so it doesn't hug the viewport edge. */
+.login-brand-top {
   position: relative;
   z-index: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  margin-left: 16px;
 }
 
-/* Logo — white ring holding our WeighToGo logo. */
+.login-brand-identity {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  line-height: 1;
+}
+
+.login-top-logo {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #fff;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.login-brand-name {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  line-height: 1;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.login-balayan-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.login-balayan-slot img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: #fff;
+}
+
+.login-balayan-icon {
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* Vertically-centered descriptive copy in the left section. */
+.login-brand-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  max-width: 600px;
+  padding: 24px 0;
+}
+
+/* Logo — white ring holding our WeighToGo logo (kept for reuse). */
 .login-logo-ring {
   width: 96px;
   height: 96px;
@@ -1158,25 +1228,34 @@ tr.clickable:hover {
 }
 
 .login-brand-title {
-  margin: 0;
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  margin: 0 0 16px;
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
   color: #fff;
+}
+
+.login-brand-text {
+  margin: 0;
+  max-width: 520px;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Right Panel - Login Form side with corner accents. */
 .login-form-side {
   position: relative;
-  width: 50%;
-  flex-shrink: 0;
-  background: #fff;
+  flex: 1;
+  min-width: 0;
+  background: var(--color-primary-50);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 40px 32px;
   overflow: hidden;
-  min-height: 0;
+  min-height: 100svh;
 }
 
 .login-accent {
@@ -1203,11 +1282,28 @@ tr.clickable:hover {
   border-top-right-radius: 100%;
 }
 
+/* Login modal — semi-transparent white at 50% opacity. Uses an rgba fill
+   (not `opacity`) so only the background is translucent while the
+   email/password fields and text stay fully readable. */
+.login-modal {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 380px;
+  background-color: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(20, 46, 38, 0.18);
+  padding: 32px 28px;
+}
+
 .login-form {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 320px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1223,6 +1319,15 @@ tr.clickable:hover {
   letter-spacing: 0.02em;
   color: var(--color-primary-600);
   text-align: center;
+}
+
+/* Mobile heading is hidden on desktop; shown only in the mobile query. */
+.login-welcome-mobile {
+  display: none;
+}
+
+.login-welcome-desktop {
+  display: block;
 }
 
 .login-fields {
@@ -1441,26 +1546,74 @@ tr.clickable:hover {
 
 @media (max-width: 767px) {
   .login-page {
-    align-items: flex-start;
-    padding: 20px 12px;
+    padding: 0;
+    width: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background: var(--color-primary-50);
   }
 
   .login-split {
     flex-direction: column;
-    max-width: 420px;
-    height: auto;
-    max-height: none;
-    margin: auto;
-    border-radius: 24px;
-    overflow: hidden;
+    width: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background: var(--color-primary-50);
   }
 
   .login-brand {
+    flex: none;
     width: 100%;
-    min-height: 230px;
-    padding: 34px 24px 46px;
-    border-bottom-left-radius: 28px;
-    border-bottom-right-radius: 28px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: var(--color-primary-50);
+  }
+
+  /* Hide logo + brand name on mobile. */
+  .login-brand-top,
+  .login-brand-identity,
+  .login-top-logo,
+  .login-brand-name {
+    display: none;
+  }
+
+  /* Hide the green curve on mobile so the inherited light background stays clean. */
+  .login-brand-curve {
+    display: none;
+  }
+
+  /* Dark brand name for contrast on the light inherited background. */
+  .login-brand .login-brand-name {
+    color: var(--color-primary-600);
+  }
+
+  .login-brand .login-balayan-slot {
+    border-color: var(--color-primary-400);
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--color-primary-600);
+  }
+
+  .login-brand-top {
+    gap: 12px;
+    margin-top: 8px;
+    margin-left: 8px;
+  }
+
+  .login-brand-name {
+    font-size: 19px;
+  }
+
+  .login-balayan-slot {
+    font-size: 11.5px;
+    min-height: 38px;
+  }
+
+  /* Hide the center descriptive copy on mobile to keep the focus on login. */
+  .login-brand-content,
+  .login-brand-title,
+  .login-brand-text {
+    display: none;
   }
 
   .login-logo-ring {
@@ -1473,10 +1626,23 @@ tr.clickable:hover {
     font-size: 30px;
   }
 
+  .login-brand-text {
+    font-size: 15px;
+  }
+
   .login-form-side {
+    flex: 1;
     width: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
     padding: 30px 22px 32px;
     overflow: hidden;
+    background: var(--color-primary-50);
+  }
+
+  .login-modal {
+    max-width: 420px;
+    padding: 28px 22px;
   }
 
   .login-accent-tr {
@@ -1497,6 +1663,19 @@ tr.clickable:hover {
   .login-welcome {
     font-size: 30px;
     margin-bottom: 22px;
+  }
+
+  /* Mobile: show WEIGHTOGO instead of welcome, at a smaller size. */
+  .login-welcome-desktop {
+    display: none;
+  }
+
+  .login-welcome-mobile {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 18px;
   }
 
   /* 16px prevents iOS Safari auto-zoom on input focus. */
@@ -1531,8 +1710,12 @@ tr.clickable:hover {
     font-size: 27px;
   }
 
-  .login-welcome {
+  .login-welcome-desktop {
     font-size: 27px;
+  }
+
+  .login-welcome-mobile {
+    font-size: 20px;
   }
 
   .login-form-side {
@@ -2255,6 +2438,270 @@ tr.clickable:hover {
 
 .legend-dot-upcoming {
   background: var(--color-border);
+}
+
+/* ==========================================================================
+   Supplements — compact bracket table (space-saving)
+   ========================================================================== */
+
+.supp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.supp-offline {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.supp-legend {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.supplement-grid.supp-grid-compact {
+  gap: 12px;
+}
+
+.supplement-block.supp-compact {
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.supp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.supp-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--color-primary-700);
+}
+
+.supp-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.supp-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.supp-fill {
+  height: 100%;
+  background: var(--color-primary-500);
+  border-radius: 999px;
+}
+
+.supp-next {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.supp-next-due {
+  background: var(--status-mild-bg);
+  border-color: var(--status-mild-text);
+}
+
+.supp-next-done {
+  background: var(--status-normal-bg);
+  border-color: var(--status-normal-text);
+}
+
+.supp-colhead {
+  display: grid;
+  grid-template-columns: 52px 1fr 1px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 0 8px 3px;
+}
+
+.supp-colhead-cell {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: center;
+  justify-content: center;
+}
+
+.supp-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.supp-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 1px 1fr;
+  gap: 8px;
+  align-items: stretch;
+  padding: 6px 8px;
+  background: var(--color-bg);
+}
+
+.supp-row + .supp-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.supp-bracket {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.supp-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.supp-cell-single {
+  grid-column: 2 / -1;
+}
+
+.supp-sep {
+  width: 1px;
+  background: var(--color-border);
+  align-self: stretch;
+  min-height: 100%;
+}
+
+.supp-slot-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.supp-doses {
+  display: contents;
+}
+
+.dose-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+button.dose-pill.dose-give {
+  cursor: pointer;
+}
+
+.dose-is-given {
+  border-color: var(--status-normal-text);
+  background: var(--status-normal-bg);
+  color: var(--status-normal-text);
+}
+
+.dose-is-due {
+  border-color: var(--status-mild-text);
+  background: var(--status-mild-bg);
+  color: var(--status-mild-text);
+}
+
+button.dose-is-due {
+  font-weight: 700;
+}
+
+.dose-is-overdue {
+  border-color: var(--status-severe-text);
+  background: var(--status-severe-bg);
+  color: var(--status-severe-text);
+  font-weight: 700;
+}
+
+.dose-is-waiting {
+  border-style: dashed;
+}
+
+.dose-is-locked,
+.dose-is-upcoming,
+.dose-is-closed {
+  opacity: 0.8;
+}
+
+.dose-tick {
+  font-weight: 800;
+}
+
+.dose-val {
+  font-variant-numeric: tabular-nums;
+}
+
+.dose-sync {
+  color: var(--status-mild-text);
+  font-weight: 800;
+}
+
+.dose-is-skipped {
+  border-style: dashed;
+  font-style: italic;
+}
+
+.dose-is-missed {
+  border-style: dashed;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.supp-collapsed {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.supp-details {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+.supp-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.supp-rows-dim {
+  margin-top: 6px;
+  opacity: 0.75;
 }
 
 /* ==========================================================================

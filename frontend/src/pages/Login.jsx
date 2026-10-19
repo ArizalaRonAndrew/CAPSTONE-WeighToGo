@@ -3,12 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLogo from "../components/AppLogo";
 
-// Login layout follows the approved login.jpg mock / LoginReference
-// containers: gray page, white rounded card (fixed 500px on desktop),
-// green brand panel with circular curve on the left, white form panel
-// with corner accents on the right. Our WeighToGo logo is used for
-// branding. A Privacy Policy overlay blocks the form on entry and is
-// removed only after the checkbox is ticked.
+// Login layout: full-viewport split screen.
+// Left (majority) = branding: top-left app logo + "WeighToGo",
+// Balayan logo slot, vertically-centered nutrition copy.
+// Right = login modal (semi-transparent) with email + password.
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -49,31 +47,45 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-split">
-        {/* Left Panel - Branding */}
+        {/* Left Panel - Branding (majority of the view) */}
         <div className="login-brand">
           {/* Large curved background shape */}
           <div className="login-brand-curve" aria-hidden="true"></div>
 
-          {/* Content */}
-          <div className="login-brand-content">
-            {/* Logo — our WeighToGo logo */}
-            <div className="login-logo-ring">
-              <AppLogo size={76} className="login-logo-img" />
+          {/* Top-left corner: app logo + "WeighToGo" + Balayan logo slot */}
+          <header className="login-brand-top">
+            <div className="login-brand-identity">
+              <AppLogo size={85} className="login-top-logo" />
+              <span className="login-brand-name">WeighToGo</span>
             </div>
-            <h1 className="login-brand-title">WeighToGo</h1>
+          </header>
+
+          {/* Vertically-centered descriptive nutrition copy */}
+          <div className="login-brand-content">
+            <h1 className="login-brand-title">
+              Healthy weight, healthy future.
+            </h1>
+            <p className="login-brand-text">
+              WeighToGo helps the Municipality of Balayan track every
+              child&apos;s growth — weight, height, vitamins, and deworming —
+              so barangay health workers can catch malnutrition early and guide
+              every family toward proper nutrition.
+            </p>
           </div>
         </div>
 
-        {/* Right Panel - Login Form */}
+        {/* Right Panel - Login modal */}
         <div className="login-form-side">
           {/* Top Right Corner Accent */}
           <div className="login-accent login-accent-tr" aria-hidden="true"></div>
           {/* Bottom Left Corner Accent */}
           <div className="login-accent login-accent-bl" aria-hidden="true"></div>
 
-          {/* Form Elements */}
-          <form className="login-form" onSubmit={handleSubmit}>
-            <h2 className="login-welcome">welcome</h2>
+          <div className="login-modal">
+            {/* Form Elements */}
+            <form className="login-form" onSubmit={handleSubmit}>
+            <h2 className="login-welcome login-welcome-desktop">welcome</h2>
+            <h2 className="login-welcome login-welcome-mobile">WEIGHTOGO</h2>
 
             {isOffline && (
               <div className="banner banner-warning login-offline-float" role="alert">
@@ -165,6 +177,7 @@ export default function Login() {
             </button>
 
           </form>
+          </div>
         </div>
       </div>
 

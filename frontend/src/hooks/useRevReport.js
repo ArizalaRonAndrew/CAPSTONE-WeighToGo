@@ -18,7 +18,19 @@ export function formatUpdatedAgo(ts) {
  * One-shot rev-gated fetch for event-driven callers (no hook state): returns
  * the cached snapshot when revisions match, otherwise fetches fresh. Throws
  * only when there is nothing cached to fall back on.
+ *
+ * Forced fetches append a throwaway `_r` query param. The server hashes every
+ * query param into its response-cache key, so this guarantees a server-cache
+ * MISS right after a local write — otherwise a stale server body could be
+ * saved as the new snapshot and keep resurfacing (e.g. a just-deleted child
+ * or just-recorded dose reappearing on the next visit). Snapshots stay keyed
+ * by the canonical URL, so normal loads are unaffected.
  */
+export function bustUrl(url) {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}_r=${Date.now()}`;
+}
+
 export async function loadRevGated(url, months, opts = {}) {
   const monthList = months || [];
   const force = Boolean(opts.force);
@@ -33,7 +45,7 @@ export async function loadRevGated(url, months, opts = {}) {
     if (fresh && !dayRolled && revsMatch(fresh.rev, sync, monthList)) {
       return { body: fresh.body, fromCache: true, savedAt: fresh.savedAt };
     }
-    const body = await api.get(url);
+    const body = await api.get(force ? bustUrl(url) : url);
     const rev = { global: sync.global, months: sync.revs };
     await setReportSnapshot(url, body, rev);
     return { body, fromCache: false, savedAt: Date.now() };

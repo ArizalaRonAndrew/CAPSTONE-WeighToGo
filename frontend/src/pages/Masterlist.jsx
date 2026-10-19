@@ -76,9 +76,24 @@ export default function Masterlist() {
   const childrenQuery = useRevReport("/children", [monthNow]);
   const assessmentsQuery = useRevReport("/assessments", [monthNow]);
 
+  // Children removed in the modal vanish instantly (optimistic) — the server
+  // refetch below only reconciles. Ids stay hidden until fresh server data
+  // confirms them gone, so a slow/failed refresh never resurrects the row
+  // and a second delete is never needed.
+  const [removedIds, setRemovedIds] = useState([]);
+  const removedSet = useMemo(() => new Set(removedIds.map(String)), [removedIds]);
+  useEffect(() => {
+    setRemovedIds((prev) => {
+      const present = new Set((childrenQuery.data || []).map((c) => String(c.id)));
+      const next = prev.filter((id) => present.has(String(id)));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [childrenQuery.data]);
+
   const children = useMemo(
-    () => [...extraChildren, ...((childrenQuery.data || []).filter((c) => !extraChildren.some((x) => x.name === c.name && x.dob === c.dob)))],
-    [extraChildren, childrenQuery.data]
+    () => [...extraChildren, ...((childrenQuery.data || []).filter((c) => !extraChildren.some((x) => x.name === c.name && x.dob === c.dob)))]
+      .filter((c) => !removedSet.has(String(c.id))),
+    [extraChildren, childrenQuery.data, removedSet]
   );
   // Jan–Mar counts as one assessment window: a checkup dated in any of those
   // months marks the child checked for the whole quarter.
@@ -96,6 +111,18 @@ export default function Masterlist() {
   function refreshAll() {
     childrenQuery.refresh();
     assessmentsQuery.refresh();
+  }
+
+  function handleChildChanged(info) {
+    // A removal confirmed in the modal hides the row immediately (including
+    // unsynced offline registrations kept in extraChildren); the refresh
+    // then reconciles with the server.
+    if (info && info.action === "removed" && info.child_id != null) {
+      const id = String(info.child_id);
+      setExtraChildren((prev) => prev.filter((x) => String(x.id) !== id));
+      setRemovedIds((prev) => (prev.some((x) => String(x) === id) ? prev : [...prev, id]));
+    }
+    refreshAll();
   }
 
   // When the offline queue drains, synced rows arrive via refresh — drop the
@@ -391,7 +418,7 @@ export default function Masterlist() {
         <ManageChildModal
           childId={manageChildId}
           onClose={() => setManageChildId(null)}
-          onChanged={refreshAll}
+          onChanged={handleChildChanged}
         />
       )}
     </div>

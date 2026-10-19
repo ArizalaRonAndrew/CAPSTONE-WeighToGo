@@ -304,8 +304,10 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     setRemoveError("");
     setRemoving(true);
     try {
-      await api.delete(`/children/${childId}`);
-      onChanged?.();
+      const result = await api.delete(`/children/${childId}`);
+      // Report exactly what was removed so the hosting page can drop the
+      // row instantly (queued offline deletes reconcile on sync).
+      onChanged?.({ action: "removed", child_id: childId, _queued: Boolean(result?._queued) });
       onClose?.();
     } catch (err) {
       setRemoveError(err.message || "Failed to remove this registration. Please try again.");

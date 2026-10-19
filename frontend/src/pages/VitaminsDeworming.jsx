@@ -3,6 +3,7 @@ import ManageChildModal from "../components/ManageChildModal";
 import Dropdown from "../components/Dropdown";
 import RefreshLine from "../components/RefreshLine";
 import { useRevReport } from "../hooks/useRevReport";
+import { listEntries, subscribeOutbox } from "../utils/outbox";
 import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 
@@ -22,9 +23,11 @@ function initials(name) {
 }
 
 function DueBadge({ dose }) {
+  const detail = dose.requirement
+    || (dose.slot && dose.bracket_label ? `${dose.slot} for ${dose.bracket_label}` : `${ordinal(dose.dose_order)} dose`);
   return (
     <span className={`badge ${dose.overdue ? "badge-severe" : "badge-mild"}`}>
-      {dose.supplement_type} — {ordinal(dose.dose_order)} dose{dose.overdue ? " overdue" : ""}
+      {dose.supplement_type} — {detail}{dose.overdue ? " overdue" : ""}
     </span>
   );
 }
@@ -58,12 +61,76 @@ export default function VitaminsDeworming() {
   // Rev-gated + day-sensitive: dose windows are age-derived, so a snapshot
   // from a previous day still renders instantly but always revalidates.
   const dueQuery = useRevReport("/supplements/due", [currentMonth()], { daySensitive: true });
-  const entries = useMemo(() => {
-    const rows = dueQuery.data || [];
-    return [...rows].sort(
-      (a, b) => (a.child.purok || "").localeCompare(b.child.purok || "") || a.child.name.localeCompare(b.child.name)
+  // Doses recorded inside the modal are cleared here instantly (optimistic)
+  // so the page already reflects them when the modal closes — the server
+  // refetch below only reconciles. Entries stay cleared until a fresh
+  // server response confirms them gone.
+  const [localCleared, setLocalCleared] = useState([]);
+  // Doses recorded while offline sit in the outbox (persisted in IndexedDB)
+  // instead of the database — overlay them as cleared too, or a child marked
+  // given would reappear every time this page remounts before the queue
+  // syncs. Entries that failed/conflicted are excluded so a server-rejected
+  // write resurfaces (the Outbox panel explains why).
+  const [queuedCleared, setQueuedCleared] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    async function reloadQueued() {
+      try {
+        const all = await listEntries();
+        if (!alive) return;
+        setQueuedCleared(
+          all
+            .filter(
+              (e) =>
+                e.method === "POST" &&
+                String(e.path || "").split("?")[0] === "/supplements" &&
+                ["pending", "syncing", "blocked"].includes(e.status)
+            )
+            .map((e) => ({
+              child_id: String(e.body?.child_id),
+              supplement_type: e.body?.supplement_type,
+              dose_order: e.body?.dose_order,
+            }))
+        );
+      } catch {
+        // Overlay is best-effort; the server list still renders underneath.
+      }
+    }
+    reloadQueued();
+    const unsub = subscribeOutbox(() => {
+      reloadQueued();
+    });
+    return () => {
+      alive = false;
+      if (unsub) unsub();
+    };
+  }, []);
+  useEffect(() => {
+    setLocalCleared((prev) =>
+      prev.filter((c) =>
+        (dueQuery.data || []).some(
+          (e) =>
+            String(e.child.id) === String(c.child_id) &&
+            e.due.some((d) => d.supplement_type === c.supplement_type && d.dose_order === c.dose_order)
+        )
+      )
     );
   }, [dueQuery.data]);
+  const entries = useMemo(() => {
+    const rows = dueQuery.data || [];
+    const cleared = new Set(
+      [...localCleared, ...queuedCleared].map((c) => `${c.child_id}|${c.supplement_type}|${c.dose_order}`)
+    );
+    return [...rows]
+      .map((entry) => ({
+        ...entry,
+        due: entry.due.filter((d) => !cleared.has(`${entry.child.id}|${d.supplement_type}|${d.dose_order}`)),
+      }))
+      .filter((entry) => entry.due.length > 0)
+      .sort(
+        (a, b) => (a.child.purok || "").localeCompare(b.child.purok || "") || a.child.name.localeCompare(b.child.name)
+      );
+  }, [dueQuery.data, localCleared, queuedCleared]);
   const loading = dueQuery.loading;
   const error = dueQuery.error;
 
@@ -291,7 +358,23 @@ export default function VitaminsDeworming() {
           childId={manageChildId}
           initialTab="vitamins"
           onClose={() => setManageChildId(null)}
-          onChanged={dueQuery.refresh}
+          onChanged={(info) => {
+            // A dose just marked given in the modal vanishes from this page
+            // immediately; the refresh then reconciles with the server.
+            if (info && info.action === "marked" && info.child_id != null) {
+              setLocalCleared((prev) =>
+                prev.some(
+                  (c) =>
+                    String(c.child_id) === String(info.child_id) &&
+                    c.supplement_type === info.supplement_type &&
+                    c.dose_order === info.dose_order
+                )
+                  ? prev
+                  : [...prev, info]
+              );
+            }
+            dueQuery.refresh();
+          }}
         />
       )}
     </div>
