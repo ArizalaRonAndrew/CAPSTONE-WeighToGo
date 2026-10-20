@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { api, setUnauthorizedHandler } from "../api/client";
 import { purgeApiCache } from "../utils/pwaCache";
+import { loadRevGated } from "../hooks/useRevReport";
+import { addMonths, currentMonth } from "../utils/month";
 import {
   setSessionUserId,
   saveLastKnownUser,
@@ -8,6 +10,41 @@ import {
 } from "../utils/outbox";
 
 const AuthContext = createContext(null);
+
+// Bumped by the logout background cleanup: if a new session starts while a
+// previous logout's cleanup tasks are still in flight, the stale generation
+// aborts rather than wiping the new session's freshly-populated caches.
+let logoutGeneration = 0;
+
+// After a successful login, warm the rev-gated data cache for the landing
+// page while React is still mounting it. loadRevGated stores the exact same
+// snapshot the landing page reads (keyed by user + URL, see reportCache.js),
+// so a user on a slow field network lands on an already-loaded screen instead
+// of watching "Loading..." after the button unblocks. Steps duplicate the
+// URL construction the page performs on mount — /pages/Masterlist.jsx for BNS
+// and /pages/admin/HealthTrends.jsx for MNAO.
+// Fire-and-forget: failures here are exactly the page's normal fetch path,
+// and a duplicate in-flight GET only costs one identical request.
+function prefetchLandingData(role) {
+  try {
+    const month = currentMonth();
+    const year = month.slice(0, 4);
+    const trendMonths = Array.from(
+      { length: 12 },
+      (_, i) => addMonths(`${year}-01`, i)
+    );
+    const jobs =
+      role === "MNAO"
+        ? [
+            loadRevGated(`/reports/trends?from=${year}-01&to=${year}-12&indicator=wfa`, trendMonths),
+            loadRevGated(`/reports/barangay-comparison?month=${month}`, [month]),
+          ]
+        : [loadRevGated("/children", [month]), loadRevGated("/assessments", [month])];
+    Promise.allSettled(jobs);
+  } catch {
+    // Prefetch is best-effort — the page refetches on mount regardless.
+  }
+}
 
 // JWT exp (seconds epoch) without verifying — expiry display/gating only,
 // the server remains the sole verifier.
@@ -119,30 +156,51 @@ export function AuthProvider({ children }) {
     const { user: loggedInUser, token } = await api.post("/users/login", { email, password });
     // A different user on a shared computer must never inherit the previous
     // session's cached API rows (e.g. after an expiry bounced to /login).
-    await purgeApiCache();
     setSessionUserId(loggedInUser?.id || null);
     setOfflineMode(false);
-    if (loggedInUser) saveLastKnownUser(loggedInUser, tokenExpiryMs(token));
+    // Purge (Cache Storage) and the IndexedDB session write used to run
+    // back-to-back after the login POST; they're independent local ops, so
+    // run them in parallel — navigation waits on the slower one, not their sum.
+    await Promise.all([
+      purgeApiCache(),
+      loggedInUser && saveLastKnownUser(loggedInUser, tokenExpiryMs(token)),
+    ]);
+    // Start fetching what the landing screen needs before navigation even
+    // renders it (fire-and-forget — see prefetchLandingData above).
+    prefetchLandingData(loggedInUser?.role);
     setUser(loggedInUser);
     return loggedInUser;
   }
 
-  async function logout() {
-    // Session must be cleared client-side even if the server call fails
-    // (offline, server error) — otherwise a failed logout silently leaves
-    // the UI authenticated with no indication anything went wrong, which
-    // matters most on a shared office computer.
-    try {
-      await api.post("/users/logout");
-    } finally {
-      // Purge even when offline: Cache Storage is local, so the previous
-      // user's cached rows are wiped regardless of connectivity.
+  function logout() {
+    // Wipe the local session synchronously, BEFORE anything network-bound —
+    // the UI drops back to /login on the next render, so a hung/failed
+    // logout request can never leave an authenticated screen showing
+    // (crucial on a shared office computer).
+    setUser(null);
+    setOfflineMode(false);
+    setSessionUserId(null);
+
+    // Security cleanup keeps running in the background and no longer gates
+    // navigation: this used to await the revocation POST plus two local
+    // cache wipes before returning, which is the delay felt when logging
+    // out. The HTTP session cookie is still cleared server-side; only its
+    // await moved off the critical path.
+    const gen = ++logoutGeneration;
+    (async () => {
+      // Best-effort token revocation — a failed call degrades to the
+      // cookie being cleared here plus natural JWT expiry, as before.
+      try {
+        await api.post("/users/logout");
+      } catch {
+        /* server unreachable — nothing more to do about it */
+      }
+      // If someone logged back in while revocation was in flight, that
+      // login's own purge already rescoped the caches — don't wipe them.
+      if (gen !== logoutGeneration) return;
       await purgeApiCache();
       await clearOfflineUserData();
-      setSessionUserId(null);
-      setOfflineMode(false);
-      setUser(null);
-    }
+    })();
   }
 
   return (

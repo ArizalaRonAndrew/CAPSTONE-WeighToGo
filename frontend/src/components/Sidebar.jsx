@@ -80,15 +80,14 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
   const links = user?.role === "MNAO" ? ADMIN_LINKS : BNS_LINKS;
   const initial = user?.email?.[0]?.toUpperCase() || "?";
 
-  async function handleLogout() {
-    // logout() already clears local session state in a `finally`, but the
-    // server call it awaits can still reject — navigate regardless so a
-    // failed request never leaves the user stuck on an authenticated screen.
-    try {
-      await logout();
-    } finally {
-      navigate("/login", { replace: true });
-    }
+  function handleLogout() {
+    // logout() wipes the local session synchronously and returns without
+    // waiting on the network — the navigation below is the instant part of
+    // logging out now; the server revocation and cache cleanup finish in
+    // the background. A failed request therefore can't delay (or block)
+    // leaving an authenticated screen.
+    logout();
+    navigate("/login", { replace: true });
   }
 
   function handleNavClick(e) {
