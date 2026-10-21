@@ -13,8 +13,8 @@ function requireSupabase() {
 
 async function findAll({ childId, childIds, status } = {}) {
   requireSupabase();
-  return fetchAllPages(() => {
-    let query = supabase.from(TABLE_NAME).select("*");
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase.from(TABLE_NAME).select("*", withCount ? { count: "exact" } : undefined);
     if (childId) query = query.eq("child_id", childId);
     if (childIds) query = query.in("child_id", childIds);
     query = applyStatusFilter(query, status);

@@ -15,8 +15,8 @@ function requireSupabase() {
 
 async function findAll({ status } = {}) {
   requireSupabase();
-  return fetchAllPages(() => {
-    let query = supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS);
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase.from(TABLE_NAME).select(PUBLIC_COLUMNS, withCount ? { count: "exact" } : undefined);
     if (status) query = query.eq("status", status);
     return query.order("created_at", { ascending: false });
   });

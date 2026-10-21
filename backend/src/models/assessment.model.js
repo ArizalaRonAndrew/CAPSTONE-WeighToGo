@@ -13,8 +13,8 @@ function requireSupabase() {
 
 async function findAll({ childId, childIds, status } = {}) {
   requireSupabase();
-  return fetchAllPages(() => {
-    let query = supabase.from(TABLE_NAME).select("*");
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase.from(TABLE_NAME).select("*", withCount ? { count: "exact" } : undefined);
     if (childId) query = query.eq("child_id", childId);
     if (childIds) query = query.in("child_id", childIds);
     query = applyStatusFilter(query, status);
@@ -24,8 +24,10 @@ async function findAll({ childId, childIds, status } = {}) {
 
 async function findAllWithBarangay({ childId, childIds, status } = {}) {
   requireSupabase();
-  return fetchAllPages(() => {
-    let query = supabase.from(TABLE_NAME).select("*, tbl_children(barangay)");
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase
+      .from(TABLE_NAME)
+      .select("*, tbl_children(barangay)", withCount ? { count: "exact" } : undefined);
     if (childId) query = query.eq("child_id", childId);
     if (childIds) query = query.in("child_id", childIds);
     query = applyStatusFilter(query, status);
@@ -113,10 +115,10 @@ async function submitForChildren({ childIds, start, end }) {
 async function findSubmittedChildIds(childIds) {
   requireSupabase();
   if (!childIds.length) return new Set();
-  const rows = await fetchAllPages(() =>
+  const rows = await fetchAllPages(({ withCount }) =>
     supabase
       .from(TABLE_NAME)
-      .select("child_id")
+      .select("child_id", withCount ? { count: "exact" } : undefined)
       .in("child_id", childIds)
       .eq("submission_status", "submitted")
       .eq("status", "active")

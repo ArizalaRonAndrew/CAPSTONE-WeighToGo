@@ -13,8 +13,8 @@ function requireSupabase() {
 
 async function findAll({ barangay, status } = {}) {
   requireSupabase();
-  return fetchAllPages(() => {
-    let query = supabase.from(TABLE_NAME).select("*");
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase.from(TABLE_NAME).select("*", withCount ? { count: "exact" } : undefined);
     if (barangay) query = query.eq("barangay", barangay);
     query = applyStatusFilter(query, status);
     return query.order("created_at", { ascending: false });

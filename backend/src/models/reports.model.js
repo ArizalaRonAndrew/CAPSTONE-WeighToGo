@@ -13,25 +13,53 @@ function requireSupabase() {
 // exist. A single active municipality can clear 1000 checkups in a month
 // across all barangays, so queries that don't expect a single page ahead of
 // time must page through with .range() instead of trusting one request.
+//
+// Page 1 asks for `count: exact` (via buildQuery({ withCount })), so the
+// remaining pages fetch CONCURRENTLY — sequential paging stacked ~280 ms per
+// round trip, which at 48k+ assessments/yr (49 pages) hit ~13.6 s server-side
+// and blew the admin GET's 20 s client timeout (surfacing as "offline"
+// mid-report). Legacy call sites that ignore the opts arg still work: count
+// comes back null and the sequential walk runs exactly as before.
 const PAGE_SIZE = 1000;
 
 async function fetchAllPages(buildQuery) {
-  const rows = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-    rows.push(...data);
-    if (data.length < PAGE_SIZE) break;
+  const first = await buildQuery({ withCount: true }).range(0, PAGE_SIZE - 1);
+  if (first.error) throw first.error;
+  const rows = [...(first.data || [])];
+
+  const total = first.count;
+  if (typeof total !== "number") {
+    for (let from = PAGE_SIZE; ; from += PAGE_SIZE) {
+      const { data, error } = await buildQuery({ withCount: false }).range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      if (!data || data.length < PAGE_SIZE) break;
+      rows.push(...data);
+    }
+    return rows;
+  }
+
+  if (total > rows.length) {
+    const rest = await Promise.all(
+      Array.from(
+        { length: Math.ceil(total / PAGE_SIZE) - 1 },
+        (_, i) => buildQuery({ withCount: false }).range((i + 1) * PAGE_SIZE, (i + 2) * PAGE_SIZE - 1)
+      )
+    );
+    // Promise.all preserves result order, so row order matches the pages.
+    for (const page of rest) {
+      if (page.error) throw page.error;
+      rows.push(...(page.data || []));
+    }
   }
   return rows;
 }
 
 async function fetchAssessmentsWithBarangay({ start, end }) {
   requireSupabase();
-  return fetchAllPages(() =>
+  return fetchAllPages(({ withCount }) =>
     supabase
       .from("tbl_assessments")
-      .select("*, tbl_children(barangay)")
+      .select("*, tbl_children(barangay)", withCount ? { count: "exact" } : undefined)
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -40,10 +68,10 @@ async function fetchAssessmentsWithBarangay({ start, end }) {
 
 async function fetchAssessmentsWithChildren({ start, end }) {
   requireSupabase();
-  return fetchAllPages(() =>
+  return fetchAllPages(({ withCount }) =>
     supabase
       .from("tbl_assessments")
-      .select("*, tbl_children(*)")
+      .select("*, tbl_children(*)", withCount ? { count: "exact" } : undefined)
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -56,10 +84,13 @@ async function fetchAssessmentsWithChildren({ start, end }) {
 // (child, period) instead of triple-counting duplicates.
 async function fetchTrendRows({ start, end }) {
   requireSupabase();
-  return fetchAllPages(() =>
+  return fetchAllPages(({ withCount }) =>
     supabase
       .from("tbl_assessments")
-      .select("id,child_id,date_measured,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,purok)")
+      .select(
+        "id,child_id,date_measured,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,purok)",
+        withCount ? { count: "exact" } : undefined
+      )
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -72,10 +103,13 @@ async function fetchTrendRows({ start, end }) {
 // Includes id/child_id/date_measured for the same Q1 dedupe.
 async function fetchGrowthRows({ start, end }) {
   requireSupabase();
-  return fetchAllPages(() =>
+  return fetchAllPages(({ withCount }) =>
     supabase
       .from("tbl_assessments")
-      .select("id,child_id,date_measured,age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,gender)")
+      .select(
+        "id,child_id,date_measured,age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,gender)",
+        withCount ? { count: "exact" } : undefined
+      )
       .eq("status", "active")
       .gte("date_measured", start)
       .lt("date_measured", end)
@@ -168,12 +202,13 @@ async function fetchMasterlistPage({ start, end, barangay, purok, search, page, 
 // pre-consolidation duplicates (Jan+Feb+Mar rows) and triple-count them.
 async function fetchMasterlistAll({ start, end, barangay, purok, search, submittedOnly, wfa, hfa, wfl_h, status }) {
   requireSupabase();
-  const build = () => {
+  const build = ({ withCount }) => {
     let query = supabase
       .from("tbl_assessments")
       .select(
         "id,child_id,date_measured,weight,height,age_in_months,wfa_status,hfa_status,wfl_h_status,submission_status," +
-          "tbl_children!inner(id,name,dob,parent_name,barangay,purok,gender,is_ip)"
+          "tbl_children!inner(id,name,dob,parent_name,barangay,purok,gender,is_ip)",
+        withCount ? { count: "exact" } : undefined
       )
       .eq("status", "active")
       .gte("date_measured", start)
@@ -194,8 +229,11 @@ async function fetchMasterlistAll({ start, end, barangay, purok, search, submitt
 // Distinct puroks for a barangay's filter dropdown (slim two-column scan).
 async function fetchPuroks({ barangay } = {}) {
   requireSupabase();
-  const rows = await fetchAllPages(() => {
-    let query = supabase.from("tbl_children").select("barangay,purok").eq("status", "active");
+  const rows = await fetchAllPages(({ withCount }) => {
+    let query = supabase
+      .from("tbl_children")
+      .select("barangay,purok", withCount ? { count: "exact" } : undefined)
+      .eq("status", "active");
     if (barangay) query = query.eq("barangay", barangay);
     return query.order("purok", { ascending: true });
   });
@@ -229,10 +267,10 @@ async function countNewChildren({ barangay, purok, start, end }) {
 
 async function fetchSupplementsWithBarangay({ start, end }) {
   requireSupabase();
-  return fetchAllPages(() =>
+  return fetchAllPages(({ withCount }) =>
     supabase
       .from("tbl_supplements")
-      .select("*, tbl_children(barangay)")
+      .select("*, tbl_children(barangay)", withCount ? { count: "exact" } : undefined)
       .eq("status", "active")
       .gte("date_administered", start)
       .lt("date_administered", end)
