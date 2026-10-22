@@ -168,12 +168,20 @@ export default function MonthlyReport() {
     setSubmitError("");
     setSubmitNotice("");
     setSubmitting(true);
+    // Capture the pre-call submit state so a resubmit (month already sent)
+    // can get its own confirmation notice instead of looking like a first submit.
+    const alreadySubmitted = !!submission?.submitted;
     try {
       const result = await api.post("/reports/submit", { month });
       if (result?._queued) {
         setSubmitNotice("Submit saved on this device — will send when you're back online.");
       } else {
         submissionQuery.refresh();
+        if (alreadySubmitted) {
+          setSubmitNotice(
+            `✓ Resubmission complete for ${monthLabel(month)} — existing records were updated and no duplicates were created.`
+          );
+        }
       }
     } catch (err) {
       setSubmitError(err.message || "Failed to submit report");
@@ -250,12 +258,21 @@ export default function MonthlyReport() {
           <button className="btn btn-secondary hide-on-mobile print-hide" onClick={handlePrint} disabled={preparingPrint || loading}>
             <PrintIcon /> {preparingPrint ? "Preparing…" : "Print Report"}
           </button>
-          <button className="btn btn-accent" onClick={handleSubmit} disabled={submitting}>
+          <button
+            className="btn btn-accent"
+            onClick={handleSubmit}
+            disabled={submitting}
+            title={
+              submission?.submitted
+                ? "Resubmitting won't create duplicate records — it updates or appends to the already-submitted data."
+                : undefined
+            }
+          >
             {submitting ? (
               "Submitting..."
             ) : submission?.submitted ? (
               <>
-                <SendIcon /> Re-submit to Admin
+                <SendIcon /> Resubmit
               </>
             ) : (
               <>
@@ -284,8 +301,13 @@ export default function MonthlyReport() {
 
       {submission?.submitted && (
         <div className="banner banner-success print-hide" style={{ marginBottom: 20 }}>
-          ✓ Submitted to admin for {monthLabel(month)}. The admin can now view this barangay's {monthLabel(month)}{" "}
-          checkup data.
+          <div>
+            <div>✓ Submission complete for {monthLabel(month)} — the admin can now view this barangay&apos;s {monthLabel(month)} checkup data.</div>
+            <div style={{ fontWeight: 400, fontSize: 13, marginTop: 4 }}>
+              Note: Resubmitting this month will not create duplicate records — it simply updates the existing
+              entries or appends any new checkups you&apos;ve recorded since the last submission.
+            </div>
+          </div>
         </div>
       )}
       {submission && !submission.submitted && (
