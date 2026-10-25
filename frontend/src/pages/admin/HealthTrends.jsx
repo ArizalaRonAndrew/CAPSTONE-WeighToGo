@@ -219,14 +219,20 @@ export default function HealthTrends() {
   // refetch only when revision counters moved server-side.
   const trendFrom = `${trendYear}-01`;
   const trendTo = `${trendYear}-12`;
-  const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: lineIndicator });
+  const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: "all" });
   if (lineBarangay) trendParams.set("barangay", lineBarangay);
   const trendMonths = useMemo(() => monthsBetween(trendFrom, trendTo), [trendFrom, trendTo]);
   const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths);
   // Stabilized so downstream memos don't recompute on every render when
   // there is no snapshot yet (data null → fresh [] each render otherwise).
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
-  const rawTrend = useMemo(() => trendQuery.data || [], [trendQuery.data]);
+  const rawTrend = useMemo(
+    () =>
+      Array.isArray(trendQuery.data)
+        ? trendQuery.data.map((row) => ({ month: row.month, ...row[lineIndicator] }))
+        : [],
+    [trendQuery.data, lineIndicator]
+  );
   // Jan–Mar renders as one "Jan–Mar" bracket: a single on-time assessment
   // covers that quarter, so the three calendar months are summed.
   const trend = useMemo(
@@ -395,16 +401,36 @@ export default function HealthTrends() {
 
         <RefreshLine refreshing={trendQuery.refreshing} updatedAt={trendQuery.updatedAt} onRefresh={trendQuery.refresh} />
 
-        {trendLoading ? (
+        {trendLoading && !trendQuery.data ? (
           <div className="loading-state">Loading...</div>
-        ) : trendError ? (
+        ) : trendError && !trendQuery.data ? (
           <div className="empty-state">{trendError}</div>
         ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart
-              data={trend}
-              margin={{ top: 8, right: 16, left: 12, bottom: 24 }}
-            >
+          <div style={{ position: "relative" }} aria-busy={trendLoading}>
+            {trendLoading && (
+              <div
+                role="status"
+                style={{
+                  position: "absolute",
+                  zIndex: 1,
+                  top: 8,
+                  right: 8,
+                  padding: "5px 9px",
+                  borderRadius: 6,
+                  background: "var(--color-surface)",
+                  color: "var(--color-text-muted)",
+                  boxShadow: "var(--shadow-sm)",
+                  fontSize: 12,
+                }}
+              >
+                Updating for {lineBarangay || "all barangays"}…
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height={320}>
+              <ComposedChart
+                data={trend}
+                margin={{ top: 8, right: 16, left: 12, bottom: 24 }}
+              >
               <CartesianGrid
                 stroke="var(--color-border)"
                 strokeDasharray="3 3"
@@ -472,8 +498,9 @@ export default function HealthTrends() {
                     />
                   );
                 })}
-            </ComposedChart>
-          </ResponsiveContainer>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 

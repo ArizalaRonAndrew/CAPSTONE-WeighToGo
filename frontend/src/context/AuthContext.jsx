@@ -36,7 +36,7 @@ function prefetchLandingData(role) {
     const jobs =
       role === "MNAO"
         ? [
-            loadRevGated(`/reports/trends?from=${year}-01&to=${year}-12&indicator=wfa`, trendMonths),
+            loadRevGated(`/reports/trends?from=${year}-01&to=${year}-12&indicator=all`, trendMonths),
             loadRevGated(`/reports/barangay-comparison?month=${month}`, [month]),
           ]
         : [loadRevGated("/children", [month]), loadRevGated("/assessments", [month])];

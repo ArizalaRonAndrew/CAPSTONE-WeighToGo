@@ -31,7 +31,23 @@ export function bustUrl(url) {
   return `${url}${sep}_r=${Date.now()}`;
 }
 
+const inFlightRevLoads = new Map();
+
 export async function loadRevGated(url, months, opts = {}) {
+  const key = JSON.stringify([url, months || [], Boolean(opts.force), Boolean(opts.daySensitive)]);
+  const existing = inFlightRevLoads.get(key);
+  if (existing) return existing;
+
+  const request = loadRevGatedRequest(url, months, opts);
+  inFlightRevLoads.set(key, request);
+  try {
+    return await request;
+  } finally {
+    if (inFlightRevLoads.get(key) === request) inFlightRevLoads.delete(key);
+  }
+}
+
+async function loadRevGatedRequest(url, months, opts) {
   const monthList = months || [];
   const force = Boolean(opts.force);
   const snapshot = force ? null : await getReportSnapshot(url);

@@ -53,6 +53,13 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 > 503 (no database) and caching/rev-gating stays off (no Redis) — both fail
 > open, nothing crashes.
 
+### Health Trends database fast path
+
+Run [`backend/sql/trend_counts.sql`](./backend/sql/trend_counts.sql) once in
+the Supabase SQL Editor. It installs the database-side aggregation used by
+the Health Trends chart. Without this function, the API falls back to
+fetching and scanning assessment rows, which can make the chart much slower.
+
 ## 3. Redis setup (first time only — already done on this machine)
 
 Redis is the server-side cache: repeat reads answer in ~50 ms instead of

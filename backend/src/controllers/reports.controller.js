@@ -371,8 +371,14 @@ async function getTrends(req, res, next) {
     const { from, to, status } = req.query;
     const indicatorKey = req.query.indicator;
     const column = INDICATOR_COLUMNS[indicatorKey];
-    if (!isValidMonthString(from) || !isValidMonthString(to) || !column) {
-      return res.status(400).json({ error: "from, to (YYYY-MM) and a valid indicator (wfa|hfa|wfl_h) are required" });
+    const allIndicators = indicatorKey === "all";
+    if (
+      !isValidMonthString(from) ||
+      !isValidMonthString(to) ||
+      (!column && !allIndicators) ||
+      (allIndicators && status)
+    ) {
+      return res.status(400).json({ error: "from, to (YYYY-MM) and a valid indicator (wfa|hfa|wfl_h|all) are required" });
     }
     const barangay = req.query.barangay || null;
     const submittedOnly = req.user.role === "MNAO";
@@ -383,6 +389,7 @@ async function getTrends(req, res, next) {
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
     const periods = periodsBetween(from, to);
+    const indicatorKeys = allIndicators ? Object.keys(INDICATOR_COLUMNS) : [indicatorKey];
     const statuses = STATUS_VALUES[indicatorKey] || [];
 
     // Fast path: Postgres aggregates in-database (one indexed GROUP BY pass,
@@ -391,13 +398,34 @@ async function getTrends(req, res, next) {
     // been installed in Supabase yet — or errors for any reason — fall
     // through to the row scan below so the chart keeps working.
     try {
-      const counts = await reportsModel.fetchTrendCounts({
-        start,
-        end,
-        indicator: indicatorKey,
-        barangay,
-        submittedOnly,
-      });
+      const countSets = await Promise.all(
+        indicatorKeys.map((indicator) =>
+          reportsModel.fetchTrendCounts({
+            start,
+            end,
+            indicator,
+            barangay,
+            submittedOnly,
+          })
+        )
+      );
+      if (allIndicators) {
+        const responses = Object.fromEntries(
+          indicatorKeys.map((indicator, index) => [
+            indicator,
+            trendsResponseFromCounts(countSets[index], periods, null, STATUS_VALUES[indicator]),
+          ])
+        );
+        return res.json(
+          periods.map((month, periodIndex) => ({
+            month,
+            ...Object.fromEntries(
+              indicatorKeys.map((indicator) => [indicator, responses[indicator][periodIndex]])
+            ),
+          }))
+        );
+      }
+      const [counts] = countSets;
       return res.json(trendsResponseFromCounts(counts, periods, status, statuses));
     } catch (err) {
       console.warn("getTrends: trend_counts RPC unavailable, using row scan:", err.message);
@@ -426,6 +454,30 @@ async function getTrends(req, res, next) {
     // No status filter: break each assessment period down by every status
     // for this indicator, so the caller can plot one line per status.
     // Jan–Mar rows all land in the single "YYYY-Q1" bucket.
+    if (allIndicators) {
+      const buckets = new Map(
+        periods.map((period) => [
+          period,
+          Object.fromEntries(
+            indicatorKeys.map((indicator) => [
+              indicator,
+              Object.fromEntries(STATUS_VALUES[indicator].map((value) => [value, 0])),
+            ])
+          ),
+        ])
+      );
+      for (const row of rows) {
+        const period = periodKeyForDate(row.date_measured);
+        const bucket = buckets.get(period);
+        if (!bucket) continue;
+        for (const indicator of indicatorKeys) {
+          const value = row[INDICATOR_COLUMNS[indicator]];
+          if (bucket[indicator][value] !== undefined) bucket[indicator][value] += 1;
+        }
+      }
+      return res.json(periods.map((month) => ({ month, ...buckets.get(month) })));
+    }
+
     const buckets = new Map(periods.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
     for (const row of rows) {
       const value = row[column];
