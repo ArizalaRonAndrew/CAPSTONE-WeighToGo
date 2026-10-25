@@ -21,11 +21,24 @@ const OVERWEIGHT_WFL_H = new Set(["Overweight", "Obese"]);
 // thresholds. Shared by the Barangay Map (color-coded markers + side panel)
 // and the AI significance explainer, so both work off the same real data
 // instead of trusting client-supplied numbers.
-async function computeBarangayHealthStatus({ req, month }) {
+//
+// `barangay` shrinks the fetch to ONE barangay while returning the same
+// shape (the other buckets just stay zero, matching what an unscoped scan
+// with filterByBarangay would compute). The Barangay Map still scans all
+// barangays; the AI explainer uses the scoping so an "Explain with AI"
+// click doesn't pay for every other barangay's rows before Gemini even
+// starts. `submittedOnly` lets the same predicate filterSubmittedForRole
+// applies post-fetch resolve in-query instead (peer reports do the same).
+async function computeBarangayHealthStatus({ req, month, barangay = null }) {
   // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
   // One record per child for the quarter — never Jan+Feb+Mar summed.
   const { start, end } = toPeriodRange(month);
-  const allRows = await reportsModel.fetchTrendRows({ start, end });
+  const allRows = await reportsModel.fetchTrendRows({
+    start,
+    end,
+    barangay,
+    submittedOnly: req.user.role === "MNAO",
+  });
   const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, allRows));
 
   const totals = new Map();

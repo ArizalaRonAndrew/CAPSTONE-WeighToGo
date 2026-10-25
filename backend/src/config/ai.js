@@ -1,4 +1,4 @@
-const { GEMINI_API_KEY, GEMINI_MODEL } = process.env;
+const { GEMINI_API_KEY } = process.env;
 
 if (!GEMINI_API_KEY) {
   console.warn(
@@ -9,5 +9,5 @@ if (!GEMINI_API_KEY) {
 
 module.exports = {
   GEMINI_API_KEY,
-  GEMINI_MODEL: GEMINI_MODEL || "gemini-flash-latest",
+  GEMINI_MODEL: "gemini-3.5-flash-lite",
 };

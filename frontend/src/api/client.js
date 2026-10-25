@@ -36,10 +36,13 @@ function offlineError(message) {
 // Reads are retry-safe, so they get a timeout: field networks often HANG
 // (captive portals, dead tunnels) instead of failing fast, and without this
 // every loader awaited forever — eternal "Loading..." with no error and no
-// offline fallback. Mutations deliberately have NO client timeout: aborting
-// a POST the server already processed manufactures duplicates (a fresh
-// retry would carry a fresh key); slow writes keep the browser default and
-// idempotency keys cover genuine replays.
+// offline fallback. Mutations deliberately have NO client timeout BY
+// DEFAULT: aborting a POST the server already processed manufactures
+// duplicates (a fresh retry would carry a fresh key); slow writes keep the
+// browser default and idempotency keys cover genuine replays. Read-only,
+// repeat-safe mutations (the AI explanation POST) can opt in with an
+// explicit `timeoutMs` — never queueable, never replayed, so aborting can't
+// manufacture anything.
 let GET_TIMEOUT_MS = 20000;
 
 // Test-only override (Vite defines no hook for this; production never calls).
@@ -50,10 +53,11 @@ export function __setGetTimeoutMs(ms) {
 // Raw fetch core. Resolves { status, data, replayed } on HTTP responses
 // (ok or not); throws a `network`-flagged error when no response arrives in
 // time (timeout) or at all. Shared by interactive requests and the outbox flusher.
-async function rawSend({ method = "GET", path, body, idemKey }) {
-  const timeoutMs = method === "GET" ? GET_TIMEOUT_MS : 0;
-  const controller = timeoutMs > 0 && typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+async function rawSend({ method = "GET", path, body, idemKey, timeoutMs }) {
+  // Explicit per-request timeout wins; otherwise only idempotent GETs get one.
+  const effectiveTimeout = timeoutMs ?? (method === "GET" ? GET_TIMEOUT_MS : 0);
+  const controller = effectiveTimeout > 0 && typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), effectiveTimeout) : null;
   let res;
   try {
     const headers = body ? { "Content-Type": "application/json" } : {};
@@ -125,7 +129,7 @@ async function registerFlushSender() {
 }
 registerFlushSender();
 
-async function request(path, { method = "GET", body, baseRev } = {}) {
+async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) {
   const outbox = await getOutbox().catch(() => null);
   const queueOn = outbox?.isQueueEnabled?.() ?? false;
   const idemKey = method !== "GET" ? outbox?.newIdempotencyKey?.() : null;
@@ -164,7 +168,7 @@ async function request(path, { method = "GET", body, baseRev } = {}) {
   }
 
   try {
-    const { data } = await rawSend({ method, path, body, idemKey });
+    const { data } = await rawSend({ method, path, body, idemKey, timeoutMs });
     outbox?.setOfflineFlag?.(false);
     // Session endpoints are deliberately excluded: offline session fallback
     // is explicit via the last-known-user record (auditable, expiry-gated),
@@ -206,7 +210,7 @@ async function request(path, { method = "GET", body, baseRev } = {}) {
 
 export const api = {
   get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body }),
+  post: (path, body, opts) => request(path, { method: "POST", body, timeoutMs: opts?.timeoutMs }),
   patch: (path, body, opts) => request(path, { method: "PATCH", body, baseRev: opts?.baseRev }),
   delete: (path) => request(path, { method: "DELETE" }),
 };

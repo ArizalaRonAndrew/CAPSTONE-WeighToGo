@@ -1,152 +1,116 @@
 const { GEMINI_API_KEY, GEMINI_MODEL } = require("../config/ai");
-const {
-  classifyUnderweight,
-  classifyStunting,
-  classifyWasting,
-  classifyOverweight,
-  bandForUnderweight,
-  bandForStunting,
-  bandForWasting,
-  bandForOverweight,
-} = require("../utils/publicHealthSignificance");
 
-const GEMINI_URL = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-// Per-indicator grounding: the WHO definition and health-consequence facts
-// the model is allowed to draw its "consequences" sentences from, so it
-// isn't relying on background knowledge (or an uploaded screenshot) for
-// anything but wording. Source: WHO/de Onis et al. (2018), WHO Nutrition
-// Landscape Information System (apps.who.int/nutrition/landscape, help
-// topic: Malnutrition in children).
-const INDICATOR_INFO = {
-  stunting: {
-    label: "Stunting",
-    definition: "height-for-age <-2 SD",
-    consequence:
-      "Cumulative chronic undernutrition/infection since before birth. Delays mental development, lowers school performance and adult economic productivity.",
-    pctKey: "stuntedPct",
-    classify: classifyStunting,
-    band: bandForStunting,
-  },
-  wasting: {
-    label: "Wasting",
-    definition: "weight-for-height <-2 SD",
-    consequence:
-      "Acute undernutrition, usually recent food shortage or infection (esp. diarrhoea). Impairs immunity and raises risk of severe illness and death.",
-    pctKey: "wastedPct",
-    classify: classifyWasting,
-    band: bandForWasting,
-  },
-  overweight: {
-    label: "Overweight",
-    definition: "weight-for-height >+2 SD",
-    consequence:
-      "Childhood obesity. Raises lifetime risk of cardiovascular disease, diabetes, musculoskeletal disorders, and certain cancers.",
-    pctKey: "overweightPct",
-    classify: classifyOverweight,
-    band: bandForOverweight,
-  },
-  underweight: {
-    label: "Underweight",
-    definition: "weight-for-age <-2 SD, WHO/UNICEF 1995",
-    consequence:
-      "Composite of chronic and/or acute undernutrition (stunting and/or wasting). Mortality risk rises even at mild underweight.",
-    pctKey: "underweightPct",
-    classify: classifyUnderweight,
-    band: bandForUnderweight,
-  },
-};
-
-const TIER_RANK = { "very-low": 0, low: 1, medium: 2, high: 3, "very-high": 4 };
-
-// The barangay's overall severity is the worst of its four indicator tiers
-// (see publicHealthSignificance.worstTier) — this picks out which specific
-// indicator(s) actually reached that tier, so the explanation can name and
-// cite one concrete driver instead of vaguely restating the overall rating.
-// Ties are broken by a fixed, arbitrary priority order (stunting > wasting >
-// overweight > underweight) rather than raw percentage, since the four
-// indicators use different scales and aren't directly comparable by size.
-function pickDrivingIndicator(stats) {
-  let best = null;
-  for (const key of ["stunting", "wasting", "overweight", "underweight"]) {
-    const info = INDICATOR_INFO[key];
-    const pct = stats[info.pctKey];
-    const tier = info.classify(pct);
-    if (!best || TIER_RANK[tier] > TIER_RANK[best.tier]) {
-      best = { key, info, pct, tier };
-    }
-  }
-  return best;
-}
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 const SYSTEM_INSTRUCTION =
-  "You brief a Municipal Nutrition Action Officer (mNAO) in the Philippines on ONE child malnutrition " +
-  "indicator that just crossed a WHO public-health-significance threshold in a barangay. You are given the " +
-  "indicator, its prevalence rate, its WHO cutoff band, and grounding facts already computed — use them " +
-  "exactly, do not recompute, second-guess, or discuss any other indicator.\n\n" +
-  "Reply in plain text, in exactly this structure and order, with no headings:\n" +
-  "1. One sentence stating the prevalence rate and the WHO cutoff band that reached this significance level.\n" +
-  "2. 2-3 short sentences on the main health consequences of this specific indicator (drawn only from the " +
-  "grounding facts given).\n" +
-  "3. Exactly 2 bullet points (each starting with \"- \") with short, concrete, locally actionable mNAO steps " +
-  "for this specific indicator.\n\n" +
-  "Hard constraints: maximum 40 words total across the entire reply (stay well under — this is a hard ceiling " +
-  "of 45, so leave margin). No introductory or concluding phrases (e.g. no \"Here is...\", no \"In summary...\"). " +
-  "No greeting. Plain text only.";
+  "You are a fast, concise public-health data summarizer. Use only the supplied barangay percentages and " +
+  "high-significance criteria; do not perform deep analysis, invent causes, or recalculate the values.\n\n" +
+  "Briefly explain which indicator(s) meet High or Very High significance and why. Then give exactly one " +
+  "simple insight based on the percentages, followed by 2-3 short, actionable intervention plans.\n" +
+  "Use plain text, no introduction or conclusion, and keep the entire answer under 70 words.";
 
-// Calls Gemini's generateContent endpoint with the single WHO indicator that
-// drove this barangay's significance rating (its real, server-computed
-// prevalence + cutoff band), and returns a short, tightly-formatted
-// explanation grounded in that one indicator only.
-async function explainBarangaySignificance({ barangay, month, stats }) {
+const HIGH_SIGNIFICANCE_CRITERIA =
+  "High-significance criteria:\n" +
+  "- Underweight: High 20% to <30%; Very High >=30% (WHO/UNICEF 1995).\n" +
+  "- Stunting: High 20% to <30%; Very High >=30%.\n" +
+  "- Wasting: High 10% to <15%; Very High >=15%.\n" +
+  "- Overweight: High 10% to <15%; Very High >=15%.";
+
+// Sends the frontend's already computed values directly to Gemini; no
+// barangay data lookup or percentage recomputation is needed here.
+async function explainBarangaySignificance({ barangay, percentages }) {
   if (!GEMINI_API_KEY) {
     const err = new Error("AI explainer is not configured (missing GEMINI_API_KEY)");
     err.status = 503;
     throw err;
   }
 
-  const driver = pickDrivingIndicator(stats);
   const statsText =
     `Barangay: ${barangay}\n` +
-    `Month: ${month}\n` +
-    `Children assessed: ${stats.totalAssessed}\n` +
-    `Indicator: ${driver.info.label} (${driver.info.definition})\n` +
-    `Prevalence rate: ${driver.pct.toFixed(1)}%\n` +
-    `Significance tier reached: ${driver.tier}\n` +
-    `WHO cutoff band for this tier: ${driver.info.band(driver.pct)}\n` +
-    `Grounding facts on this indicator: ${driver.info.consequence}`;
+    `Underweight: ${percentages.underweightPct}%\n` +
+    `Stunting: ${percentages.stuntedPct}%\n` +
+    `Wasting: ${percentages.wastedPct}%\n` +
+    `Overweight: ${percentages.overweightPct}%\n\n` +
+    HIGH_SIGNIFICANCE_CRITERIA;
 
-  const body = {
-    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-    contents: [{ role: "user", parts: [{ text: statsText }] }],
-    // maxOutputTokens covers Gemini's hidden "thinking" tokens as well as the
-    // visible reply — gemini-flash-latest (currently gemini-3.6-flash) spends
-    // several hundred tokens reasoning before writing the answer, so a budget
-    // sized only for the ~45-word reply truncates the response (MAX_TOKENS)
-    // before any text comes out.
-    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+  return requestExplanation(statsText);
+}
+
+function buildRequestBody(statsText) {
+  return {
+    model: GEMINI_MODEL,
+    input: statsText,
+    system_instruction: SYSTEM_INSTRUCTION,
+    generation_config: {
+      temperature: 0.2,
+      max_output_tokens: 256,
+      thinking_level: "minimal",
+    },
+    store: false,
   };
+}
 
-  const res = await fetch(`${GEMINI_URL(GEMINI_MODEL)}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const err = new Error(data?.error?.message || "AI request failed");
-    err.status = 502;
-    throw err;
+// Per-attempt cap so a hung Gemini request can't hold the Express handler
+// forever. Retries extend the total only when Gemini itself is having
+// a transient failure.
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 20000;
+// 1 live attempt + 2 retries for transient failures (rate limit / server
+// errors / network or timeout).
+const GEMINI_MAX_ATTEMPTS = 3;
+const isTransientStatus = (status) => status === 429 || status >= 500;
+
+async function requestExplanation(statsText) {
+  let lastError = "AI request failed";
+  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt++) {
+    // Small linear backoff (2s, 4s) before each retry.
+    if (attempt > 1) await sleep(2000 * (attempt - 1));
+    let res;
+    let data;
+    try {
+      res = await fetch(GEMINI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify(buildRequestBody(statsText)),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      });
+      data = await res.json().catch(() => null);
+    } catch {
+      // AbortSignal.timeout raises on a hang; reconnects and DNS failures
+      // land here too. All are transient from Gemini's perspective.
+      lastError = "AI request timed out or the network failed";
+      continue;
+    }
+
+    if (!res.ok) {
+      lastError = data?.error?.message || `AI request failed (status ${res.status})`;
+      if (isTransientStatus(res.status)) continue;
+      const err = new Error(lastError);
+      err.status = 502;
+      throw err;
+    }
+
+    const text =
+      data?.steps
+        ?.filter((step) => step.type === "model_output")
+        .flatMap((step) => step.content || [])
+        .filter((part) => part.type === "text")
+        .map((part) => part.text || "")
+        .join("") || "";
+    if (!text.trim()) {
+      const err = new Error("AI did not return an explanation for this barangay");
+      err.status = 502;
+      throw err;
+    }
+    return text.trim();
   }
-
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-  if (!text.trim()) {
-    const err = new Error("AI did not return an explanation for this barangay");
-    err.status = 502;
-    throw err;
-  }
-  return text.trim();
+  const err = new Error(lastError);
+  err.status = 502;
+  throw err;
 }
 
 module.exports = { explainBarangaySignificance };

@@ -566,7 +566,17 @@ export default function BarangayMap() {
                 </div>
               )}
 
-              <BarangayAiPanel key={selected.name} barangayName={selected.name} month={month} severity={selectedSeverity} />
+              <BarangayAiPanel
+                key={selected.name}
+                barangayName={selected.name}
+                percentages={{
+                  underweightPct: selectedHealth?.underweightPct,
+                  stuntedPct: selectedHealth?.stuntedPct,
+                  wastedPct: selectedHealth?.wastedPct,
+                  overweightPct: selectedHealth?.overweightPct,
+                }}
+                severity={selectedSeverity}
+              />
 
               {summaryLoading && <div className="loading-state">Loading summary...</div>}
               {!summaryLoading && summaryError && (

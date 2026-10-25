@@ -344,6 +344,28 @@ async function getVitaminReport(req, res, next) {
   }
 }
 
+// Shape used by the "Issues by Barangay" bar chart's sibling line chart. Kept
+// byte-identical between the RPC fast path and the row-scan fallback so the
+// client can't tell which one served the answer:
+// - ?status= -> [{ month, count }]
+// - default -> [{ month, <StatusA>: n, <StatusB>: n, ... }] (one key per
+//   status value the frontend plots as a line), zero buckets filled.
+function trendsResponseFromCounts(counts, periods, status, statuses) {
+  if (status) {
+    const buckets = new Map(periods.map((m) => [m, 0]));
+    for (const { period, status: st, total } of counts) {
+      if (st === status && buckets.has(period)) buckets.set(period, Number(total));
+    }
+    return periods.map((month) => ({ month, count: buckets.get(month) }));
+  }
+  const buckets = new Map(periods.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
+  for (const { period, status: st, total } of counts) {
+    const bucket = buckets.get(period);
+    if (bucket && bucket[st] !== undefined) bucket[st] += Number(total);
+  }
+  return periods.map((month) => ({ month, ...buckets.get(month) }));
+}
+
 async function getTrends(req, res, next) {
   try {
     const { from, to, status } = req.query;
@@ -353,18 +375,43 @@ async function getTrends(req, res, next) {
       return res.status(400).json({ error: "from, to (YYYY-MM) and a valid indicator (wfa|hfa|wfl_h) are required" });
     }
     const barangay = req.query.barangay || null;
+    const submittedOnly = req.user.role === "MNAO";
 
     // Q1-aware range: from/to are calendar months, but Jan–Mar collapses to
     // a single "YYYY-Q1" data point since that quarter holds one assessment
     // per child. The underlying fetch still spans the full calendar range.
     const { start } = toMonthRange(from);
     const { end } = toMonthRange(to);
-    const scopedRows = filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay);
+    const periods = periodsBetween(from, to);
+    const statuses = STATUS_VALUES[indicatorKey] || [];
+
+    // Fast path: Postgres aggregates in-database (one indexed GROUP BY pass,
+    // ~30 count rows transferred) instead of the full year's assessment rows
+    // plus five JS tally passes. If the trend_counts() SQL function hasn't
+    // been installed in Supabase yet — or errors for any reason — fall
+    // through to the row scan below so the chart keeps working.
+    try {
+      const counts = await reportsModel.fetchTrendCounts({
+        start,
+        end,
+        indicator: indicatorKey,
+        barangay,
+        submittedOnly,
+      });
+      return res.json(trendsResponseFromCounts(counts, periods, status, statuses));
+    } catch (err) {
+      console.warn("getTrends: trend_counts RPC unavailable, using row scan:", err.message);
+    }
+
+    // Row-scan fallback. The barangay + role filters now resolve in-query
+    // (see fetchTrendRows) rather than after the full fetch.
+    const scopedRows = filterByBarangay(
+      await reportsModel.fetchTrendRows({ start, end, barangay, submittedOnly }),
+      barangay
+    );
     // Jan–Mar is one month: collapse to one record per (child, period) so the
     // Q1 point never sums Jan+Feb+Mar into 3x.
     const rows = dedupeByChildPerPeriod(filterSubmittedForRole(req, scopedRows));
-
-    const periods = periodsBetween(from, to);
 
     if (status) {
       const buckets = new Map(periods.map((m) => [m, 0]));
@@ -379,7 +426,6 @@ async function getTrends(req, res, next) {
     // No status filter: break each assessment period down by every status
     // for this indicator, so the caller can plot one line per status.
     // Jan–Mar rows all land in the single "YYYY-Q1" bucket.
-    const statuses = STATUS_VALUES[indicatorKey] || [];
     const buckets = new Map(periods.map((m) => [m, Object.fromEntries(statuses.map((s) => [s, 0]))]));
     for (const row of rows) {
       const value = row[column];

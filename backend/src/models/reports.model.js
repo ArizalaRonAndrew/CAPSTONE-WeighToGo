@@ -82,10 +82,17 @@ async function fetchAssessmentsWithChildren({ start, end }) {
 // nutrition, masterlist summary). Includes id/child_id/date_measured so the
 // Q1 dedupe (one record per child for Jan–Mar) can pick the earliest row per
 // (child, period) instead of triple-counting duplicates.
-async function fetchTrendRows({ start, end }) {
+//
+// Optional in-query scoping so callers don't have to transfer rows they're
+// about to throw away: `submittedOnly` gates drafts (the same predicate
+// filterSubmittedForRole applies post-fetch), and `barangay` filters through
+// the child join (rows where the child embed is missing or a different
+// barangay are excluded, matching filterByBarangay). Legacy callers pass
+// only { start, end } and get the original unguarded scan.
+async function fetchTrendRows({ start, end, barangay, submittedOnly } = {}) {
   requireSupabase();
-  return fetchAllPages(({ withCount }) =>
-    supabase
+  return fetchAllPages(({ withCount }) => {
+    let query = supabase
       .from("tbl_assessments")
       .select(
         "id,child_id,date_measured,wfa_status,hfa_status,wfl_h_status,submission_status,tbl_children(barangay,purok)",
@@ -93,8 +100,41 @@ async function fetchTrendRows({ start, end }) {
       )
       .eq("status", "active")
       .gte("date_measured", start)
-      .lt("date_measured", end)
-  );
+      .lt("date_measured", end);
+    if (submittedOnly) query = query.eq("submission_status", "submitted");
+    if (barangay) query = query.eq("tbl_children.barangay", barangay);
+    return query;
+  });
+}
+
+// Fast path for GET /reports/trends: the counting happens IN Postgres via
+// the trend_counts() SQL function — one indexed GROUP-BY pass returning ~30
+// (period, status, count) rows — instead of shipping the full year of
+// assessment rows (potentially 48k+, ~49 PostgREST pages) to Node and
+// tallying them across five JS passes.
+//
+// Semantics mirror the fallback scan path exactly:
+// - status = 'active', date_measured in [start, end)
+// - p_submitted_only gates drafts (MNAO only sees submitted rows)
+// - p_barangay scopes through the tbl_children join
+// - Jan–Mar collapses to "YYYY-Q1", then DISTINCT ON keeps the earliest
+//   row per (child, period) — same rule as dedupeByChildPerPeriod
+//
+// Returns [{ period, status, total }] with zero-count combinations omitted;
+// the controller fills zero buckets from periodsBetween, as it always has.
+// Throws if the SQL function isn't installed yet — callers fall back to the
+// scan path in that case.
+async function fetchTrendCounts({ start, end, indicator, barangay = null, submittedOnly = true }) {
+  requireSupabase();
+  const { data, error } = await supabase.rpc("trend_counts", {
+    p_start: start,
+    p_end: end,
+    p_indicator: indicator,
+    p_barangay: barangay,
+    p_submitted_only: submittedOnly,
+  });
+  if (error) throw error;
+  return data || [];
 }
 
 // Growth-summary projection: everything getGrowthSummaryReport tallies
@@ -281,6 +321,7 @@ module.exports = {
   fetchAssessmentsWithBarangay,
   fetchAssessmentsWithChildren,
   fetchTrendRows,
+  fetchTrendCounts,
   fetchGrowthRows,
   fetchMasterlistPage,
   fetchMasterlistAll,
