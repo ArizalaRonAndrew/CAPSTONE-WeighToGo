@@ -158,13 +158,11 @@ export function AuthProvider({ children }) {
     // session's cached API rows (e.g. after an expiry bounced to /login).
     setSessionUserId(loggedInUser?.id || null);
     setOfflineMode(false);
-    // Purge (Cache Storage) and the IndexedDB session write used to run
-    // back-to-back after the login POST; they're independent local ops, so
-    // run them in parallel — navigation waits on the slower one, not their sum.
-    await Promise.all([
-      purgeApiCache(),
-      loggedInUser && saveLastKnownUser(loggedInUser, tokenExpiryMs(token)),
-    ]);
+    // Keep the shared API cache purge on the critical path so a new user can
+    // never see the previous user's cached rows. The IndexedDB offline-session
+    // snapshot is best-effort and must not delay navigation after auth succeeds.
+    await purgeApiCache();
+    if (loggedInUser) saveLastKnownUser(loggedInUser, tokenExpiryMs(token));
     // Start fetching what the landing screen needs before navigation even
     // renders it (fire-and-forget — see prefetchLandingData above).
     prefetchLandingData(loggedInUser?.role);

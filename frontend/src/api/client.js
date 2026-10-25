@@ -130,7 +130,9 @@ async function registerFlushSender() {
 registerFlushSender();
 
 async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) {
-  const outbox = await getOutbox().catch(() => null);
+  const cleanPath = String(path).split("?")[0];
+  const isSessionEndpoint = ["/users/login", "/users/me", "/users/logout"].includes(cleanPath);
+  const outbox = isSessionEndpoint ? null : await getOutbox().catch(() => null);
   const queueOn = outbox?.isQueueEnabled?.() ?? false;
   const idemKey = method !== "GET" ? outbox?.newIdempotencyKey?.() : null;
 

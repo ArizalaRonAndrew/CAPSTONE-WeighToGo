@@ -99,7 +99,7 @@ export default defineConfig({
             method,
             options: {
               backgroundSync: {
-                name: "wtg-mutations",
+                name: `wtg-mutations-${method.toLowerCase()}`,
                 options: { maxRetentionTime: 24 * 60 },
               },
             },
