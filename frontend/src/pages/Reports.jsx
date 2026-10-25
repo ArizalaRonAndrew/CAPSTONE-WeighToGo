@@ -195,20 +195,19 @@ export default function Reports() {
     <div className="reports-page">
       <div className="page-header">
         <h1>Consolidated Reports</h1>
-      </div>
-
-      <div className="filter-bar">
-        <div className="field">
-          <label>Month</label>
-          <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Barangay</label>
-          <Dropdown
-            value={barangay}
-            options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
-            onChange={setBarangay}
-          />
+        <div className="filter-bar">
+          <div className="field">
+            <label>Month</label>
+            <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Barangay</label>
+            <Dropdown
+              value={barangay}
+              options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
+              onChange={setBarangay}
+            />
+          </div>
         </div>
       </div>
 

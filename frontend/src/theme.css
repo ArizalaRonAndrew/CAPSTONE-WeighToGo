@@ -3710,6 +3710,86 @@ button.dose-is-due {
   background: var(--color-primary-50);
 }
 
+.reports-page .page-header {
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.reports-page .page-header h1 {
+  margin: 0;
+}
+
+.reports-page .page-header > .filter-bar {
+  flex-wrap: nowrap;
+  gap: 16px;
+  margin: 0 0 0 auto;
+}
+
+.reports-page .page-header > .filter-bar .field:first-child {
+  width: 165px;
+}
+
+.reports-page .page-header > .filter-bar .field:last-child {
+  width: 210px;
+}
+
+.reports-page .growth-summary-card {
+  padding: 10px;
+  margin-bottom: 0;
+}
+
+.reports-page .growth-summary-header {
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.reports-page .growth-summary-totals {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.reports-page .growth-summary-total-tile {
+  gap: 2px;
+  padding: 7px 10px;
+}
+
+.reports-page .growth-summary-total-tile .value {
+  font-size: 20px;
+}
+
+.reports-page .growth-summary-table th,
+.reports-page .growth-summary-table td {
+  padding: 3px 2px;
+}
+
+@media (max-width: 640px) {
+  .reports-page .page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .reports-page .page-header > .filter-bar {
+    width: 100%;
+    align-items: flex-end;
+    flex-direction: row;
+    gap: 12px;
+    margin: 0;
+  }
+
+  .reports-page .page-header > .filter-bar .field {
+    flex: 1 1 0;
+    width: auto;
+  }
+
+  .reports-page .growth-summary-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* Leaflet's own panes/controls use z-index up to 1000, and .leaflet-container
    never sets its own — so without this, that z-index escapes into the page's
    root stacking context and paints over the fixed sidebar (z-index: 30)
