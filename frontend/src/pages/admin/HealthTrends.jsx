@@ -15,6 +15,7 @@ import { useRevReport } from "../../hooks/useRevReport";
 import RefreshLine from "../../components/RefreshLine";
 import { currentMonth, addMonths, periodKeyForMonth } from "../../utils/month";
 import Dropdown from "../../components/Dropdown";
+import "./HealthTrends.css";
 
 const INDICATOR_OPTIONS = [
   { value: "wfa", label: "Weight-for-Age" },
@@ -406,7 +407,41 @@ export default function HealthTrends() {
         <RefreshLine refreshing={trendQuery.refreshing} updatedAt={trendQuery.updatedAt} onRefresh={trendQuery.refresh} />
 
         {trendLoading && !trendQuery.data ? (
-          <div className="loading-state">Loading...</div>
+          <div className="health-trends-loading" role="status">
+            <svg
+              className="health-trends-runner"
+              viewBox="0 0 120 100"
+              aria-hidden="true"
+            >
+              <ellipse className="health-trends-runner-shadow" cx="58" cy="85" rx="34" ry="5" />
+              <g className="health-trends-runner-bob">
+                <g className="health-trends-runner-back-arm">
+                  <path d="M63 41 49 35 42 25" />
+                  <path d="m42 25-5-2" />
+                </g>
+                <g className="health-trends-runner-back-leg">
+                  <path d="m56 61-14 12-13-2" />
+                  <path d="m29 71-4 4" />
+                </g>
+                <path className="health-trends-runner-body" d="m63 37-9 24 12 5 12-25z" />
+                <g className="health-trends-runner-front-leg">
+                  <path d="m57 62 15 8 14-4" />
+                  <path d="m86 66 6 2" />
+                </g>
+                <g className="health-trends-runner-front-arm">
+                  <path d="m63 41 14 6 11-8" />
+                  <path d="m88 39 5 1" />
+                </g>
+                <path
+                  className="health-trends-runner-head"
+                  d="M63 23c0-9 6-15 15-15 8 0 14 6 14 14 0 8-6 14-14 14s-15-5-15-13Z"
+                />
+                <path className="health-trends-runner-hair" d="m64 21 1-8 5 3 3-6 5 5 5-4 2 6 6 1-2 6-7-3-5 2-7-2z" />
+                <path className="health-trends-runner-face" d="m82 25 3 1m-5 5q4 3 7-1" />
+              </g>
+            </svg>
+            <span>Loading health trends…</span>
+          </div>
         ) : trendError && !trendQuery.data ? (
           <div className="empty-state">{trendError}</div>
         ) : (

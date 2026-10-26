@@ -1,0 +1,159 @@
+.health-trends-loading {
+  min-height: 320px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.health-trends-runner {
+  width: 104px;
+  height: 88px;
+  overflow: visible;
+}
+
+.health-trends-runner-shadow {
+  fill: #285a48;
+  opacity: 0.16;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: health-trends-shadow 720ms ease-in-out infinite;
+}
+
+.health-trends-runner-bob {
+  animation: health-trends-bob 360ms ease-in-out infinite alternate;
+}
+
+.health-trends-runner-body,
+.health-trends-runner-head {
+  fill: #dcebd0;
+  stroke: #285a48;
+  stroke-width: 2.8;
+  stroke-linejoin: round;
+}
+
+.health-trends-runner-hair {
+  fill: #285a48;
+  stroke: #285a48;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.health-trends-runner-face {
+  fill: none;
+  stroke: #285a48;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.health-trends-runner-back-arm,
+.health-trends-runner-front-arm,
+.health-trends-runner-back-leg,
+.health-trends-runner-front-leg {
+  fill: none;
+  stroke: #285a48;
+  stroke-width: 5.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: view-box;
+}
+
+.health-trends-runner-back-arm {
+  transform-origin: 63px 41px;
+  animation: health-trends-back-arm 720ms ease-in-out infinite;
+}
+
+.health-trends-runner-front-arm {
+  transform-origin: 63px 41px;
+  animation: health-trends-front-arm 720ms ease-in-out infinite;
+}
+
+.health-trends-runner-back-leg {
+  transform-origin: 56px 61px;
+  animation: health-trends-back-leg 720ms ease-in-out infinite;
+}
+
+.health-trends-runner-front-leg {
+  transform-origin: 57px 62px;
+  animation: health-trends-front-leg 720ms ease-in-out infinite;
+}
+
+@keyframes health-trends-bob {
+  from {
+    transform: translateY(1px);
+  }
+
+  to {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes health-trends-shadow {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scaleX(0.92);
+  }
+
+  50% {
+    opacity: 0.1;
+    transform: scaleX(0.72);
+  }
+}
+
+@keyframes health-trends-back-arm {
+  0%,
+  100% {
+    transform: rotate(-16deg);
+  }
+
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+@keyframes health-trends-front-arm {
+  0%,
+  100% {
+    transform: rotate(16deg);
+  }
+
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes health-trends-back-leg {
+  0%,
+  100% {
+    transform: rotate(18deg);
+  }
+
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes health-trends-front-leg {
+  0%,
+  100% {
+    transform: rotate(-18deg);
+  }
+
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-trends-runner-shadow,
+  .health-trends-runner-bob,
+  .health-trends-runner-back-arm,
+  .health-trends-runner-front-arm,
+  .health-trends-runner-back-leg,
+  .health-trends-runner-front-leg {
+    animation: none;
+  }
+}
