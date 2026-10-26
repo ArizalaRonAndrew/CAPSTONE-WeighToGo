@@ -2023,8 +2023,33 @@ tr.clickable:hover {
   position: relative;
 }
 
-.modal-card-xl {
-  max-width: 760px;
+/* Manage Child modal: every tab keeps the Personal Info tab's size. The card
+   is a fixed-height flex column (height set from the measured info layout),
+   and only the tab body scrolls — so switching tabs never resizes the dialog. */
+.manage-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.manage-modal .tab-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Zero-height, invisible copy of the Personal Info tab used to measure the
+   modal's locked height at the real content width. */
+.manage-modal-probe {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.manage-modal-probe .banner {
+  display: none;
 }
 
 /* Register a Child: give the bottom of the form (Location, IP checkbox,

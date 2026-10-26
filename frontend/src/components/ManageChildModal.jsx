@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { isTmpId, getOfflineChildBundle } from "../utils/outbox";
@@ -114,6 +114,12 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const TABS = readOnly ? ALL_TABS.filter((t) => t.key !== "assessment") : ALL_TABS;
   const [tab, setTab] = useState(initialTab === "assessment" && readOnly ? "info" : initialTab);
   const [child, setChild] = useState(null);
+  const cardRef = useRef(null);
+  const tabContentRef = useRef(null);
+  const infoProbeRef = useRef(null);
+  // Height of the Personal Info layout. Every tab uses this same frame so
+  // switching tabs (or opening a different tab first) never resizes the modal.
+  const [lockedHeight, setLockedHeight] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [assessmentsError, setAssessmentsError] = useState("");
   const [editing, setEditing] = useState(false);
@@ -184,6 +190,34 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     loadAssessments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
+
+  // Lock the dialog to the Personal Info layout so every tab keeps the same
+  // size. The hidden probe below renders that tab at the modal's real width,
+  // so the size is also known when the modal opens directly on another tab.
+  // A layout effect applies the size before paint, so there's no visible jump.
+  useLayoutEffect(() => {
+    if (!child) return undefined;
+
+    function measure() {
+      const card = cardRef.current;
+      const content = tabContentRef.current;
+      const probe = infoProbeRef.current;
+      if (!card || !content || !probe) return;
+      const contentStyles = getComputedStyle(content);
+      const contentPadding =
+        (parseFloat(contentStyles.paddingTop) || 0) + (parseFloat(contentStyles.paddingBottom) || 0);
+      const infoContentHeight = probe.scrollHeight + contentPadding;
+      // The rest of the card: top padding, header, tabs and bottom padding.
+      const contentOffset = content.offsetTop;
+      const cardBottomPadding = parseFloat(getComputedStyle(card).paddingBottom) || 0;
+      const next = Math.ceil(contentOffset + infoContentHeight + cardBottomPadding);
+      if (next > 0) setLockedHeight((prev) => (prev === next ? prev : next));
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [child]);
 
   // Auto-compute the nutritional status the moment weight and height are
   // both entered, so the BNS sees it before they even save the checkup.
@@ -342,10 +376,57 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
     }
   }
 
+  const infoReadView = (
+    <div>
+      {infoNotice && <div className="banner banner-success">{infoNotice}</div>}
+      <div className="section-title" style={{ marginTop: 0 }}>
+        Birth &amp; Location
+      </div>
+      <div className="info-grid">
+        <InfoCard icon="calendar" label="Birthdate" value={formatFullDate(child.dob)} />
+        <InfoCard icon="pin" label="Barangay" value={child.barangay} />
+        <InfoCard
+          icon="leaf"
+          label="Indigenous Person"
+          value={
+            <span className={`badge ${child.is_ip ? "badge-over" : "badge-muted"}`}>
+              {child.is_ip ? "Yes" : "No"}
+            </span>
+          }
+        />
+        <InfoCard icon="clock" label="Registered On" value={formatFullDate(child.created_at)} />
+      </div>
+
+      <div className="section-title">Parent / Guardian</div>
+      <div className="info-grid">
+        <InfoCard icon="user" label="Full Name" value={child.parent_name} />
+        <InfoCard
+          icon="phone"
+          label="Contact Number"
+          value={
+            child.parent_contact ? (
+              <a href={`tel:${child.parent_contact}`}>{formatPhContact(child.parent_contact)}</a>
+            ) : (
+              "—"
+            )
+          }
+        />
+      </div>
+
+      {!readOnly && (
+        <button className="btn" style={{ marginTop: 20 }} onClick={() => setEditing(true)}>
+          ✎ Edit Profile
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={`modal-card modal-card-lg ${tab === "vitamins" ? "modal-card-xl" : ""}`}
+        ref={cardRef}
+        className="modal-card modal-card-lg manage-modal"
+        style={lockedHeight ? { height: `${lockedHeight}px` } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <button className="modal-close" onClick={onClose} aria-label="Close">
@@ -383,51 +464,14 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           </div>
         </div>
 
-        <div className="tab-content">
-          {tab === "info" && !editing && (
-            <div>
-              {infoNotice && <div className="banner banner-success">{infoNotice}</div>}
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Birth & Location
-              </div>
-              <div className="info-grid">
-                <InfoCard icon="calendar" label="Birthdate" value={formatFullDate(child.dob)} />
-                <InfoCard icon="pin" label="Barangay" value={child.barangay} />
-                <InfoCard
-                  icon="leaf"
-                  label="Indigenous Person"
-                  value={
-                    <span className={`badge ${child.is_ip ? "badge-over" : "badge-muted"}`}>
-                      {child.is_ip ? "Yes" : "No"}
-                    </span>
-                  }
-                />
-                <InfoCard icon="clock" label="Registered On" value={formatFullDate(child.created_at)} />
-              </div>
+        <div className="tab-content" ref={tabContentRef}>
+          {/* Invisible copy of Personal Info, used only to measure the locked
+              height — so the size is known even when another tab is shown. */}
+          <div className="manage-modal-probe" ref={infoProbeRef} aria-hidden="true">
+            {infoReadView}
+          </div>
 
-              <div className="section-title">Parent / Guardian</div>
-              <div className="info-grid">
-                <InfoCard icon="user" label="Full Name" value={child.parent_name} />
-                <InfoCard
-                  icon="phone"
-                  label="Contact Number"
-                  value={
-                    child.parent_contact ? (
-                      <a href={`tel:${child.parent_contact}`}>{formatPhContact(child.parent_contact)}</a>
-                    ) : (
-                      "—"
-                    )
-                  }
-                />
-              </div>
-
-              {!readOnly && (
-                <button className="btn" style={{ marginTop: 20 }} onClick={() => setEditing(true)}>
-                  ✎ Edit Profile
-                </button>
-              )}
-            </div>
-          )}
+          {tab === "info" && !editing && infoReadView}
 
           {tab === "info" && editing && !readOnly && (
             <form className="form-grid cols-2" onSubmit={handleSaveInfo}>
