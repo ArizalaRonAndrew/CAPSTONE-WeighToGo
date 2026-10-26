@@ -314,7 +314,7 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
                 />
               </div>
             </div>
-            <div className="form-grid cols-2" style={{ marginTop: 14 }}>
+            <div className="form-grid cols-2 register-dob-grid">
               <div className="field">
                 <label className="required">Date of Birth</label>
                 <input

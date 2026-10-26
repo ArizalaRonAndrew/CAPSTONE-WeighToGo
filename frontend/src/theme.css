@@ -1794,6 +1794,10 @@ tr.clickable:hover {
   min-width: 0;
 }
 
+.register-modal .register-dob-grid {
+  margin-top: 14px;
+}
+
 .register-modal .register-name-grid .field label {
   display: block;
   white-space: nowrap;
@@ -2049,6 +2053,62 @@ tr.clickable:hover {
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid var(--color-border);
+}
+
+@media (min-width: 641px) {
+  .register-modal {
+    max-height: none;
+    overflow: visible;
+    padding: 18px 22px;
+  }
+
+  .register-modal .modal-header {
+    padding-bottom: 10px;
+  }
+
+  .register-modal .modal-header h2 {
+    margin-bottom: 2px;
+  }
+
+  .register-modal .form-section {
+    margin-bottom: 16px;
+  }
+
+  .register-modal .form-section:last-of-type {
+    margin-bottom: 16px;
+  }
+
+  .register-modal .section-title {
+    margin-bottom: 8px;
+  }
+
+  .register-modal .form-grid {
+    gap: 10px;
+  }
+
+  .register-modal .register-dob-grid {
+    margin-top: 10px;
+  }
+
+  .register-modal .field {
+    gap: 3px;
+  }
+
+  .register-modal .input {
+    padding: 7px 9px;
+    font-size: 13.5px;
+  }
+
+  .register-modal .register-ip-card {
+    margin-top: 12px;
+    margin-bottom: 0;
+    padding: 8px 10px;
+  }
+
+  .register-modal-footer {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
 }
 
 .modal-close {

@@ -810,7 +810,9 @@ async function getSubmissionStatus(req, res, next) {
     const rows = dedupeByChildPerPeriod(
       filterByBarangay(await reportsModel.fetchTrendRows({ start, end }), barangay)
     );
-    const submitted = rows.length > 0 && rows.every((row) => row.submission_status === "submitted");
+    // A submitted assessment is the durable submission marker for this
+    // barangay and period. New draft assessments must not undo that state.
+    const submitted = rows.some((row) => row.submission_status === "submitted");
 
     res.json({
       barangay,
