@@ -178,7 +178,11 @@ export async function getOfflineChildBundle(tmpId) {
       }
     }
     assessments.sort((a, b) => String(b.date_measured || "").localeCompare(String(a.date_measured || "")));
-    return { child: { ...reg.body, id: tmpId, _queued: true, _opId: reg.opId }, assessments };
+    // Old queued registrations predate the echoed created_at; fall back to
+    // the queue entry's timestamp so offline backfill still uses the moment
+    // the child was actually registered, not "now".
+    const created_at = reg.body.created_at || new Date(reg.createdAt || Date.now()).toISOString();
+    return { child: { ...reg.body, created_at, id: tmpId, _queued: true, _opId: reg.opId }, assessments };
   } catch {
     return null;
   }
@@ -202,7 +206,10 @@ async function deriveFromRoster(url) {
       if (isTmpId(id)) {
         const queued = await listEntries();
         const reg = queued.find((e) => e.tmpChildId === id && e.method === "POST");
-        if (reg?.body) return { ...reg.body, id, _queued: true, _opId: reg.opId };
+        if (reg?.body) {
+          const created_at = reg.body.created_at || new Date(reg.createdAt || Date.now()).toISOString();
+          return { ...reg.body, created_at, id, _queued: true, _opId: reg.opId };
+        }
       }
       return null;
     }

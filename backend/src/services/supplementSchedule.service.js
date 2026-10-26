@@ -30,6 +30,9 @@
  *   closed) even past its sub-window, so late First doses don't strand it.
  * - Anything older than grace (except that catch-up Second) is "closed".
  *   Future windows are "upcoming".
+ * - Registration backfill: a child registered after a window opened is
+ *   treated as having received every such dose exactly on schedule, so past
+ *   windows never surface as a backlog and only future windows need a tap.
  */
 
 const GRACE_MONTHS = 1;
@@ -93,6 +96,34 @@ function getScheduleWindows(supplementType) {
     }
   }
   return windows;
+}
+
+// Registration-time perfect-history assumption. A child who joins the
+// program after one or more dose windows have already opened is treated as
+// having received every one of those doses exactly on schedule, dated at
+// `dob + window.start_month`. This keeps late registrations from being handed
+// a First Dose that the strict on-time rule would immediately turn into a
+// permanently missed Second Dose. Only windows at/before the registration age
+// are seeded; every later window stays actionable when its turn arrives.
+function buildRegistrationBackfill(dob, ageAtRegistration) {
+  const age = Number(ageAtRegistration);
+  if (!dob || !Number.isFinite(age)) return [];
+
+  const rows = [];
+  for (const supplementType of ["Vitamin A", "Deworming"]) {
+    for (const window of getScheduleWindows(supplementType)) {
+      if (window.start_month > age) continue;
+      const dateAdministered = addMonthsToDateStr(dob, window.start_month);
+      if (!dateAdministered) continue;
+      rows.push({
+        supplement_type: supplementType,
+        dose_order: window.dose_order,
+        age_in_months: window.start_month,
+        date_administered: dateAdministered,
+      });
+    }
+  }
+  return rows;
 }
 
 function findWindow(doseWindows, doseOrder) {
@@ -458,6 +489,7 @@ module.exports = {
   UNDO_WINDOW_MS,
   getBrackets,
   getScheduleWindows,
+  buildRegistrationBackfill,
   findWindow,
   addMonthsToDateStr,
   isUndoableRecord,

@@ -40,6 +40,17 @@ async function create({ child_id, supplement_type, dose_order, age_in_months, da
   return data;
 }
 
+// Bulk insert used by registration backfill (perfect historical compliance),
+// so a child registered at an older age gets their past dose history in one
+// round trip instead of N create() calls.
+async function createMany(rows) {
+  requireSupabase();
+  if (!rows || rows.length === 0) return [];
+  const { data, error } = await supabase.from(TABLE_NAME).insert(rows).select("*");
+  if (error) throw error;
+  return data || [];
+}
+
 async function update(id, fields) {
   requireSupabase();
   const { data, error } = await supabase.from(TABLE_NAME).update(fields).eq("id", id).select("*").single();
@@ -60,4 +71,4 @@ async function rejectAllForChild(childId) {
   if (error) throw error;
 }
 
-module.exports = { findAll, findById, create, update, softDelete, rejectAllForChild };
+module.exports = { findAll, findById, create, createMany, update, softDelete, rejectAllForChild };

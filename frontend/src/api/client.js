@@ -151,8 +151,16 @@ async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) 
     const queued = { _queued: true, _opId: entry.opId };
     // Registrations echo a synthetic child so the UI can keep working
     // (select it, queue checkups against its tmp id — remapped on sync).
+    // created_at pins the registration instant so the offline supplement
+    // backfill uses the same cutoff the server will use on sync.
     if (entry.tmpChildId) {
-      return { ...(body || {}), id: entry.tmpChildId, _tmpChildId: entry.tmpChildId, ...queued };
+      return {
+        ...(body || {}),
+        id: entry.tmpChildId,
+        _tmpChildId: entry.tmpChildId,
+        created_at: new Date(entry.createdAt).toISOString(),
+        ...queued,
+      };
     }
     return queued;
   }

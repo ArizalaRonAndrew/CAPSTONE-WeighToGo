@@ -1,10 +1,10 @@
 // Client-side mirror of backend/src/services/supplementSchedule.service.js
 // (bracket display, 6-month sub-windows, strict rule — First must land in
 // the exact bracket-opening month or its Second is "missed" — 6-month
-// First→Second interval with a "waiting" state, 1-month grace). Kept in
-// lockstep by construction — the constants below must change together with
-// that file. Used offline from cached records; online the server is the
-// source of truth.
+// First→Second interval with a "waiting" state, 1-month grace, registration
+// backfill of windows already open when the child joined). Kept in lockstep
+// by construction — the constants below must change together with that file.
+// Used offline from cached records; online the server is the source of truth.
 
 export const GRACE_MONTHS = 1;
 export const DOSE_INTERVAL_MONTHS = 6;
@@ -65,6 +65,32 @@ export function getScheduleWindows(supplementType) {
     }
   }
   return windows;
+}
+
+// Registration-time perfect-history assumption — mirror of the backend
+// helper. Every dose window whose opening month the child had already reached
+// when they were registered is seeded as given exactly on schedule, so only
+// windows that open after registration ever show a Give button. Used by the
+// offline (tmp_…) child view; the server seeds the real rows on sync.
+export function buildRegistrationBackfill(dob, ageAtRegistration) {
+  const age = Number(ageAtRegistration);
+  if (!dob || !Number.isFinite(age)) return [];
+
+  const rows = [];
+  for (const supplementType of ["Vitamin A", "Deworming"]) {
+    for (const window of getScheduleWindows(supplementType)) {
+      if (window.start_month > age) continue;
+      const dateAdministered = addMonthsToDateStr(dob, window.start_month);
+      if (!dateAdministered) continue;
+      rows.push({
+        supplement_type: supplementType,
+        dose_order: window.dose_order,
+        age_in_months: window.start_month,
+        date_administered: dateAdministered,
+      });
+    }
+  }
+  return rows;
 }
 
 export function addMonthsToDateStr(dateStr, months) {

@@ -559,7 +559,13 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
               <div className="section-title" style={{ marginTop: 0 }}>
                 Vitamin A &amp; Deworming Compliance
               </div>
-              <SupplementTracker childId={childId} childDob={child?.dob} onChanged={onChanged} readOnly={readOnly} />
+              <SupplementTracker
+                childId={childId}
+                childDob={child?.dob}
+                childCreatedAt={child?.created_at}
+                onChanged={onChanged}
+                readOnly={readOnly}
+              />
             </div>
           )}
 

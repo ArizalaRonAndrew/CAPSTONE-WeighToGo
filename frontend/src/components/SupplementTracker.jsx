@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { listEntries, isTmpId } from "../utils/outbox";
-import { getSupplementSchedule } from "../utils/supplementSchedule";
-import { ageInMonths } from "../utils/age";
+import { buildRegistrationBackfill, getSupplementSchedule } from "../utils/supplementSchedule";
+import { ageInMonths, ageInMonthsOn } from "../utils/age";
 import { todayInManila } from "../utils/month";
 
 function shortBracket(bracketId) {
@@ -293,7 +293,7 @@ function SupplementBlock({ type, doses, onMark, markingKey, readOnly }) {
   );
 }
 
-export default function SupplementTracker({ childId, childDob, onChanged, readOnly = false }) {
+export default function SupplementTracker({ childId, childDob, childCreatedAt = null, onChanged, readOnly = false }) {
   const [schedule, setSchedule] = useState(null);
   const [scheduleSource, setScheduleSource] = useState("server");
   const [loading, setLoading] = useState(true);
@@ -365,7 +365,14 @@ export default function SupplementTracker({ childId, childDob, onChanged, readOn
         if (!childDob) throw new Error("Birthdate missing for this registration.");
         const queued = await listEntries();
         const pending = dosesFromQueued(queued, childId);
-        setSchedule(getSupplementSchedule(ageInMonths(childDob), pending, childDob, todayInManila()));
+        // Unsynced registration: apply the same perfect-history backfill the
+        // server will write on sync, using the registration instant (not the
+        // current age) as the cutoff so an old queued registration doesn't
+        // accumulate free doses while offline.
+        const backfill = buildRegistrationBackfill(childDob, ageInMonthsOn(childDob, childCreatedAt || new Date()));
+        setSchedule(
+          getSupplementSchedule(ageInMonths(childDob), [...backfill, ...pending], childDob, todayInManila())
+        );
         setScheduleSource("local");
       } catch (err) {
         setLoadError(err.message || "Failed to load the supplement schedule");
@@ -419,7 +426,7 @@ export default function SupplementTracker({ childId, childDob, onChanged, readOn
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
-  }, [childId]);
+  }, [childId, childDob, childCreatedAt]);
 
   // Quietly confirm the server reflects a just-written dose. If the first
   // refresh still shows it as actionable (stale cache/replica), retry twice

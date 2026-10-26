@@ -9,12 +9,20 @@ function dobParts(dob) {
   return { year, month, day };
 }
 
-export function ageInMonths(dob) {
+// Age on an arbitrary date — needed for registration-time backfill, where the
+// cutoff must be the registration instant rather than "now" (an offline
+// registration may sync days or weeks later).
+export function ageInMonthsOn(dob, referenceDate = new Date()) {
   const birth = dobParts(dob);
-  const now = manilaDateParts();
+  const refDate = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const now = manilaDateParts(Number.isNaN(refDate.getTime()) ? new Date() : refDate);
   let months = (now.year - birth.year) * 12 + (now.month - birth.month);
   if (now.day < birth.day) months -= 1;
   return Math.max(months, 0);
+}
+
+export function ageInMonths(dob) {
+  return ageInMonthsOn(dob);
 }
 
 export function formatAge(dob) {

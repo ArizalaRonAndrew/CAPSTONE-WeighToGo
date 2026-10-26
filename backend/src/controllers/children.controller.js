@@ -1,5 +1,6 @@
 const childrenModel = require("../models/children.model");
 const assessmentModel = require("../models/assessment.model");
+const supplementModel = require("../models/supplement.model");
 const barangayModel = require("../models/barangay.model");
 const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
@@ -7,6 +8,7 @@ const { isValidPhContact } = require("../utils/phone");
 const { isValidPersonName } = require("../utils/names");
 const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { pickFields } = require("../utils/pickFields");
+const { buildRegistrationBackfill } = require("../services/supplementSchedule.service");
 
 // Under-5 program scope: only children 59 months old or younger can be registered.
 const MAX_REGISTRATION_AGE_MONTHS = 59;
@@ -123,9 +125,32 @@ async function createChild(req, res, next) {
       });
     }
     const child = await childrenModel.create({ ...req.body, barangay });
-    // Roster, map counts, and reports all derive from the children table.
-    await bustAll(["children:*", "barangays:*", "reports:*"]);
-    await touchRevs([]);
+
+    // Perfect-historical-compliance default for late registrations: every
+    // dose window that had already opened by registration is assumed given
+    // exactly on schedule. Without this, a child registered at 13 months was
+    // offered the 12-month First Dose, and recording it immediately turned
+    // that bracket's Second Dose into a permanently "missed" dose.
+    let backfillRows = [];
+    try {
+      const registeredAt = child.created_at || new Date();
+      const ageAtRegistration = calculateAgeInMonths(child.dob || dob, registeredAt);
+      backfillRows = buildRegistrationBackfill(child.dob || dob, ageAtRegistration).map((row) => ({
+        ...row,
+        child_id: child.id,
+      }));
+      if (backfillRows.length) {
+        await supplementModel.createMany(backfillRows);
+      }
+    } catch (err) {
+      // Never fail an already-created registration because history seeding
+      // failed; log it so the child can be repaired without a duplicate 409.
+      console.error(`[children] supplement backfill failed for child ${child.id}:`, err.message);
+    }
+
+    // Roster, map counts, reports, and supplement views all derive from these tables.
+    await bustAll(["children:*", "barangays:*", "reports:*", "supplements:*"]);
+    await touchRevs(backfillRows.map((row) => String(row.date_administered).slice(0, 7)));
     res.status(201).json(child);
   } catch (err) {
     next(err);
