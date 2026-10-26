@@ -93,7 +93,10 @@ async function rawSend({ method = "GET", path, body, idemKey, timeoutMs }) {
   const data = isJson ? await res.json() : null;
 
   if (res.status === 401) {
-    onUnauthorized?.();
+    // A wrong password on the login form is not an expired session — don't
+    // tear down whatever session/cache the device already holds.
+    const isLoginAttempt = String(path).split("?")[0] === "/users/login";
+    if (!isLoginAttempt) onUnauthorized?.();
   }
 
   if (!res.ok) {

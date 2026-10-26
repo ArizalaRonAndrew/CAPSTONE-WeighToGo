@@ -3,9 +3,11 @@ import { api, setUnauthorizedHandler } from "../api/client";
 import { purgeApiCache } from "../utils/pwaCache";
 import { loadRevGated } from "../hooks/useRevReport";
 import { addMonths, currentMonth } from "../utils/month";
+import { clearLastRoute } from "../utils/lastRoute";
 import {
   setSessionUserId,
   saveLastKnownUser,
+  getLastKnownUser,
   clearOfflineUserData,
 } from "../utils/outbox";
 
@@ -15,6 +17,11 @@ const AuthContext = createContext(null);
 // previous logout's cleanup tasks are still in flight, the stale generation
 // aborts rather than wiping the new session's freshly-populated caches.
 let logoutGeneration = 0;
+
+// The in-flight local wipe from the last session teardown. Login awaits it so
+// an offline page refresh can never race a logout and resurrect the session
+// from the cached profile, while a fast re-login never loses its own record.
+let logoutCleanup = Promise.resolve();
 
 // After a successful login, warm the rev-gated data cache for the landing
 // page while React is still mounting it. loadRevGated stores the exact same
@@ -73,23 +80,74 @@ export function AuthProvider({ children }) {
     if (u) saveLastKnownUser(u);
   }
 
+  // Tear down the local session and wipe everything that could let a later
+  // offline boot restore it. Shared by explicit logout and by a server 401
+  // (expired/revoked session) so the cached profile can never outlive the
+  // session it was saved for. UI state is cleared synchronously; the actual
+  // wipes start right away rather than waiting on a network call that may
+  // hang on a dead connection.
+  function endLocalSession() {
+    setUser(null);
+    setOfflineMode(false);
+    setSessionUserId(null);
+    // Don't resume the ended session's page on the next PWA relaunch/login.
+    clearLastRoute();
+
+    const gen = ++logoutGeneration;
+    logoutCleanup = (async () => {
+      if (gen !== logoutGeneration) return;
+      // Drop the cached profile first — it is what offline boot reads.
+      await clearOfflineUserData();
+      if (gen !== logoutGeneration) return;
+      await purgeApiCache();
+    })();
+    logoutCleanup.catch(() => {});
+  }
+
   useEffect(() => {
     let alive = true;
-    api
-      .get("/users/me")
-      .then((u) => {
+
+    // Offline page refresh / app relaunch: the browser could not prove the
+    // session against the server, so resume the last profile the server did
+    // verify (written on login and on every successful /users/me). Reads are
+    // served from the offline cache, writes remain gated by the outbox's own
+    // expiry check, and a genuine 401 still logs out. Without this, every
+    // refresh on a field device bounced an authenticated user back to /login.
+    async function restoreCachedSession() {
+      const cached = await getLastKnownUser();
+      if (!alive || !cached?.user) return false;
+      setUser(cached.user);
+      setOfflineMode(true);
+      // Scope the offline queue/cache to this user before any page fetches.
+      setSessionUserId(cached.user.id || null);
+      return true;
+    }
+
+    async function boot() {
+      try {
+        // When the device already knows it has no connection, restore right
+        // away instead of waiting for the fetch to fail (or hang until the
+        // 20s GET timeout on a dead tunnel).
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          if (await restoreCachedSession()) return;
+          if (alive) setUser(null);
+          return;
+        }
+        const u = await api.get("/users/me");
         if (alive) applyLiveUser(u);
-      })
-      .catch(() => {
-        // Login requires internet: no cached profile may stand in for a
-        // session here, offline boot included. A live in-memory session that
-        // loses connectivity keeps working (offlineMode) — but a fresh page
-        // load must prove the session against the server first.
+      } catch (err) {
+        if (!alive) return;
+        // Only a network failure (offline, dead tunnel, timeout) falls back
+        // to the cached profile. A real HTTP 401/403 means the session is
+        // gone and must land on /login.
+        if (err?.network && (await restoreCachedSession())) return;
         if (alive) setUser(null);
-      })
-      .finally(() => {
+      } finally {
         if (alive) setLoading(false);
-      });
+      }
+    }
+
+    boot();
     return () => {
       alive = false;
     };
@@ -101,10 +159,14 @@ export function AuthProvider({ children }) {
   // just the ones this context makes directly.
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      setUser(null);
-      setOfflineMode(false);
+      // The server rejected this session — clear the cached profile too, or a
+      // later refresh while offline would restore a session that no longer
+      // exists. (Login's own 401 for bad credentials is harmless here: the
+      // local session is already gone.)
+      endLocalSession();
     });
     return () => setUnauthorizedHandler(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Revalidate the session whenever connectivity returns — a cached
@@ -154,6 +216,11 @@ export function AuthProvider({ children }) {
 
   async function login(email, password) {
     const { user: loggedInUser, token } = await api.post("/users/login", { email, password });
+    // A re-login invalidates any teardown from the previous session and waits
+    // for its local wipe to finish before writing the new profile — otherwise
+    // a still-running logout could delete the session we are creating now.
+    logoutGeneration += 1;
+    await logoutCleanup.catch(() => {});
     // A different user on a shared computer must never inherit the previous
     // session's cached API rows (e.g. after an expiry bounced to /login).
     setSessionUserId(loggedInUser?.id || null);
@@ -174,30 +241,21 @@ export function AuthProvider({ children }) {
     // Wipe the local session synchronously, BEFORE anything network-bound —
     // the UI drops back to /login on the next render, so a hung/failed
     // logout request can never leave an authenticated screen showing
-    // (crucial on a shared office computer).
-    setUser(null);
-    setOfflineMode(false);
-    setSessionUserId(null);
+    // (crucial on a shared office computer). The cached profile is wiped
+    // immediately too, so refreshing offline right after logout cannot
+    // restore the session.
+    endLocalSession();
 
-    // Security cleanup keeps running in the background and no longer gates
-    // navigation: this used to await the revocation POST plus two local
-    // cache wipes before returning, which is the delay felt when logging
-    // out. The HTTP session cookie is still cleared server-side; only its
-    // await moved off the critical path.
-    const gen = ++logoutGeneration;
+    // Best-effort token revocation runs in the background and no longer gates
+    // navigation. The HTTP session cookie is still cleared server-side; a
+    // failed call degrades to the cookie being cleared here plus natural JWT
+    // expiry, as before.
     (async () => {
-      // Best-effort token revocation — a failed call degrades to the
-      // cookie being cleared here plus natural JWT expiry, as before.
       try {
         await api.post("/users/logout");
       } catch {
         /* server unreachable — nothing more to do about it */
       }
-      // If someone logged back in while revocation was in flight, that
-      // login's own purge already rescoped the caches — don't wipe them.
-      if (gen !== logoutGeneration) return;
-      await purgeApiCache();
-      await clearOfflineUserData();
     })();
   }
 

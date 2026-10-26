@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -10,13 +11,33 @@ import MonthlyReport from "./pages/MonthlyReport";
 import HealthTrends from "./pages/admin/HealthTrends";
 import BarangayMap from "./pages/admin/BarangayMap";
 import AdminMasterlist from "./pages/admin/AdminMasterlist";
+import { resumePathFor, saveLastRoute } from "./utils/lastRoute";
+
+// Records the current page so a PWA relaunch can resume it (see HomeRedirect).
+function LastRouteTracker() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    saveLastRoute(pathname);
+  }, [pathname]);
+  return null;
+}
+
+// "/" is also the PWA start_url, so relaunching the installed app lands here.
+// Send a signed-in user back to their last page (when it belongs to their
+// role), falling back to their landing page — never straight to /login.
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading-state">Loading...</div>;
+  return <Navigate to={user ? resumePathFor(user) : "/login"} replace />;
+}
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <LastRouteTracker />
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<Login />} />
 
           <Route element={<ProtectedRoute />}>
@@ -36,7 +57,7 @@ function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<HomeRedirect />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

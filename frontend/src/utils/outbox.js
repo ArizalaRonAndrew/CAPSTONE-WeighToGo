@@ -284,7 +284,19 @@ export async function bustReadCache(kind) {
 // savedAt. Unknown expiry degrades to a short grace window, never forever.
 export async function saveLastKnownUser(user, tokenExpMs = null) {
   try {
-    await idbPut("meta", { key: "lastKnownUser", user, savedAt: Date.now(), tokenExp: tokenExpMs || null });
+    const existing = await idbGet("meta", "lastKnownUser");
+    // /users/me carries no token, so a revalidation of the same user must not
+    // erase the expiry learned at login — that would let the offline write
+    // gate fall back to the (renewable) grace window forever. A different
+    // user's expiry never carries over.
+    const sameUserExpiry =
+      existing?.tokenExp && existing?.user?.id === user?.id ? existing.tokenExp : null;
+    await idbPut("meta", {
+      key: "lastKnownUser",
+      user,
+      savedAt: Date.now(),
+      tokenExp: tokenExpMs || sameUserExpiry || null,
+    });
   } catch {
     // best-effort
   }
@@ -327,8 +339,10 @@ export async function checkOfflineWriteAllowed() {
 
 export async function clearOfflineUserData() {
   try {
-    await idbClear("readCache");
+    // The saved profile goes first: it is what an offline boot restores, so
+    // it must never survive an interrupted wipe even if the row cache does.
     await idbDel("meta", "lastKnownUser");
+    await idbClear("readCache");
   } catch {
     // best-effort
   }
