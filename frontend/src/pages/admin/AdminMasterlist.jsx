@@ -18,6 +18,10 @@ function formatShortDate(dateStr) {
   return `${month}-${day}-${d.getUTCFullYear()}`;
 }
 
+function displayBarangayName(name) {
+  return name.replace(/\s*\(poblacion\)$/i, "");
+}
+
 function monthLabel(monthString) {
   // Jan–Mar is one on-time assessment window, labelled as a single bracket.
   if (/^\d{4}-Q1$/.test(monthString || "")) return `January–March ${monthString.slice(0, 4)}`;
@@ -230,7 +234,7 @@ export default function AdminMasterlist() {
 
   const printFilterDetails = [
     { label: "Month", value: monthLabel(month) },
-    { label: "Barangay", value: barangayFilter || "All barangays" },
+    { label: "Barangay", value: barangayFilter ? displayBarangayName(barangayFilter) : "All barangays" },
     { label: "Purok / Sitio", value: purokFilter || "All puroks" },
     { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
     { label: "Search", value: debouncedSearch ? `“${debouncedSearch}”` : "—" },
@@ -294,7 +298,10 @@ export default function AdminMasterlist() {
             <label>Barangay</label>
             <Dropdown
               value={barangayFilter}
-              options={[{ value: "", label: "All barangays" }, ...barangays.map((b) => ({ value: b.name, label: b.name }))]}
+              options={[
+                { value: "", label: "All barangays" },
+                ...barangays.map((b) => ({ value: b.name, label: displayBarangayName(b.name) })),
+              ]}
               onChange={(value) => {
                 setBarangayFilter(value);
                 setPurokFilter("");
@@ -411,7 +418,9 @@ export default function AdminMasterlist() {
               {pageRows.map((row) => (
                 <tr key={row.assessment_id}>
                   <td data-label="Address / Purok">
-                    <div style={{ color: "var(--color-text-muted)", fontSize: 12 }}>{row.barangay}</div>
+                    <div style={{ color: "var(--color-text-muted)", fontSize: 12 }}>
+                      {displayBarangayName(row.barangay)}
+                    </div>
                     <div style={{ fontWeight: 700 }}>{row.purok}</div>
                   </td>
                   <td data-label="Mother / Caregiver">{formatNameForTable(row.parent_name)}</td>
@@ -475,7 +484,9 @@ export default function AdminMasterlist() {
 
       {printRows && (
         <div className="masterlist-print">
-          <h1>Masterlist — {barangayFilter || "All Barangays"}</h1>
+          <h1>
+            Masterlist — {barangayFilter ? displayBarangayName(barangayFilter) : "All Barangays"}
+          </h1>
           <div className="ml-print-filters">
             {printFilterDetails.map((item) => (
               <div className="ml-print-filter" key={item.label}>
@@ -556,7 +567,7 @@ export default function AdminMasterlist() {
                 <tr key={row.assessment_id}>
                   <td className="ml-print-num">{index + 1}</td>
                   <td>
-                    <div className="ml-print-barangay">{row.barangay}</div>
+                    <div className="ml-print-barangay">{displayBarangayName(row.barangay)}</div>
                     <div>{row.purok}</div>
                   </td>
                   <td>{formatNameForTable(row.parent_name)}</td>
