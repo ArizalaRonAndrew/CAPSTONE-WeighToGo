@@ -222,7 +222,9 @@ export default function HealthTrends() {
   const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: "all" });
   if (lineBarangay) trendParams.set("barangay", lineBarangay);
   const trendMonths = useMemo(() => monthsBetween(trendFrom, trendTo), [trendFrom, trendTo]);
-  const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths);
+  const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths, {
+    alwaysRevalidate: true,
+  });
   // Stabilized so downstream memos don't recompute on every render when
   // there is no snapshot yet (data null → fresh [] each render otherwise).
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
@@ -243,7 +245,9 @@ export default function HealthTrends() {
   const trendLoading = trendQuery.loading;
   const trendError = trendQuery.error;
 
-  const barQuery = useRevReport(`/reports/barangay-comparison?month=${barMonth}`, [barMonth]);
+  const barQuery = useRevReport(`/reports/barangay-comparison?month=${barMonth}`, [barMonth], {
+    alwaysRevalidate: true,
+  });
   const barLoading = barQuery.loading;
   const barError = barQuery.error;
 

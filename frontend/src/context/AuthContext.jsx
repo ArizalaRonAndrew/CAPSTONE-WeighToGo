@@ -43,8 +43,14 @@ function prefetchLandingData(role) {
     const jobs =
       role === "MNAO"
         ? [
-            loadRevGated(`/reports/trends?from=${year}-01&to=${year}-12&indicator=all`, trendMonths),
-            loadRevGated(`/reports/barangay-comparison?month=${month}`, [month]),
+            loadRevGated(
+              `/reports/trends?from=${year}-01&to=${year}-12&indicator=all`,
+              trendMonths,
+              { alwaysRevalidate: true }
+            ),
+            loadRevGated(`/reports/barangay-comparison?month=${month}`, [month], {
+              alwaysRevalidate: true,
+            }),
           ]
         : [loadRevGated("/children", [month]), loadRevGated("/assessments", [month])];
     Promise.allSettled(jobs);

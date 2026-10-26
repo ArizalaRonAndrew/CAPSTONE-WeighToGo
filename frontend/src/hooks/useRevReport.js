@@ -34,7 +34,13 @@ export function bustUrl(url) {
 const inFlightRevLoads = new Map();
 
 export async function loadRevGated(url, months, opts = {}) {
-  const key = JSON.stringify([url, months || [], Boolean(opts.force), Boolean(opts.daySensitive)]);
+  const key = JSON.stringify([
+    url,
+    months || [],
+    Boolean(opts.force),
+    Boolean(opts.daySensitive),
+    Boolean(opts.alwaysRevalidate),
+  ]);
   const existing = inFlightRevLoads.get(key);
   if (existing) return existing;
 
@@ -58,7 +64,12 @@ async function loadRevGatedRequest(url, months, opts) {
       opts.daySensitive &&
       fresh?.savedAt &&
       new Date(fresh.savedAt).toDateString() !== new Date().toDateString();
-    if (fresh && !dayRolled && revsMatch(fresh.rev, sync, monthList)) {
+    if (
+      fresh &&
+      !dayRolled &&
+      !opts.alwaysRevalidate &&
+      revsMatch(fresh.rev, sync, monthList)
+    ) {
       return { body: fresh.body, fromCache: true, savedAt: fresh.savedAt };
     }
     const body = await api.get(force ? bustUrl(url) : url);
@@ -79,7 +90,10 @@ async function loadRevGatedRequest(url, months, opts) {
  * on revisit), then fires one tiny sync-status request — the heavy endpoint
  * refetches ONLY when revision counters moved. `months` scopes which
  * counters gate this URL. `refresh()` forces a refetch, keeping old data
- * visible meanwhile.
+ * visible meanwhile. `opts.alwaysRevalidate` also requests the endpoint when
+ * revisions match; Redis can answer the request without repeating the query.
+ * Snapshots are user-scoped and keyed by the full URL, including filters,
+ * so each barangay selection restores and revalidates its own chart state.
  *
  * `opts.daySensitive` is for date-derived lists (e.g. due supplements): a
  * snapshot from a previous calendar day still renders instantly but always
@@ -88,39 +102,57 @@ async function loadRevGatedRequest(url, months, opts) {
 export function useRevReport(url, months, opts = {}) {
   const monthsKey = (months || []).join(",");
   const daySensitive = Boolean(opts.daySensitive);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [updatedAt, setUpdatedAt] = useState(null);
+  const alwaysRevalidate = Boolean(opts.alwaysRevalidate);
+  const [result, setResult] = useState({ url: null, data: null, updatedAt: null });
+  const [requestState, setRequestState] = useState({
+    url: null,
+    loading: true,
+    refreshing: false,
+    error: "",
+  });
   const reqId = useRef(0);
 
   const load = useCallback(
     async (force = false) => {
       const id = ++reqId.current;
       const alive = () => id === reqId.current;
-      setError("");
+      setRequestState((current) => ({
+        url,
+        loading: current.url === url ? current.loading : true,
+        refreshing: force,
+        error: "",
+      }));
       const monthList = monthsKey ? monthsKey.split(",") : [];
 
       if (!force) {
         const snapshot = await getReportSnapshot(url);
         if (!alive()) return;
         if (snapshot) {
-          setData(snapshot.body);
-          setUpdatedAt(snapshot.savedAt);
-          setLoading(false);
+          setResult({ url, data: snapshot.body, updatedAt: snapshot.savedAt });
+          setRequestState({
+            url,
+            loading: false,
+            refreshing: false,
+            error: "",
+          });
         } else {
-          setLoading(true);
+          setRequestState({
+            url,
+            loading: true,
+            refreshing: false,
+            error: "",
+          });
         }
-      } else {
-        setRefreshing(true);
       }
 
       try {
-        const res = await loadRevGated(url, monthList, { force, daySensitive });
+        const res = await loadRevGated(url, monthList, {
+          force,
+          daySensitive,
+          alwaysRevalidate,
+        });
         if (!alive()) return;
-        setData(res.body);
-        setUpdatedAt(res.savedAt);
+        setResult({ url, data: res.body, updatedAt: res.savedAt });
       } catch (err) {
         if (!alive()) return;
         // Error only when there is genuinely nothing to show — otherwise the
@@ -129,20 +161,26 @@ export function useRevReport(url, months, opts = {}) {
         const fallback = await getReportSnapshot(url);
         if (!alive()) return;
         if (fallback) {
-          setData(fallback.body);
-          setUpdatedAt(fallback.savedAt);
+          setResult({ url, data: fallback.body, updatedAt: fallback.savedAt });
         } else {
-          setError(err.message || "Failed to load report data");
+          setRequestState((current) =>
+            current.url === url
+              ? { ...current, error: err.message || "Failed to load report data" }
+              : current
+          );
         }
       } finally {
         if (alive()) {
-          setLoading(false);
-          setRefreshing(false);
+          setRequestState((current) =>
+            current.url === url
+              ? { ...current, loading: false, refreshing: false }
+              : current
+          );
         }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [url, monthsKey, daySensitive]
+    [url, monthsKey, daySensitive, alwaysRevalidate]
   );
 
   useEffect(() => {
@@ -154,5 +192,14 @@ export function useRevReport(url, months, opts = {}) {
 
   const refresh = useCallback(() => load(true), [load]);
 
-  return { data, loading, refreshing, error, updatedAt, refresh };
+  const hasResult = result.url === url;
+  const hasRequest = requestState.url === url;
+  return {
+    data: hasResult ? result.data : null,
+    loading: hasRequest ? requestState.loading : true,
+    refreshing: hasRequest ? requestState.refreshing : false,
+    error: hasRequest ? requestState.error : "",
+    updatedAt: hasResult ? result.updatedAt : null,
+    refresh,
+  };
 }

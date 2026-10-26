@@ -71,6 +71,15 @@ export default defineConfig({
             urlPattern: /\/api\/reports\/sync-status(\/|\?|$)/,
             handler: 'NetworkOnly',
           },
+          // These dashboard queries have their own user-scoped IndexedDB
+          // snapshots and Redis-backed revalidation. Avoid returning a
+          // service-worker response that the React query cannot observe
+          // being refreshed in the background.
+          {
+            urlPattern: /\/api\/(reports\/(trends|barangay-comparison)|barangays)(\/|\?|$)/,
+            handler: 'NetworkOnly',
+            method: 'GET',
+          },
           // Cacheable read endpoints — mirrors the backend Redis allowlist
           // (children, assessments, supplements, reports, barangays). Fresh
           // data renders instantly from cache, then revalidates in the

@@ -1,18 +1,11 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useRevReport } from "./useRevReport";
 
 export function useBarangays() {
-  const [barangays, setBarangays] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const query = useRevReport("/barangays", [], { alwaysRevalidate: true });
 
-  useEffect(() => {
-    api
-      .get("/barangays")
-      .then(setBarangays)
-      .catch((err) => setError(err.message || "Failed to load barangays"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { barangays, loading, error };
+  return {
+    barangays: Array.isArray(query.data) ? query.data : [],
+    loading: query.loading,
+    error: query.error,
+  };
 }
