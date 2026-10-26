@@ -170,12 +170,15 @@ async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) 
 
   // Placeholder ids (unsynced registrations) don't exist server-side — any
   // request touching one would 500, online or not. Queue it straight away
-  // instead of a doomed round trip.
+  // instead of a doomed round trip. Same for a device that already knows it
+  // has no connection: queue immediately so an optimistic "Give" is durable
+  // even if the page is closed before a doomed fetch would have failed.
+  const definitelyOffline = typeof navigator !== "undefined" && navigator.onLine === false;
   if (
     method !== "GET" &&
     queueOn &&
     outbox.isQueueable(method, path) &&
-    (outbox.isTmpId(body?.child_id) || /\/tmp_[A-Za-z0-9_-]+(\/|$|\?)/.test(path))
+    (definitelyOffline || outbox.isTmpId(body?.child_id) || /\/tmp_[A-Za-z0-9_-]+(\/|$|\?)/.test(path))
   ) {
     return queueDirectly();
   }

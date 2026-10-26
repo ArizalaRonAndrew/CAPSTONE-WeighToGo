@@ -542,6 +542,15 @@ export async function flushOutbox() {
           flushed += 1;
           continue;
         }
+        // 409 on a queued supplement means the server already has that exact
+        // dose (e.g. a service-worker replay won the race after the 24h
+        // idempotency record expired). The desired state is reached, so this
+        // is success-with-note, not a failure that hides the sync forever.
+        if (err && err.status === 409 && entry.method === "POST" && String(entry.path).split("?")[0] === "/supplements") {
+          await updateEntry(entry, { status: "done", resultNote: "That dose was already recorded on the server." });
+          flushed += 1;
+          continue;
+        }
         // 409 on a queued registration is the server's duplicate-child
         // signal (same name + birthdate in the barangay) — treat as
         // success-with-note so it doesn't loop as an error.
@@ -554,10 +563,14 @@ export async function flushOutbox() {
       }
     }
 
-    try {
-      await idbPut("meta", { key: "lastSyncAt", at: Date.now() });
-    } catch {
-      // best-effort
+    // Only record a sync timestamp when something actually reached the
+    // server — an offline flush attempt must not claim a successful sync.
+    if (flushed > 0) {
+      try {
+        await idbPut("meta", { key: "lastSyncAt", at: Date.now() });
+      } catch {
+        // best-effort
+      }
     }
     // Drop completed entries so the panel only shows actionable items.
     try {
@@ -630,11 +643,11 @@ export async function listEntries() {
 export function initOutbox() {
   if (typeof window === "undefined") return () => {};
   const tryFlush = () => {
-    if (navigator.onLine === false) {
-      setOfflineFlag(true);
-      emitStatus();
-      return;
-    }
+    // Attempt the flush even when navigator.onLine is false: some browsers
+    // report a stale false (or miss the `online` event after a background
+    // resume), and a truly offline attempt fails fast and stops at the first
+    // entry. Without this, queued doses could sit until a full reload.
+    if (navigator.onLine === false) setOfflineFlag(true);
     flushOutbox();
   };
   const onOnline = () => {

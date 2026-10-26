@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import { listEntries, isTmpId } from "../utils/outbox";
+import { listEntries, isTmpId, subscribeOutbox } from "../utils/outbox";
 import { buildRegistrationBackfill, getSupplementSchedule } from "../utils/supplementSchedule";
 import { ageInMonths, ageInMonthsOn } from "../utils/age";
 import { todayInManila } from "../utils/month";
@@ -304,7 +304,16 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
 
   function dosesFromQueued(queued, childKey) {
     return queued
-      .filter((e) => e.method === "POST" && e.path.split("?")[0] === "/supplements" && String(e.body?.child_id) === String(childKey))
+      .filter(
+        (e) =>
+          e.method === "POST" &&
+          e.path.split("?")[0] === "/supplements" &&
+          String(e.body?.child_id) === String(childKey) &&
+          // Only live queue states mean "already given". A failed/conflicted
+          // write was rejected by the server, so the dose must resurface as
+          // actionable instead of being painted as administered forever.
+          ["pending", "syncing", "blocked"].includes(e.status)
+      )
       .map((e) => ({ supplement_type: e.body.supplement_type, dose_order: e.body.dose_order, _queued: true, _opId: e.opId }));
   }
 
@@ -337,9 +346,9 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
       }));
   }
 
-  function optimisticScheduleAfterMark(prevSched, dose) {
+  function optimisticScheduleAfterMark(prevSched, dose, administeredOn) {
     const age = ageInMonths(childDob);
-    const today = todayInManila();
+    const today = administeredOn || todayInManila();
     const nowIso = new Date().toISOString();
     const base = recordsFromSchedule(prevSched, age, nowIso).filter(
       (r) => !(r.supplement_type === dose.supplement_type && r.dose_order === dose.dose_order)
@@ -358,6 +367,10 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
 
   async function load(opts = {}) {
     const silent = Boolean(opts.silent);
+    // A post-sync reconcile must not read the StaleWhileRevalidate response
+    // cache: it can still hold the pre-sync schedule and would paint the dose
+    // back as due. `_r` also misses the server response cache.
+    const bust = opts.bust ? `&_r=${Date.now()}` : "";
     if (!silent) setLoading(true);
     setLoadError("");
     if (isTmpId(childId)) {
@@ -383,10 +396,10 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
     }
     const hadData = schedule !== null;
     try {
-      const data = await api.get(`/supplements/schedule?childId=${childId}`);
+      const data = await api.get(`/supplements/schedule?childId=${childId}${bust}`);
       setSchedule(data.schedule);
       setScheduleSource("server");
-      api.get(`/supplements?childId=${childId}`).catch(() => {});
+      api.get(`/supplements?childId=${childId}${bust}`).catch(() => {});
     } catch (err) {
       if (!err.network) {
         // Silent reconciles must never blank the optimistically-updated UI
@@ -428,13 +441,92 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
     load();
   }, [childId, childDob, childCreatedAt]);
 
+  // Latest `load` for the background-sync listeners below (its identity
+  // changes every render, so a ref avoids re-subscribing on each one).
+  const loadRef = useRef(null);
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  function hasQueuedDose(entries) {
+    return entries.some(
+      (e) =>
+        e.method === "POST" &&
+        String(e.path || "").split("?")[0] === "/supplements" &&
+        String(e.body?.child_id) === String(childId) &&
+        ["pending", "syncing", "blocked"].includes(e.status)
+    );
+  }
+
+  // The offline queue drains in the background when connectivity returns.
+  // Re-read the schedule at that point so "waiting to sync" dots turn into
+  // server-confirmed dates — or the dose resurfaces as due if the server
+  // rejected the queued write.
+  useEffect(() => {
+    let alive = true;
+    let sawQueue = false;
+    const unsub = subscribeOutbox((status) => {
+      if (status.pending > 0 || status.syncing) {
+        sawQueue = true;
+        return;
+      }
+      if (!sawQueue) return;
+      sawQueue = false;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      listEntries()
+        .then((entries) => {
+          if (!alive || hasQueuedDose(entries)) return;
+          const reload = loadRef.current?.({ silent: true, bust: true });
+          if (reload) {
+            reload.then(() => setMarkNotice("")).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      alive = false;
+      if (unsub) unsub();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [childId]);
+
+  // Connectivity restored without anything queued: heal a schedule that was
+  // rendered from the offline cache.
+  useEffect(() => {
+    async function handleOnline() {
+      try {
+        const entries = await listEntries();
+        if (hasQueuedDose(entries)) return; // the queue listener reloads after sync
+        const reload = loadRef.current?.({ silent: true, bust: true });
+        reload?.catch?.(() => {});
+      } catch {
+        // best-effort
+      }
+    }
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [childId]);
+
   // Quietly confirm the server reflects a just-written dose. If the first
   // refresh still shows it as actionable (stale cache/replica), retry twice
   // while the optimistic date stays painted — the button never flips back
   // to Give on a confirmed write.
-  async function confirmWrite(dose) {
+  async function confirmWrite(dose, queued = false) {
     if (isTmpId(childId)) {
       await load({ silent: true });
+      return;
+    }
+    if (queued) {
+      // A queued write is not on the server yet, so a confirm read would
+      // overwrite the optimistic overlay with the pre-write schedule (e.g.
+      // connectivity returned mid-request). Render from cached records + the
+      // queue instead; the outbox-drain listener reconciles after sync.
+      try {
+        await loadOffline();
+      } catch {
+        // Keep the optimistic schedule already on screen.
+      }
       return;
     }
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -467,18 +559,26 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
   async function handleMark(dose) {
     const key = `${dose.supplement_type}-${dose.dose_order}`;
     const prev = schedule;
+    // Pin the administration date at tap time. For an offline/queued write
+    // this exact date is what the server receives on sync — otherwise a dose
+    // given late at night could sync on the next day and shift the 6-month
+    // Second-Dose window.
+    const administeredOn = todayInManila();
     // Optimistic: paint the date instantly, then confirm with the server.
-    setSchedule(optimisticScheduleAfterMark(prev, dose));
+    setSchedule(optimisticScheduleAfterMark(prev, dose, administeredOn));
     setMarkingKey(key);
     setMarkError("");
     setMarkNotice("");
+    let queued = false;
     try {
       const result = await api.post("/supplements", {
         child_id: childId,
         supplement_type: dose.supplement_type,
         dose_order: dose.dose_order,
+        date_administered: administeredOn,
       });
-      if (result?._queued) {
+      queued = Boolean(result?._queued);
+      if (queued) {
         setMarkNotice("Saved on this device — will sync when back online.");
       }
     } catch (err) {
@@ -488,7 +588,7 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
       setMarkingKey(null);
       return;
     }
-    await confirmWrite(dose);
+    await confirmWrite(dose, queued);
     setMarkingKey(null);
     // Tell the hosting page exactly what was recorded so it can drop that
     // dose from its own list instantly (no waiting on a slow refetch).
@@ -497,6 +597,7 @@ export default function SupplementTracker({ childId, childDob, childCreatedAt = 
       child_id: childId,
       supplement_type: dose.supplement_type,
       dose_order: dose.dose_order,
+      queued,
     });
   }
 

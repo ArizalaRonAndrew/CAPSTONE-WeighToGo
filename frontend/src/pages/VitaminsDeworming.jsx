@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ManageChildModal from "../components/ManageChildModal";
 import Dropdown from "../components/Dropdown";
 import RefreshLine from "../components/RefreshLine";
@@ -92,6 +92,24 @@ export default function VitaminsDeworming() {
               dose_order: e.body?.dose_order,
             }))
         );
+        // A queued dose the server rejected must stop being hidden. The
+        // `localCleared` overlay from this session's taps has no link back to
+        // the queue entry, so match rejected entries by child/type/order.
+        const rejected = new Set(
+          all
+            .filter(
+              (e) =>
+                e.method === "POST" &&
+                String(e.path || "").split("?")[0] === "/supplements" &&
+                ["failed", "conflicted"].includes(e.status)
+            )
+            .map((e) => `${e.body?.child_id}|${e.body?.supplement_type}|${e.body?.dose_order}`)
+        );
+        if (rejected.size) {
+          setLocalCleared((prev) =>
+            prev.filter((c) => !rejected.has(`${c.child_id}|${c.supplement_type}|${c.dose_order}`))
+          );
+        }
       } catch {
         // Overlay is best-effort; the server list still renders underneath.
       }
@@ -116,6 +134,21 @@ export default function VitaminsDeworming() {
       )
     );
   }, [dueQuery.data]);
+  // Once the offline queue drains after reconnecting, refetch the due list so
+  // doses confirmed in the background leave it without waiting for the user to
+  // navigate away. A rejected queued dose reappears instead (see reloadQueued).
+  const hadPending = useRef(false);
+  useEffect(() => {
+    return subscribeOutbox((status) => {
+      if (status.pending > 0) hadPending.current = true;
+      if (status.pending > 0 || status.syncing) return;
+      if (!hadPending.current) return;
+      hadPending.current = false;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      dueQuery.refresh();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dueQuery.refresh]);
   const entries = useMemo(() => {
     const rows = dueQuery.data || [];
     const cleared = new Set(
