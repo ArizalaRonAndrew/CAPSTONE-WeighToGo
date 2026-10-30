@@ -80,21 +80,13 @@ export default defineConfig({
             handler: 'NetworkOnly',
             method: 'GET',
           },
-          // Cacheable read endpoints — mirrors the backend Redis allowlist
-          // (children, assessments, supplements, reports, barangays). Fresh
-          // data renders instantly from cache, then revalidates in the
-          // background. Responses carry `Cache-Control: no-store` for the
-          // browser HTTP cache, but the Cache Storage API doesn't enforce
-          // that directive — this explicit runtime rule is the offline layer.
+          // Authenticated API responses must not use a URL-only shared cache:
+          // separate tabs can carry different per-tab bearer tokens. Offline
+          // reads use the user-scoped IndexedDB cache in the frontend instead.
           {
             urlPattern: /\/api\/(children|assessments|supplements|reports|barangays)(\/|\?|$)/,
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkOnly',
             method: 'GET',
-            options: {
-              cacheName: 'wtg-api-v1',
-              expiration: { maxEntries: 200, maxAgeSeconds: 600 },
-              cacheableResponse: { statuses: [200] },
-            },
           },
           // Safety net: failed mutations queue inside the SW and replay on
           // reconnect (deduped server-side by Idempotency-Key, so a race

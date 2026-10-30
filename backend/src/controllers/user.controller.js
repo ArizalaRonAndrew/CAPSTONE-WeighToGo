@@ -4,8 +4,6 @@ const userModel = require("../models/user.model");
 const { JWT_SECRET, JWT_EXPIRES_IN, COOKIE_NAME } = require("../config/jwt");
 const { getTokenFromRequest } = require("../middleware/auth");
 
-const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
 function signToken(user) {
   return jwt.sign(
     {
@@ -23,23 +21,13 @@ function signToken(user) {
 function cookieOptions() {
   return {
     httpOnly: true,
-    // Split-domain deploys (e.g. Vercel frontend + Render backend) are
-    // cross-site, so the session cookie needs SameSite=None (with Secure,
-    // already on in production) to be sent on fetch requests. Same-domain
-    // or same-parent-domain deploys keep the stricter Lax default.
     sameSite: process.env.COOKIE_SAMESITE || "lax",
     secure: process.env.NODE_ENV === "production",
   };
 }
 
-function setSessionCookie(res, token) {
-  res.cookie(COOKIE_NAME, token, { ...cookieOptions(), maxAge: COOKIE_MAX_AGE_MS });
-}
-
 function clearSessionCookie(res) {
-  // clearCookie must be called with the same attributes the cookie was set
-  // with (minus maxAge/expires) or some browsers won't recognize it as the
-  // same cookie and silently keep the old one.
+  // Remove legacy cookies from browsers that still have them.
   res.clearCookie(COOKIE_NAME, cookieOptions());
 }
 
@@ -84,7 +72,6 @@ async function loginUser(req, res, next) {
     }
 
     const token = signToken(user);
-    setSessionCookie(res, token);
     const { password: _password, token_version: _tokenVersion, ...safeUser } = user;
     res.json({ user: safeUser, token });
   } catch (err) {
@@ -94,10 +81,8 @@ async function loginUser(req, res, next) {
 
 async function logoutUser(req, res, next) {
   try {
-    // Checks the Authorization header too, not just the cookie, so a
-    // Bearer-token session actually gets its token_version bumped here
-    // instead of only "logging out" client-side while staying valid on the
-    // server for up to JWT_EXPIRES_IN.
+    // Revoke the current bearer token server-side instead of only signing out
+    // client-side while it remains valid until JWT_EXPIRES_IN.
     const token = getTokenFromRequest(req);
     if (token) {
       try {

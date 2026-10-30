@@ -1,11 +1,18 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api, setUnauthorizedHandler } from "../api/client";
+import {
+  api,
+  clearSessionToken,
+  getSessionToken,
+  setSessionToken,
+  setUnauthorizedHandler,
+} from "../api/client";
 import { purgeApiCache } from "../utils/pwaCache";
 import { loadRevGated } from "../hooks/useRevReport";
 import { addMonths, currentMonth } from "../utils/month";
 import { clearLastRoute } from "../utils/lastRoute";
 import {
   setSessionUserId,
+  getSessionUserId,
   saveLastKnownUser,
   getLastKnownUser,
   clearOfflineUserData,
@@ -93,9 +100,11 @@ export function AuthProvider({ children }) {
   // wipes start right away rather than waiting on a network call that may
   // hang on a dead connection.
   function endLocalSession() {
+    const endedUserId = user?.id || getSessionUserId();
     setUser(null);
     setOfflineMode(false);
     setSessionUserId(null);
+    clearSessionToken();
     // Don't resume the ended session's page on the next PWA relaunch/login.
     clearLastRoute();
 
@@ -103,7 +112,7 @@ export function AuthProvider({ children }) {
     logoutCleanup = (async () => {
       if (gen !== logoutGeneration) return;
       // Drop the cached profile first — it is what offline boot reads.
-      await clearOfflineUserData();
+      await clearOfflineUserData(endedUserId);
       if (gen !== logoutGeneration) return;
       await purgeApiCache();
     })();
@@ -222,6 +231,7 @@ export function AuthProvider({ children }) {
 
   async function login(email, password) {
     const { user: loggedInUser, token } = await api.post("/users/login", { email, password });
+    setSessionToken(token);
     // A re-login invalidates any teardown from the previous session and waits
     // for its local wipe to finish before writing the new profile — otherwise
     // a still-running logout could delete the session we are creating now.
@@ -244,6 +254,7 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    const token = getSessionToken();
     // Wipe the local session synchronously, BEFORE anything network-bound —
     // the UI drops back to /login on the next render, so a hung/failed
     // logout request can never leave an authenticated screen showing
@@ -253,12 +264,11 @@ export function AuthProvider({ children }) {
     endLocalSession();
 
     // Best-effort token revocation runs in the background and no longer gates
-    // navigation. The HTTP session cookie is still cleared server-side; a
-    // failed call degrades to the cookie being cleared here plus natural JWT
-    // expiry, as before.
+    // navigation. A failed call degrades to local sign-out plus natural JWT
+    // expiry.
     (async () => {
       try {
-        await api.post("/users/logout");
+        await api.post("/users/logout", {}, { authToken: token });
       } catch {
         /* server unreachable — nothing more to do about it */
       }

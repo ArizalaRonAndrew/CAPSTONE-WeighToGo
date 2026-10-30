@@ -1,9 +1,8 @@
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET, COOKIE_NAME } = require("../config/jwt");
+const { JWT_SECRET } = require("../config/jwt");
 const userModel = require("../models/user.model");
 
 function getTokenFromRequest(req) {
-  if (req.cookies && req.cookies[COOKIE_NAME]) return req.cookies[COOKIE_NAME];
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) return authHeader.slice(7);
   return null;

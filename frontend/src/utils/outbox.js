@@ -1,4 +1,4 @@
-import { idbPut, idbGet, idbDel, idbGetAll, idbClear } from "./offlineDb.js";
+import { idbPut, idbGet, idbDel, idbGetAll } from "./offlineDb.js";
 
 // Offline outbox (Phase C): queued mutations + read cache + session memory.
 //
@@ -6,7 +6,7 @@ import { idbPut, idbGet, idbDel, idbGetAll, idbClear } from "./offlineDb.js";
 //   flushed in seq order when connectivity returns (online/focus/interval/
 //   boot/manual). HTTP errors (4xx/5xx) are never queued — they surface.
 // - `readCache` holds last-good GET bodies per user, served when offline.
-// - `meta:lastKnownUser` lets the app boot an offline session (Phase D).
+// - A tab-scoped `meta:lastKnownUser:*` record lets the app boot offline.
 // - `meta:tmpIdMap` remaps `tmp_<opId>` child placeholders to real ids after
 //   an offline registration syncs, so dependent checkups/doses flush after it.
 //
@@ -61,6 +61,23 @@ export function tmpChildId(opId) {
 
 export function isTmpId(value) {
   return typeof value === "string" && value.startsWith(TMP_PREFIX);
+}
+
+function offlineSessionKey() {
+  try {
+    if (typeof window === "undefined" || !window.sessionStorage) return null;
+    let sessionId = window.sessionStorage.getItem("wtg:offline-session");
+    if (!sessionId) {
+      sessionId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      window.sessionStorage.setItem("wtg:offline-session", sessionId);
+    }
+    return `lastKnownUser:${sessionId}`;
+  } catch {
+    return null;
+  }
 }
 
 // Endpoints the outbox accepts. Auth, AI, and previews are online-only and
@@ -284,7 +301,10 @@ export async function bustReadCache(kind) {
 // savedAt. Unknown expiry degrades to a short grace window, never forever.
 export async function saveLastKnownUser(user, tokenExpMs = null) {
   try {
-    const existing = await idbGet("meta", "lastKnownUser");
+    const key = offlineSessionKey();
+    if (!key) return;
+    await idbDel("meta", "lastKnownUser");
+    const existing = await idbGet("meta", key);
     // /users/me carries no token, so a revalidation of the same user must not
     // erase the expiry learned at login — that would let the offline write
     // gate fall back to the (renewable) grace window forever. A different
@@ -292,7 +312,7 @@ export async function saveLastKnownUser(user, tokenExpMs = null) {
     const sameUserExpiry =
       existing?.tokenExp && existing?.user?.id === user?.id ? existing.tokenExp : null;
     await idbPut("meta", {
-      key: "lastKnownUser",
+      key,
       user,
       savedAt: Date.now(),
       tokenExp: tokenExpMs || sameUserExpiry || null,
@@ -304,7 +324,9 @@ export async function saveLastKnownUser(user, tokenExpMs = null) {
 
 export async function getLastKnownUser() {
   try {
-    const row = await idbGet("meta", "lastKnownUser");
+    const key = offlineSessionKey();
+    if (!key) return null;
+    const row = await idbGet("meta", key);
     return row || null;
   } catch {
     return null;
@@ -337,12 +359,17 @@ export async function checkOfflineWriteAllowed() {
   throw new Error("Your session expired while offline. Reconnect to log in again — anything already saved stays queued.");
 }
 
-export async function clearOfflineUserData() {
+export async function clearOfflineUserData(userId) {
   try {
-    // The saved profile goes first: it is what an offline boot restores, so
-    // it must never survive an interrupted wipe even if the row cache does.
-    await idbDel("meta", "lastKnownUser");
-    await idbClear("readCache");
+    const key = offlineSessionKey();
+    if (key) await idbDel("meta", key);
+    if (userId) {
+      const all = await idbGetAll("readCache");
+      const prefix = readKey(userId, "");
+      for (const row of all) {
+        if (row.key.startsWith(prefix)) await idbDel("readCache", row.key);
+      }
+    }
   } catch {
     // best-effort
   }

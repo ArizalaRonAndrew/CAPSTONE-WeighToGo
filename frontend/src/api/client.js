@@ -1,12 +1,38 @@
-// Empty by default: relative "/api" works both in local dev (Vite's dev-server proxy in
-// vite.config.js forwards it to the backend, making it same-origin from the
-// browser's perspective) and in production if the frontend is served from
-// the same origin as the backend. If they're ever deployed to different
-// hosts (which the backend's CORS_ORIGIN/credentials config already
-// anticipates), set VITE_API_BASE_URL to the backend's absolute URL — see
-// frontend/.env.example.
+// Empty by default: relative "/api" works both in local dev (Vite's dev-server
+// proxy in vite.config.js) and in production when the frontend and backend
+// share an origin. For separate hosts, set VITE_API_BASE_URL to the backend's
+// absolute URL — see frontend/.env.example.
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) || "/api";
+const SESSION_TOKEN_KEY = "wtg:session-token";
+
+export function getSessionToken() {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setSessionToken(token) {
+  if (!token) throw new Error("The server did not return an authentication token.");
+  try {
+    if (typeof window === "undefined") throw new Error("Session storage is unavailable.");
+    window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  } catch (err) {
+    throw new Error("This browser could not save the sign-in for this tab. Enable session storage and try again.", {
+      cause: err,
+    });
+  }
+}
+
+export function clearSessionToken() {
+  try {
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    // The local React session is still cleared if storage is unavailable.
+  }
+}
 
 // AuthContext registers a handler here on mount so a 401 from ANY API call
 // (not just the ones AuthContext itself makes) clears the session right
@@ -53,7 +79,7 @@ export function __setGetTimeoutMs(ms) {
 // Raw fetch core. Resolves { status, data, replayed } on HTTP responses
 // (ok or not); throws a `network`-flagged error when no response arrives in
 // time (timeout) or at all. Shared by interactive requests and the outbox flusher.
-async function rawSend({ method = "GET", path, body, idemKey, timeoutMs }) {
+async function rawSend({ method = "GET", path, body, idemKey, timeoutMs, authToken }) {
   // Explicit per-request timeout wins; otherwise only idempotent GETs get one.
   const effectiveTimeout = timeoutMs ?? (method === "GET" ? GET_TIMEOUT_MS : 0);
   const controller = effectiveTimeout > 0 && typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -62,12 +88,10 @@ async function rawSend({ method = "GET", path, body, idemKey, timeoutMs }) {
   try {
     const headers = body ? { "Content-Type": "application/json" } : {};
     if (idemKey) headers["Idempotency-Key"] = idemKey;
+    const token = authToken === undefined ? getSessionToken() : authToken;
+    if (token) headers.Authorization = `Bearer ${token}`;
     res = await fetch(`${API_BASE_URL}${path}`, {
       method,
-      // Required for the httpOnly session cookie to actually be sent/received
-      // once frontend and backend are on different origins — without this,
-      // every authenticated call 401s despite login appearing to succeed.
-      credentials: "include",
       headers,
       body: body ? JSON.stringify(body) : undefined,
       ...(controller ? { signal: controller.signal } : {}),
@@ -132,8 +156,10 @@ async function registerFlushSender() {
 }
 registerFlushSender();
 
-async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) {
+async function request(path, { method = "GET", body, baseRev, timeoutMs, authToken } = {}) {
   const cleanPath = String(path).split("?")[0];
+  const requestToken =
+    authToken === undefined ? (cleanPath === "/users/login" ? null : getSessionToken()) : authToken;
   const isSessionEndpoint = ["/users/login", "/users/me", "/users/logout"].includes(cleanPath);
   const outbox = isSessionEndpoint ? null : await getOutbox().catch(() => null);
   const queueOn = outbox?.isQueueEnabled?.() ?? false;
@@ -184,7 +210,7 @@ async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) 
   }
 
   try {
-    const { data } = await rawSend({ method, path, body, idemKey, timeoutMs });
+    const { data } = await rawSend({ method, path, body, idemKey, timeoutMs, authToken: requestToken });
     outbox?.setOfflineFlag?.(false);
     // Session endpoints are deliberately excluded: offline session fallback
     // is explicit via the last-known-user record (auditable, expiry-gated),
@@ -226,7 +252,8 @@ async function request(path, { method = "GET", body, baseRev, timeoutMs } = {}) 
 
 export const api = {
   get: (path) => request(path),
-  post: (path, body, opts) => request(path, { method: "POST", body, timeoutMs: opts?.timeoutMs }),
+  post: (path, body, opts) =>
+    request(path, { method: "POST", body, timeoutMs: opts?.timeoutMs, authToken: opts?.authToken }),
   patch: (path, body, opts) => request(path, { method: "PATCH", body, baseRev: opts?.baseRev }),
   delete: (path) => request(path, { method: "DELETE" }),
 };

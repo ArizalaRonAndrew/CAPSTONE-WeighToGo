@@ -2,7 +2,7 @@
 // No dependency — just enough for three stores in the `wtg-offline` DB:
 //   outbox    seq (auto-increment) — queued mutations, oldest first
 //   readCache key                  — last-good GET bodies, served offline
-//   meta      key                  — lastKnownUser, tmpIdMap, lastSyncAt
+//   meta      key                  — tab-scoped lastKnownUser, tmpIdMap, lastSyncAt
 // Every function resolves null/[]/false when IndexedDB is unavailable
 // (private mode, unsupported browser) so callers degrade, never crash.
 
