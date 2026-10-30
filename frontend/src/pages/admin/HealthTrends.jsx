@@ -137,6 +137,28 @@ function BarangayIssueTooltip({ active, payload }) {
   );
 }
 
+function BarangayAxisTick({ x, y, payload }) {
+  const name = payload.value;
+  const label = name.length > 14 ? `${name.slice(0, 13)}…` : name;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={10}
+        fill="var(--color-text-muted)"
+        fontSize={10}
+        textAnchor="end"
+        transform="rotate(-45)"
+      >
+        <title>{name}</title>
+        {label}
+      </text>
+    </g>
+  );
+}
+
 function formatMonthLabel(monthString) {
   const key = periodKeyForMonth(monthString);
   if (/^\d{4}-Q1$/.test(key)) return `Jan–Mar ${key.slice(0, 4)}`;
@@ -208,8 +230,8 @@ export default function HealthTrends() {
   const [lineBarangay, setLineBarangay] = useState("");
   const [barMonth, setBarMonth] = useState(currentMonth());
 
-  // Barangay comparison chart: 15 barangays per page, 3 pages max (45 barangays).
-  const BAR_PAGE_SIZE = 15;
+  // Barangay comparison chart: all 48 barangays, split evenly across 3 pages.
+  const BAR_PAGE_SIZE = 16;
   const BAR_TOTAL_PAGES = 3;
   const [barPage, setBarPage] = useState(1);
 
@@ -257,9 +279,24 @@ export default function HealthTrends() {
     setBarPage(1);
   }, [barMonth]);
 
-  const allBarData = barQuery.data || [];
+  const allBarData = useMemo(() => {
+    const comparisonByBarangay = new Map(
+      (Array.isArray(barQuery.data) ? barQuery.data : []).map((row) => [
+        row.barangay,
+        row,
+      ]),
+    );
+
+    return barangays
+      .map(({ name }) => comparisonByBarangay.get(name) || {
+        barangay: name,
+        count: 0,
+        breakdown: { wfa: {}, hfa: {}, wfl_h: {} },
+      })
+      .sort((a, b) => b.count - a.count || a.barangay.localeCompare(b.barangay));
+  }, [barQuery.data, barangays]);
   const barTotal = allBarData.length;
-  const barTotalPages = Math.min(BAR_TOTAL_PAGES, Math.ceil(barTotal / BAR_PAGE_SIZE) || 1);
+  const barTotalPages = BAR_TOTAL_PAGES;
   useEffect(() => {
     if (barPage > barTotalPages) setBarPage(barTotalPages);
   }, [barPage, barTotalPages]);
@@ -578,10 +615,10 @@ export default function HealthTrends() {
         ) : barData.length === 0 ? (
           <div className="empty-state">No cases recorded for this filter.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={380}>
             <BarChart
               data={barData}
-              margin={{ top: 8, right: 16, left: 12, bottom: 48 }}
+              margin={{ top: 8, right: 16, left: 12, bottom: 12 }}
             >
               <CartesianGrid
                 stroke="var(--color-border)"
@@ -591,10 +628,10 @@ export default function HealthTrends() {
               <XAxis
                 dataKey="barangay"
                 stroke="var(--color-text-muted)"
-                fontSize={12}
-                angle={-40}
-                textAnchor="end"
+                tick={<BarangayAxisTick />}
                 interval={0}
+                height={100}
+                tickLine={false}
               />
               <YAxis
                 allowDecimals={false}
