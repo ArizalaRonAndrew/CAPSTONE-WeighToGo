@@ -630,6 +630,20 @@ table {
   font-size: 12.5px;
 }
 
+/* BNS Masterlist: a fixed layout plus the explicit colgroup widths in
+   Masterlist.jsx keep the six columns pinned in place while paging, instead
+   of the auto layout resizing them to fit each page's cell content. */
+.bns-masterlist-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.bns-masterlist-table th,
+.bns-masterlist-table td {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 /* Admin Masterlist print sheet: rendered only for paper (all filtered rows
    plus blank follow-up columns). Screen-hidden; the print block reveals it
    while hiding the paged screen table, pagination and filters. */

@@ -267,7 +267,15 @@ export default function Masterlist() {
       )}
 
       <div className="table-wrap">
-        <table>
+        <table className="bns-masterlist-table">
+          <colgroup>
+            <col style={{ width: "24%" }} />
+            <col style={{ width: "24%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "17%" }} />
+            <col style={{ width: "17%" }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Name of Child</th>
