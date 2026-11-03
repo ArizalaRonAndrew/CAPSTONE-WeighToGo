@@ -4188,6 +4188,11 @@ body.map-printing .barangay-map-page .map-side-card {
     margin: 12mm;
   }
 
+  @page admin-masterlist {
+    size: A4 landscape;
+    margin: 0;
+  }
+
   .sidebar,
   .sidebar-backdrop,
   .mobile-topbar {
@@ -4424,6 +4429,17 @@ body.map-printing .barangay-map-page .map-side-card {
   .admin-masterlist-page .masterlist-screen-card,
   .admin-masterlist-page .modal-overlay {
     display: none !important;
+  }
+
+  .admin-masterlist-page {
+    page: admin-masterlist;
+    box-sizing: border-box;
+    padding: 12mm;
+  }
+
+  .admin-masterlist-page .ml-print-filters {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   /* BNS Monthly Report print: same sheet as the admin masterlist print —

@@ -124,6 +124,7 @@ export default function AdminMasterlist() {
   const [purokFilter, setPurokFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [cachedRowsPage, setCachedRowsPage] = useState(null);
   const [viewChildId, setViewChildId] = useState(null);
   // Print sheet state: the full filtered row set (all pages) rendered into
   // a print-only table. Kept after printing so reprints skip the refetch.
@@ -163,9 +164,19 @@ export default function AdminMasterlist() {
   const rowsParams = buildRowsParams(page, PAGE_SIZE);
   const rowsQuery = useRevReport(`/reports/monthly-masterlist/rows?${rowsParams.toString()}`, [month]);
 
+  const rowsFilterKey = JSON.stringify([month, barangayFilter, purokFilter, debouncedSearch, statusFilter]);
+  useEffect(() => {
+    if (rowsQuery.data) {
+      setCachedRowsPage({ filterKey: rowsFilterKey, data: rowsQuery.data });
+    }
+  }, [rowsQuery.data, rowsFilterKey]);
+
   const summary = summaryQuery.data;
-  const rows = rowsQuery.data?.rows || [];
-  const total = rowsQuery.data?.total ?? 0;
+  const rowsData =
+    rowsQuery.data ??
+    (cachedRowsPage?.filterKey === rowsFilterKey ? cachedRowsPage.data : null);
+  const rows = rowsData?.rows || [];
+  const total = rowsData?.total ?? 0;
   const purokOptions = summary?.purokOptions || [];
   const loading = summaryQuery.loading && rowsQuery.loading;
   const error = (!summaryQuery.data && summaryQuery.error) || (!rowsQuery.data && rowsQuery.error) || "";
@@ -207,12 +218,6 @@ export default function AdminMasterlist() {
     }
   }
 
-  const printDate = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   // Rows arrive already filtered, globally sorted, and paged — the table
   // renders the page as-is.
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -237,9 +242,7 @@ export default function AdminMasterlist() {
     { label: "Barangay", value: barangayFilter ? displayBarangayName(barangayFilter) : "All barangays" },
     { label: "Purok / Sitio", value: purokFilter || "All puroks" },
     { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
-    { label: "Search", value: debouncedSearch ? `“${debouncedSearch}”` : "—" },
     { label: "Records", value: String(printRows?.length ?? total) },
-    { label: "Printed", value: printDate },
   ];
 
   return (
