@@ -5,7 +5,7 @@ const barangayModel = require("../models/barangay.model");
 const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
-const { isValidPersonName } = require("../utils/names");
+const { formatPersonName, isValidPersonName } = require("../utils/names");
 const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { pickFields } = require("../utils/pickFields");
 const { buildRegistrationBackfill } = require("../services/supplementSchedule.service");
@@ -83,6 +83,7 @@ async function getChild(req, res, next) {
 async function createChild(req, res, next) {
   try {
     const { name, dob, parent_name, parent_contact, purok, gender } = req.body;
+    const formattedName = formatPersonName(name);
     let { barangay } = req.body;
     if (req.user.role === "BNS") {
       barangay = req.user.assigned_barangay;
@@ -95,7 +96,7 @@ async function createChild(req, res, next) {
     if (!isValidBarangay(barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
     }
-    if (!isValidPersonName(name)) {
+    if (!isValidPersonName(formattedName)) {
       return res.status(400).json({
         error: "name must use letters only — no numbers or special characters",
       });
@@ -117,14 +118,14 @@ async function createChild(req, res, next) {
     // Same credentials (name + birthdate within the same barangay) must not
     // be registered twice. Name comparison is case/whitespace-insensitive so
     // "juan Dela Cruz" and "Juan Dela Cruz " still collide.
-    const duplicate = await childrenModel.findDuplicate({ name, dob, barangay });
+    const duplicate = await childrenModel.findDuplicate({ name: formattedName, dob, barangay });
     if (duplicate) {
       return res.status(409).json({
         error: "This child is already registered in this barangay (same name and birthdate).",
         existingId: duplicate.id,
       });
     }
-    const child = await childrenModel.create({ ...req.body, barangay });
+    const child = await childrenModel.create({ ...req.body, name: formattedName, barangay });
 
     // Perfect-historical-compliance default for late registrations: every
     // dose window that had already opened by registration is assumed given
@@ -165,6 +166,9 @@ async function updateChild(req, res, next) {
     const fields = pickFields(req.body, CHILD_UPDATE_FIELDS);
     if (req.user.role === "BNS") {
       delete fields.barangay;
+    }
+    if ("name" in fields) {
+      fields.name = formatPersonName(fields.name);
     }
 
     // pickFields only whitelists which fields CAN be touched — it doesn't
