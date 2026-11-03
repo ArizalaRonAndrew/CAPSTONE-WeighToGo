@@ -117,6 +117,8 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const cardRef = useRef(null);
   const tabContentRef = useRef(null);
   const infoProbeRef = useRef(null);
+  const removeTriggerRef = useRef(null);
+  const removeCancelRef = useRef(null);
   // Height of the Personal Info layout. Every tab uses this same frame so
   // switching tabs (or opening a different tab first) never resizes the modal.
   const [lockedHeight, setLockedHeight] = useState(null);
@@ -138,6 +140,10 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (confirmingRemove) removeCancelRef.current?.focus();
+  }, [confirmingRemove]);
 
   function loadChild() {
     setLoadError("");
@@ -474,7 +480,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           {tab === "info" && !editing && infoReadView}
 
           {tab === "info" && editing && !readOnly && (
-            <form className="form-grid cols-2" onSubmit={handleSaveInfo}>
+            <form id="manage-child-edit-form" className="form-grid cols-2" onSubmit={handleSaveInfo}>
               <div className="field">
                 <label>Full Name</label>
                 <input
@@ -537,64 +543,6 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 </label>
               </div>
               {infoError && <p className="error-text" style={{ gridColumn: "1 / -1", margin: 0 }}>{infoError}</p>}
-              {removeError && <p className="error-text" style={{ gridColumn: "1 / -1", margin: 0 }}>{removeError}</p>}
-              {confirmingRemove && (
-                <div className="banner banner-warning" style={{ gridColumn: "1 / -1" }}>
-                  Remove {child.name}&apos;s registration? They will be removed from the masterlist, but their saved checkups and supplement records will be kept.
-                  This cannot be undone.
-                </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", gridColumn: "1 / -1" }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={removing}
-                    onClick={() => {
-                      setEditForm(child);
-                      setEditing(false);
-                      setConfirmingRemove(false);
-                      setRemoveError("");
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  {!confirmingRemove && (
-                    <button className="btn" type="submit" disabled={savingInfo || removing}>
-                      {savingInfo ? "Saving..." : "Save Changes"}
-                    </button>
-                  )}
-                </div>
-                {!confirmingRemove ? (
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    disabled={savingInfo || removing}
-                    onClick={() => setConfirmingRemove(true)}
-                  >
-                    Remove Child Registration
-                  </button>
-                ) : (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={removing}
-                      onClick={() => setConfirmingRemove(false)}
-                    >
-                      Keep
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      disabled={removing}
-                      onClick={handleRemoveChild}
-                    >
-                      {removing ? "Removing..." : "Confirm Remove"}
-                    </button>
-                  </div>
-                )}
-              </div>
             </form>
           )}
 
@@ -766,6 +714,89 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
             </div>
           )}
         </div>
+
+        {tab === "info" && editing && !readOnly && (
+          <div className="manage-modal-footer">
+            <div className="manage-modal-footer-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={removing}
+                onClick={() => {
+                  setEditForm(child);
+                  setEditing(false);
+                  setConfirmingRemove(false);
+                  setRemoveError("");
+                  setInfoError("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                type="submit"
+                form="manage-child-edit-form"
+                disabled={savingInfo || removing}
+              >
+                {savingInfo ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+            <button
+              ref={removeTriggerRef}
+              type="button"
+              className="btn btn-danger"
+              disabled={savingInfo || removing}
+              onClick={() => {
+                setRemoveError("");
+                setConfirmingRemove(true);
+              }}
+            >
+              Remove Child Registration
+            </button>
+          </div>
+        )}
+
+        {confirmingRemove && (
+          <div className="child-remove-confirm-overlay">
+            <div
+              className="child-remove-confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="child-remove-title"
+              aria-describedby="child-remove-description"
+            >
+              <h2 id="child-remove-title">Remove registration?</h2>
+              <p id="child-remove-description">
+                Remove {child.name}&apos;s registration from the masterlist? Saved checkups and
+                supplement records will be kept. This action cannot be undone.
+              </p>
+              {removeError && <p className="error-text" role="alert">{removeError}</p>}
+              <div className="child-remove-confirm-actions">
+                <button
+                  ref={removeCancelRef}
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={removing}
+                  onClick={() => {
+                    setConfirmingRemove(false);
+                    setRemoveError("");
+                    removeTriggerRef.current?.focus();
+                  }}
+                >
+                  Keep Registration
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  disabled={removing}
+                  onClick={handleRemoveChild}
+                >
+                  {removing ? "Removing..." : "Confirm Remove"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
