@@ -131,7 +131,7 @@ async function createAssessment(req, res, next) {
       wfl_h_status,
     });
     // Checkups feed reports, the map, and the MNAO-visible masterlist.
-    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await bustAll(["assessments:*", "reports:*", "children:*", "shared:masterlist:*", "shared:trends:*"]);
     // Q1 writes bump all three month counters so any cached Jan/Feb/Mar or
     // grouped Jan–Mar view invalidates together.
     await touchRevs(expandPeriodToMonths(periodKeyForDate(date_measured)));
@@ -239,7 +239,7 @@ async function updateAssessment(req, res, next) {
       hfa_status,
       wfl_h_status,
     });
-    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await bustAll(["assessments:*", "reports:*", "children:*", "shared:masterlist:*", "shared:trends:*"]);
     await touchRevs([
       ...expandPeriodToMonths(periodKeyForDate(existing.date_measured)),
       ...expandPeriodToMonths(periodKeyForDate(date_measured)),
@@ -257,7 +257,7 @@ async function deleteAssessment(req, res, next) {
     assertBarangayAccess(req, child);
 
     const assessment = await assessmentModel.softDelete(req.params.id);
-    await bustAll(["assessments:*", "reports:*", "children:*"]);
+    await bustAll(["assessments:*", "reports:*", "children:*", "shared:masterlist:*", "shared:trends:*"]);
     await touchRevs(
       existing.date_measured ? expandPeriodToMonths(periodKeyForDate(existing.date_measured)) : []
     );

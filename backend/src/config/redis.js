@@ -28,8 +28,24 @@ let warnedDown = false;
 function getClient() {
   if (!isEnabled()) return null;
   if (client) return client;
-  const url = process.env.REDIS_URL || "redis://127.0.0.1:6379";
-  client = new Redis(url, {
+  const upstashUrl = String(process.env.UPSTASH_REDIS_REST_URL || "").trim();
+  const upstashToken = String(process.env.UPSTASH_REDIS_REST_TOKEN || "").trim();
+  let connection;
+
+  if (/^https:\/\/[^/]+$/i.test(upstashUrl) && upstashToken) {
+    const endpoint = new URL(upstashUrl);
+    connection = {
+      host: endpoint.hostname,
+      port: 6379,
+      username: "default",
+      password: upstashToken,
+      tls: {},
+    };
+  } else {
+    connection = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+  }
+
+  client = new Redis(connection, {
     // Never queue commands while disconnected — fail the command fast so
     // requests fall through to Supabase instead of hanging on Redis.
     enableOfflineQueue: false,

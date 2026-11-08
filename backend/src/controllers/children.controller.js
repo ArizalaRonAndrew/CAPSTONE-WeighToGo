@@ -150,7 +150,14 @@ async function createChild(req, res, next) {
     }
 
     // Roster, map counts, reports, and supplement views all derive from these tables.
-    await bustAll(["children:*", "barangays:*", "reports:*", "supplements:*"]);
+    await bustAll([
+      "children:*",
+      "barangays:*",
+      "reports:*",
+      "supplements:*",
+      "shared:masterlist:*",
+      "shared:trends:*",
+    ]);
     await touchRevs(backfillRows.map((row) => String(row.date_administered).slice(0, 7)));
     res.status(201).json(child);
   } catch (err) {
@@ -221,7 +228,7 @@ async function updateChild(req, res, next) {
       }
     }
     const child = await childrenModel.update(req.params.id, fields);
-    await bustAll(["children:*", "barangays:*", "reports:*"]);
+    await bustAll(["children:*", "barangays:*", "reports:*", "shared:masterlist:*", "shared:trends:*"]);
     await touchRevs([]);
     res.json(child);
   } catch (err) {
@@ -239,7 +246,15 @@ async function deleteChild(req, res, next) {
     // supplement records stay "active" so historical checkups keep counting
     // in reports. Only the roster entry itself is archived (status=reject,
     // hidden from list queries).
-    await bustAll(["children:*", "barangays:*", "reports:*", "assessments:*", "supplements:*"]);
+    await bustAll([
+      "children:*",
+      "barangays:*",
+      "reports:*",
+      "assessments:*",
+      "supplements:*",
+      "shared:masterlist:*",
+      "shared:trends:*",
+    ]);
     await touchRevs([]);
     res.json(child);
   } catch (err) {

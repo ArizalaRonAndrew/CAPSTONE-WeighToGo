@@ -576,7 +576,13 @@ async function submitMonthlyReport(req, res, next) {
 
     // Flipping draft->submitted changes what MNAO sees in assessments,
     // the masterlist, and every submission-gated report.
-    await bustAll(["reports:*", "assessments:*", "children:*"]);
+    await bustAll([
+      "reports:*",
+      "assessments:*",
+      "children:*",
+      "shared:masterlist:*",
+      "shared:trends:*",
+    ]);
     await touchRevs(expandPeriodToMonths(periodKeyForMonth(month)));
     // Jan–Mar is one month: report distinct children, not Jan+Feb+Mar rows.
     const distinctCount = new Set((updated || []).map((r) => r.child_id)).size;

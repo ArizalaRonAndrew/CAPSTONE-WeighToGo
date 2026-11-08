@@ -31,6 +31,16 @@ function cacheKey(tag, req) {
   return `${tag}:${scopeFor(req)}:${queryHash(req.query)}`;
 }
 
+function sharedScopeFor(req) {
+  const role = req.user?.role || "anon";
+  const barangay = req.user?.assigned_barangay || "all";
+  return `${role}:${barangay}`;
+}
+
+function sharedCacheKey(tag, req) {
+  return `${tag}:${sharedScopeFor(req)}:${queryHash(req.query)}`;
+}
+
 function cacheGet(tag, ttlSeconds) {
   return async (req, res, next) => {
     if (req.method !== "GET") return next();
@@ -56,4 +66,28 @@ function cacheGet(tag, ttlSeconds) {
   };
 }
 
-module.exports = { cacheGet, cacheKey, scopeFor, queryHash };
+function cacheGetShared(tag, ttlSeconds) {
+  return async (req, res, next) => {
+    if (req.method !== "GET") return next();
+    if (!redis.isEnabled()) return next();
+
+    const key = sharedCacheKey(tag, req);
+    const hit = await redis.getJson(key);
+    if (hit !== null && hit !== undefined) {
+      res.set("X-Cache", "HIT");
+      return res.json(hit);
+    }
+
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      if (res.statusCode === 200 && body !== undefined) {
+        redis.setJson(key, body, ttlSeconds);
+      }
+      res.set("X-Cache", "MISS");
+      return originalJson(body);
+    };
+    next();
+  };
+}
+
+module.exports = { cacheGet, cacheGetShared, cacheKey, scopeFor, queryHash };
