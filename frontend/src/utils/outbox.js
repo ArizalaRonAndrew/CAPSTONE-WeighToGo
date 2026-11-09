@@ -22,6 +22,43 @@ let flushing = false;
 let statusListeners = new Set();
 let lastStatus = { pending: 0, failed: 0, conflicted: 0, syncing: false, lastSyncAt: null, offline: false };
 
+// Adaptive reconnect scheduling. A network failure schedules the next attempt
+// with exponential backoff (1.5s → 15s) instead of waiting for the old 30s
+// timer, so a field device starts sending as soon as the link is usable —
+// even when the browser never fires `online` (Wi-Fi can stay connected while
+// the route to the internet drops and returns).
+const RETRY_MIN_MS = 1500;
+const RETRY_MAX_MS = 15000;
+
+let flushTimer = null;
+let networkRetryDelay = 0;
+let rerunRequested = false;
+let initialized = false;
+let teardown = null;
+
+function clearFlushTimer() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+}
+
+function scheduleFlush(delayMs) {
+  if (typeof window === "undefined") return;
+  clearFlushTimer();
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushOutbox();
+  }, Math.max(0, delayMs));
+}
+
+function kickAfterEnqueue() {
+  // Probe soon after a mutation is queued. This covers the common field case:
+  // navigator.onLine still says "connected" while the request actually failed,
+  // so the browser will not emit an `online` event when the link recovers.
+  scheduleFlush(1000);
+}
+
 export function isQueueEnabled() {
   try {
     return import.meta.env.VITE_OFFLINE_QUEUE !== "0";
@@ -133,6 +170,7 @@ export async function enqueueMutation({ method, path, body, idemKey, baseRev, us
   }
   entry.seq = seq;
   await emitStatus();
+  kickAfterEnqueue();
   return entry;
 }
 
@@ -472,15 +510,67 @@ async function updateEntry(entry, patch) {
   await idbPut("outbox", entry);
 }
 
+// A tab can be closed/crash while an entry is marked `syncing`. That status is
+// persisted in IndexedDB, and the normal flush only picks up `pending`/
+// `failed` rows — so without recovery the entry would sit there forever and
+// the user would have to clear it manually. On startup this tab knows it has
+// no in-flight send, so re-arm them. Duplicate sends are safe: the outbox
+// keeps the same Idempotency-Key, so the server replays the original result.
+async function recoverStaleSyncing() {
+  try {
+    const all = await idbGetAll("outbox");
+    const stale = all.filter((e) => e.status === "syncing");
+    for (const e of stale) {
+      e.status = "pending";
+      await idbPut("outbox", e);
+    }
+    if (stale.length) await emitStatus();
+  } catch {
+    // best-effort
+  }
+}
+
+// Server-side hiccups (restart, deploy, rate limit) should retry on their own
+// instead of turning into a manual "Retry" item. Only client errors (4xx)
+// need the user's attention.
+function isTransientHttpError(err) {
+  const status = err?.status;
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
 export async function flushOutbox() {
-  if (flushing || !flushSender) return { flushed: 0 };
+  if (flushing) {
+    // A mutation arrived (or another trigger fired) while this run was in
+    // flight — run once more as soon as it finishes so the new entry isn't
+    // left waiting for the next timer tick.
+    rerunRequested = true;
+    return { flushed: 0, busy: true };
+  }
+  if (!flushSender) {
+    // Boot race: the API client may not have registered its sender yet.
+    // Retry shortly instead of abandoning queued work until the next event.
+    scheduleFlush(500);
+    return { flushed: 0, senderUnavailable: true };
+  }
+  clearFlushTimer();
   flushing = true;
   await emitStatus();
   let flushed = 0;
+  let stoppedByNetwork = false;
+  let stoppedByAuth = false;
+  let stoppedByServer = false;
   try {
     const all = await idbGetAll("outbox");
+    // `blocked` rows wait on an unsynced registration; include them so they
+    // resume automatically once that registration succeeds instead of
+    // requiring a second manual Retry. They are simply re-marked blocked if
+    // the dependency still has not synced.
     const queue = all
-      .filter((e) => (e.status === "pending" || e.status === "failed") && (!currentUserId || e.userId === currentUserId || e.userId === "anon"))
+      .filter(
+        (e) =>
+          (e.status === "pending" || e.status === "failed" || e.status === "blocked") &&
+          (!currentUserId || e.userId === currentUserId || e.userId === "anon")
+      )
       .sort((a, b) => (a.seq || 0) - (b.seq || 0));
     if (!queue.length) return { flushed: 0 };
 
@@ -530,8 +620,18 @@ export async function flushOutbox() {
             continue;
           }
         } catch (err) {
-          if (err && err.network) break; // went offline mid-flush
-          if (err && err.status === 401) break; // session invalid — stop, surface
+          if (err && err.network) {
+            stoppedByNetwork = true;
+            break; // went offline mid-flush
+          }
+          if (err && err.status === 401) {
+            stoppedByAuth = true;
+            break; // session invalid — stop, surface
+          }
+          if (isTransientHttpError(err)) {
+            stoppedByServer = true;
+            break; // server unavailable — retry with backoff
+          }
           if (err && err.status === 404) {
             await updateEntry(entry, { status: "failed", lastError: "Record no longer exists on the server." });
             continue;
@@ -556,13 +656,23 @@ export async function flushOutbox() {
         // 409 on a replayed month-checkup is the server's duplicate signal —
         // treat as success-with-note, not an error loop. (Handled below in catch.)
       } catch (err) {
+        // An HTTP status means the server answered — the link is up even if
+        // this particular entry was rejected.
+        if (err?.status) setOfflineFlag(false);
         if (err && err.network) {
           await updateEntry(entry, { status: "pending" });
+          stoppedByNetwork = true;
           break; // still offline — stop the run
         }
         if (err && err.status === 401) {
           await updateEntry(entry, { status: "pending" });
+          stoppedByAuth = true;
           break; // session invalid — AuthContext surfaces it; retry after login
+        }
+        if (isTransientHttpError(err)) {
+          await updateEntry(entry, { status: "pending", lastError: err?.message || "Server temporarily unavailable." });
+          stoppedByServer = true;
+          break; // server unavailable — retry with backoff, no user action needed
         }
         if (err && err.status === 409 && entry.method === "POST" && String(entry.path).split("?")[0] === "/assessments") {
           await updateEntry(entry, { status: "done", resultNote: "A checkup for that month already exists on the server." });
@@ -593,6 +703,11 @@ export async function flushOutbox() {
     // Only record a sync timestamp when something actually reached the
     // server — an offline flush attempt must not claim a successful sync.
     if (flushed > 0) {
+      // A completed send proves the link is usable again. Clear the offline
+      // flag here too: a backoff retry can succeed without any `online` event
+      // (Wi-Fi stayed connected while the internet route recovered), and the
+      // banner must not keep claiming "offline" after a successful sync.
+      setOfflineFlag(false);
       try {
         await idbPut("meta", { key: "lastSyncAt", at: Date.now() });
       } catch {
@@ -606,10 +721,28 @@ export async function flushOutbox() {
     } catch {
       // best-effort
     }
-    return { flushed };
+    return { flushed, stoppedByNetwork, stoppedByServer, stoppedByAuth };
   } finally {
     flushing = false;
     await emitStatus();
+    if (stoppedByNetwork || stoppedByServer) {
+      // Still offline or the server is temporarily unavailable: retry soon,
+      // backing off up to 15s. This keeps probing even when no `online` event
+      // arrives, and sends within seconds of the link/server becoming usable.
+      rerunRequested = false;
+      networkRetryDelay = networkRetryDelay
+        ? Math.min(networkRetryDelay * 2, RETRY_MAX_MS)
+        : RETRY_MIN_MS;
+      if (stoppedByNetwork) setOfflineFlag(true);
+      scheduleFlush(networkRetryDelay);
+    } else if (rerunRequested) {
+      rerunRequested = false;
+      scheduleFlush(0);
+    } else if (!stoppedByAuth) {
+      // A completed run (success or ordinary HTTP failures) resets the
+      // reconnect backoff so the next outage starts from the fast interval.
+      networkRetryDelay = 0;
+    }
   }
 }
 
@@ -666,9 +799,14 @@ export async function listEntries() {
   }
 }
 
-// Auto-flush triggers: back online, window focus, periodic, and boot.
+// Auto-flush triggers: reconnect, connection-type change, window focus,
+// app resume (visibility/pageshow), enqueue, and boot. Network failures
+// schedule their own fast retry, so there is no fixed 30s polling delay.
 export function initOutbox() {
   if (typeof window === "undefined") return () => {};
+  if (initialized) return teardown || (() => {});
+  initialized = true;
+
   const tryFlush = () => {
     // Attempt the flush even when navigator.onLine is false: some browsers
     // report a stale false (or miss the `online` event after a background
@@ -678,24 +816,56 @@ export function initOutbox() {
     flushOutbox();
   };
   const onOnline = () => {
+    // Reconnect is the moment we want zero delay — reset the backoff so this
+    // attempt (and a quick follow-up if the link is still settling) is fast.
+    networkRetryDelay = 0;
     setOfflineFlag(false);
-    flushOutbox();
+    tryFlush();
   };
   const onOffline = () => {
     setOfflineFlag(true);
     emitStatus();
+    // Keep probing at the slow end of the backoff while work is queued, so a
+    // missed `online` event can never strand the outbox indefinitely. Don't
+    // postpone an already-scheduled faster retry.
+    if (!flushTimer && lastStatus.pending > 0) scheduleFlush(RETRY_MAX_MS);
   };
+  const onWake = () => {
+    if (document.hidden) return;
+    // App resumed / window focused: the link may have changed while we were
+    // backgrounded, so try immediately rather than at the backoff delay.
+    networkRetryDelay = 0;
+    tryFlush();
+  };
+  const onConnectionChange = () => {
+    // Network Information API fires when the link type changes (Wi-Fi ↔
+    // mobile data), often before or instead of `online`.
+    networkRetryDelay = 0;
+    tryFlush();
+  };
+
   window.addEventListener("online", onOnline);
   window.addEventListener("offline", onOffline);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) tryFlush();
-  });
-  const timer = setInterval(tryFlush, 30000);
-  tryFlush(); // boot: pick up entries queued in a previous session
+  window.addEventListener("focus", onWake);
+  window.addEventListener("pageshow", onWake);
+  document.addEventListener("visibilitychange", onWake);
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn?.addEventListener) conn.addEventListener("change", onConnectionChange);
+
+  // Re-arm anything a previous session left mid-send, then flush the queue.
+  recoverStaleSyncing().finally(() => tryFlush()); // boot: pick up entries queued in a previous session
   emitStatus();
-  return () => {
+
+  teardown = () => {
+    initialized = false;
+    teardown = null;
+    clearFlushTimer();
     window.removeEventListener("online", onOnline);
     window.removeEventListener("offline", onOffline);
-    clearInterval(timer);
+    window.removeEventListener("focus", onWake);
+    window.removeEventListener("pageshow", onWake);
+    document.removeEventListener("visibilitychange", onWake);
+    if (conn?.removeEventListener) conn.removeEventListener("change", onConnectionChange);
   };
+  return teardown;
 }

@@ -396,35 +396,55 @@ export default function MonthlyReport() {
         <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "5%" }} />
               <col style={{ width: "5%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "6%" }} />
               <col style={{ width: "6%" }} />
               <col style={{ width: "5%" }} />
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "8%" }} />
             </colgroup>
             <thead>
               <tr>
                 <th>Address / Purok</th>
                 <th>Mother / Caregiver</th>
                 <th>Name of Child</th>
-                <th>IP Group</th>
+                <th>
+                  <span className="ip-group-header">
+                    <span className="ip-group-header-abbr">IP</span>
+                    <span className="ip-group-header-label">Group</span>
+                  </span>
+                </th>
                 <th>Sex</th>
                 <th>Date of Birth</th>
                 <th>Date Measured</th>
                 <th>Weight (kg)</th>
                 <th>Height (cm)</th>
                 <th>Age (mos)</th>
-                <th>Weight for Age (WFA)</th>
-                <th>Height for Age (HFA)</th>
-                <th>Weight for Lt/Ht (WFL/H)</th>
+                <th>
+                  <span className="indicator-header">
+                    <span className="indicator-header-abbr">WFA</span>
+                    <span className="indicator-header-label">Weight for Age</span>
+                  </span>
+                </th>
+                <th>
+                  <span className="indicator-header">
+                    <span className="indicator-header-abbr">HFA</span>
+                    <span className="indicator-header-label">Height for Age</span>
+                  </span>
+                </th>
+                <th>
+                  <span className="indicator-header">
+                    <span className="indicator-header-abbr">WFL/H</span>
+                    <span className="indicator-header-label">Weight for Length / Height</span>
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>

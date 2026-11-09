@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.jsx'
+import { initOutbox } from './utils/outbox.js'
 
 registerSW({ immediate: true })
 
-// Offline outbox auto-flush (online/focus/interval/boot). Dynamic import
-// keeps it out of the critical path; init is idempotent per mount.
-import('./utils/outbox.js').then(({ initOutbox }) => initOutbox()).catch(() => {})
+// Offline outbox auto-flush. Register the `online`/resume listeners up front
+// (not behind a dynamic import) so a connection restored during startup is
+// never missed; init is idempotent.
+initOutbox()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -361,10 +361,10 @@ export default function AdminMasterlist() {
         <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "9%" }} />
               <col style={{ width: "11%" }} />
               <col style={{ width: "11%" }} />
-              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
               <col style={{ width: "4%" }} />
               <col style={{ width: "8%" }} />
               <col style={{ width: "8%" }} />
@@ -381,7 +381,12 @@ export default function AdminMasterlist() {
                 <th>Address / Purok</th>
                 <th>Mother / Caregiver</th>
                 <th>Name of Child</th>
-                <th>IP Group</th>
+                <th>
+                  <span className="ip-group-header">
+                    <span className="ip-group-header-abbr">IP</span>
+                    <span className="ip-group-header-label">Group</span>
+                  </span>
+                </th>
                 <th>Sex</th>
                 <th>Date of Birth</th>
                 <th>Date Measured</th>
