@@ -7,7 +7,7 @@ import { listEntries, subscribeOutbox } from "../utils/outbox";
 import { currentMonth } from "../utils/month";
 import { formatNameForTable } from "../utils/name";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 7;
 
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
@@ -185,6 +185,10 @@ export default function VitaminsDeworming() {
   const rangeStart = filteredEntries.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(safePage * PAGE_SIZE, filteredEntries.length);
   const paginatedEntries = filteredEntries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const fillerRows =
+    !loading && !error && paginatedEntries.length > 0
+      ? Math.max(0, PAGE_SIZE - paginatedEntries.length)
+      : 0;
 
   const totalDue = entries.reduce((sum, e) => sum + e.due.length, 0);
   const overdueChildren = entries.filter((e) => e.due.some((d) => d.overdue)).length;
@@ -352,6 +356,20 @@ export default function VitaminsDeworming() {
                     </td>
                   </tr>
                 ))}
+              {Array.from({ length: fillerRows }, (_, rowIndex) => (
+                <tr key={`filler-${rowIndex}`} className="filler-row" aria-hidden="true">
+                  <td>
+                    <div className="child-name-cell">
+                      <span className="avatar-circle" style={{ visibility: "hidden" }} />
+                    </div>
+                  </td>
+                  <td />
+                  <td />
+                  <td />
+                  <td />
+                  <td />
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -367,7 +385,7 @@ export default function VitaminsDeworming() {
               type="button"
               className="btn btn-secondary"
               disabled={safePage <= 1}
-              onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
               Previous
             </button>
@@ -378,7 +396,7 @@ export default function VitaminsDeworming() {
               type="button"
               className="btn btn-secondary"
               disabled={safePage >= totalPages}
-              onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             >
               Next
             </button>

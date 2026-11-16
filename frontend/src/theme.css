@@ -680,48 +680,73 @@ table {
   width: 100%;
 }
 
-/* BNS list pages (Masterlist, Vitamins & Deworming): fill the viewport and
-   let the table absorb the leftover vertical space, so a tall/maximized
-   laptop window stretches the table instead of leaving a strip of empty
-   white space below it. `100vh` minus .main-content's 32px top/bottom
-   padding keeps the page exactly screen height without forcing a permanent
-   page scrollbar. */
-.bns-masterlist-page,
-.bns-vitamins-page {
+/* BNS Masterlist fills the viewport while accounting for main-content
+   padding, and lets the table absorb the remaining vertical space. */
+.bns-masterlist-page {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 64px);
 }
 
-/* Match the larger top padding .main-content adds on tablet/mobile. */
 @media screen and (max-width: 900px) {
-  .bns-masterlist-page,
-  .bns-vitamins-page {
+  .bns-masterlist-page {
     min-height: calc(100vh - 108px);
   }
 }
 
 @media screen and (max-width: 640px) {
-  .bns-masterlist-page,
-  .bns-vitamins-page {
+  .bns-masterlist-page {
     min-height: calc(100vh - 96px);
   }
 }
 
 /* Desktop only: the stacked card layout at <=700px has no table to stretch. */
 @media screen and (min-width: 701px) {
-  .bns-masterlist-page .table-wrap,
-  .bns-vitamins-page .table-wrap {
+  .bns-masterlist-page .table-wrap {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
   }
 
-  .bns-masterlist-page .table-wrap > table,
-  .bns-vitamins-page .table-wrap > table {
+  .bns-masterlist-page .table-wrap > table {
     flex: 1 1 auto;
     height: 100%;
   }
+}
+
+/* Vitamins & Deworming uses the full viewport and stretches its table to
+   absorb remaining vertical space; keep this independent of Masterlist. */
+.bns-vitamins-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.bns-vitamins-page .table-wrap {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bns-vitamins-page .table-wrap > table {
+  flex-grow: 1;
+  height: 100%;
+}
+
+@media screen and (max-width: 700px) {
+  .bns-vitamins-page .table-wrap tr.filler-row {
+    display: none;
+  }
+}
+
+.bns-vitamins-page .table-wrap tr.filler-row {
+  pointer-events: none;
+}
+
+.bns-vitamins-page .table-wrap tr.filler-row td {
+  user-select: none;
 }
 
 .bns-masterlist-table th,
