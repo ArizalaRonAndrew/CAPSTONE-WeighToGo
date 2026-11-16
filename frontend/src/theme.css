@@ -730,6 +730,17 @@ table {
   overflow-wrap: break-word;
 }
 
+/* Blank rows that pad the final desktop page (see fillerRows in
+   Masterlist.jsx). They mirror a real row's 30px avatar so every row keeps
+   the same natural height, and they ignore pointer/selection affordances. */
+.bns-masterlist-table tbody tr.filler-row {
+  pointer-events: none;
+}
+
+.bns-masterlist-table tbody tr.filler-row td {
+  user-select: none;
+}
+
 /* Admin Masterlist print sheet: rendered only for paper (all filtered rows
    plus blank follow-up columns). Screen-hidden; the print block reveals it
    while hiding the paged screen table, pagination and filters. */

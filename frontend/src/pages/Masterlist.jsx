@@ -167,6 +167,16 @@ export default function Masterlist() {
     ? filteredChildren.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
     : filteredChildren.slice((mobilePage - 1) * MOBILE_PAGE_SIZE, mobilePage * MOBILE_PAGE_SIZE);
 
+  // Desktop pages always render a full PAGE_SIZE of rows. The final page's
+  // leftover slots become blank, non-interactive rows, so it keeps the same
+  // height and row rhythm as every page before it instead of stretching a
+  // handful of real rows over the whole viewport. (Mobile renders cards, so
+  // blank rows there would just be empty cards — skip them.)
+  const fillerRows =
+    isDesktop && !loading && !error && pageChildren.length > 0
+      ? Math.max(0, PAGE_SIZE - pageChildren.length)
+      : 0;
+
   const checkedCount = children.filter((c) => checkedChildIds.has(c.id)).length;
   const hasActiveFilters = Boolean(search || purokFilter || checkupFilter);
 
@@ -340,6 +350,20 @@ export default function Masterlist() {
                 </tr>
               );
             })}
+            {Array.from({ length: fillerRows }, (_, rowIndex) => (
+              <tr key={`filler-${rowIndex}`} className="filler-row" aria-hidden="true">
+                <td>
+                  <div className="child-name-cell">
+                    <span className="avatar-circle" style={{ visibility: "hidden" }} />
+                  </div>
+                </td>
+                <td />
+                <td />
+                <td />
+                <td />
+                <td />
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
