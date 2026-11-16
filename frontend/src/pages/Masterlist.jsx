@@ -177,7 +177,7 @@ export default function Masterlist() {
   }
 
   return (
-    <div>
+    <div className="bns-masterlist-page">
       <div className="page-header">
         <h1>{user.assigned_barangay} Masterlist</h1>
         <button className="btn" onClick={() => setShowRegister(true)}>

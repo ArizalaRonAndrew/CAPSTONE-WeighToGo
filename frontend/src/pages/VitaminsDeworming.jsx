@@ -197,7 +197,7 @@ export default function VitaminsDeworming() {
   }
 
   return (
-    <div>
+    <div className="bns-vitamins-page">
       <div className="page-header">
         <div>
           <h1>Vitamins &amp; Deworming</h1>

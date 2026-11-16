@@ -680,6 +680,50 @@ table {
   width: 100%;
 }
 
+/* BNS list pages (Masterlist, Vitamins & Deworming): fill the viewport and
+   let the table absorb the leftover vertical space, so a tall/maximized
+   laptop window stretches the table instead of leaving a strip of empty
+   white space below it. `100vh` minus .main-content's 32px top/bottom
+   padding keeps the page exactly screen height without forcing a permanent
+   page scrollbar. */
+.bns-masterlist-page,
+.bns-vitamins-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+}
+
+/* Match the larger top padding .main-content adds on tablet/mobile. */
+@media screen and (max-width: 900px) {
+  .bns-masterlist-page,
+  .bns-vitamins-page {
+    min-height: calc(100vh - 108px);
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .bns-masterlist-page,
+  .bns-vitamins-page {
+    min-height: calc(100vh - 96px);
+  }
+}
+
+/* Desktop only: the stacked card layout at <=700px has no table to stretch. */
+@media screen and (min-width: 701px) {
+  .bns-masterlist-page .table-wrap,
+  .bns-vitamins-page .table-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bns-masterlist-page .table-wrap > table,
+  .bns-vitamins-page .table-wrap > table {
+    flex: 1 1 auto;
+    height: 100%;
+  }
+}
+
 .bns-masterlist-table th,
 .bns-masterlist-table td {
   white-space: normal;
