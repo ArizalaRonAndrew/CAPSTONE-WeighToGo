@@ -4667,6 +4667,12 @@ body.map-printing .barangay-map-page .map-side-card {
     display: none !important;
   }
 
+  .bns-monthly-report-page {
+    page: admin-masterlist;
+    box-sizing: border-box;
+    padding: 12mm;
+  }
+
   .masterlist-print {
     display: block !important;
     width: 100%;
@@ -4797,6 +4803,36 @@ body.map-printing .barangay-map-page .map-side-card {
   .ml-print-table .ml-print-status {
     white-space: nowrap;
     font-weight: 700;
+  }
+
+  .ml-print-table td.ml-print-status.badge-normal {
+    background: var(--status-normal-bg);
+    color: var(--status-normal-text);
+  }
+
+  .ml-print-table td.ml-print-status.badge-mild {
+    background: var(--status-mild-bg);
+    color: var(--status-mild-text);
+  }
+
+  .ml-print-table td.ml-print-status.badge-severe {
+    background: var(--status-severe-bg);
+    color: var(--status-severe-text);
+  }
+
+  .ml-print-table td.ml-print-status.badge-over {
+    background: var(--status-over-bg);
+    color: var(--status-over-text);
+  }
+
+  .ml-print-table td.ml-print-status.badge-muted {
+    background: #e8e8e8;
+    color: #333;
+  }
+
+  .ml-print-table td.ml-print-status {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .ml-print-legend {

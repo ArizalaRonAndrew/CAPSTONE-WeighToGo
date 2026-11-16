@@ -4,6 +4,7 @@ import { useRevReport } from "../../hooks/useRevReport";
 import { api } from "../../api/client";
 import RefreshLine from "../../components/RefreshLine";
 import { currentMonth } from "../../utils/month";
+import { statusBadgeClass } from "../../utils/statusGroups";
 import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
 import ManageChildModal from "../../components/ManageChildModal";
@@ -587,13 +588,13 @@ export default function AdminMasterlist() {
                   <td className="ml-print-center">{row.weight}</td>
                   <td className="ml-print-center">{row.height}</td>
                   <td className="ml-print-center">{row.age_in_months}</td>
-                  <td className="ml-print-status" title={row.wfa_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.wfa_status)}`} title={row.wfa_status}>
                     {printStatusAbbr(row.wfa_status)}
                   </td>
-                  <td className="ml-print-status" title={row.hfa_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.hfa_status)}`} title={row.hfa_status}>
                     {printStatusAbbr(row.hfa_status)}
                   </td>
-                  <td className="ml-print-status" title={row.wfl_h_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.wfl_h_status)}`} title={row.wfl_h_status}>
                     {printStatusAbbr(row.wfl_h_status)}
                   </td>
                   {FOLLOW_UP_COLUMNS.map((col) => (

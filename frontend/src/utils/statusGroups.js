@@ -15,6 +15,14 @@ export const STATUS_ABBREVIATIONS = {
   Obese: "OB",
 };
 
+export function statusBadgeClass(status) {
+  if (status === "Normal") return "badge-normal";
+  if (SEVERE_STATUSES.has(status)) return "badge-severe";
+  if (MILD_STATUSES.has(status)) return "badge-mild";
+  if (OVER_STATUSES.has(status)) return "badge-over";
+  return "badge-muted";
+}
+
 export function colorVarForStatus(status) {
   if (!status) return "var(--color-primary-600)";
   if (status === "Normal") return "var(--status-normal-text)";

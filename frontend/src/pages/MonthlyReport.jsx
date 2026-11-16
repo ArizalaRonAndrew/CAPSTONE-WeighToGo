@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import { useRevReport } from "../hooks/useRevReport";
 import RefreshLine from "../components/RefreshLine";
 import { currentMonth, monthLabel } from "../utils/month";
-import { colorVarForStatus } from "../utils/statusGroups";
+import { colorVarForStatus, statusBadgeClass } from "../utils/statusGroups";
 import { formatNameForTable } from "../utils/name";
 import StatusBadge from "../components/StatusBadge";
 import Dropdown from "../components/Dropdown";
@@ -226,12 +226,6 @@ export default function MonthlyReport() {
 
   const barangayName = report?.barangay || rows[0]?.barangay || "—";
 
-  const printDate = new Date().toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   // Same filter header as the admin print (BNS is barangay-locked with no
   // purok/search inputs, so those boxes show the matching fixed values).
   const printFilterDetails = [
@@ -239,9 +233,7 @@ export default function MonthlyReport() {
     { label: "Barangay", value: barangayName },
     { label: "Purok / Sitio", value: "All puroks" },
     { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
-    { label: "Search", value: "—" },
     { label: "Records", value: String(printRows?.length ?? filteredRows.length) },
-    { label: "Printed", value: printDate },
   ];
 
   return (
@@ -622,13 +614,13 @@ export default function MonthlyReport() {
                   <td className="ml-print-center">{row.weight}</td>
                   <td className="ml-print-center">{row.height}</td>
                   <td className="ml-print-center">{row.age_in_months}</td>
-                  <td className="ml-print-status" title={row.wfa_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.wfa_status)}`} title={row.wfa_status}>
                     {printStatusAbbr(row.wfa_status)}
                   </td>
-                  <td className="ml-print-status" title={row.hfa_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.hfa_status)}`} title={row.hfa_status}>
                     {printStatusAbbr(row.hfa_status)}
                   </td>
-                  <td className="ml-print-status" title={row.wfl_h_status}>
+                  <td className={`ml-print-status ${statusBadgeClass(row.wfl_h_status)}`} title={row.wfl_h_status}>
                     {printStatusAbbr(row.wfl_h_status)}
                   </td>
                   {FOLLOW_UP_COLUMNS.map((col) => (
