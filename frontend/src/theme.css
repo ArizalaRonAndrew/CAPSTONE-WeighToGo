@@ -2207,6 +2207,13 @@ tr.clickable:hover {
   gap: 10px;
 }
 
+/* Footer action buttons collapse to icon-only on small screens. The icon is
+   hidden on wider viewports, where the text label is still shown. */
+.manage-action-icon {
+  display: none;
+  flex-shrink: 0;
+}
+
 .child-remove-confirm-overlay {
   position: fixed;
   inset: 0;
@@ -3446,9 +3453,92 @@ button.dose-is-due {
   }
 
   .manage-modal-footer {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    justify-content: space-between;
     margin-top: 0;
     padding: 12px 14px 16px;
+  }
+
+  /* [Save] [Cancel] ........ [Remove] as a compact, single icon row. Each
+     action is a circular touch target with its own resting/pressed state. */
+  .manage-modal-footer-actions {
+    gap: 16px;
+  }
+
+  .manage-action-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .manage-action-btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.96);
+  }
+
+  .manage-action-btn:disabled {
+    box-shadow: none;
+  }
+
+  /* Save — primary action, gently raised so it leads the row. */
+  .manage-action-btn-save {
+    box-shadow: 0 3px 8px rgba(52, 113, 90, 0.3);
+  }
+
+  .manage-action-btn-save:hover:not(:disabled) {
+    box-shadow: 0 4px 12px rgba(52, 113, 90, 0.38);
+  }
+
+  /* Cancel — neutral surface chip, so it sits beside Save without competing. */
+  .manage-action-btn-cancel {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-primary-700);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .manage-action-btn-cancel:hover:not(:disabled) {
+    background: var(--color-primary-50);
+    border-color: var(--color-primary-200);
+    color: var(--color-primary-800);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Remove — soft danger tint at rest, solid red only when engaged. */
+  .manage-action-btn-remove {
+    background: var(--status-severe-bg);
+    border-color: transparent;
+    color: var(--status-severe-text);
+  }
+
+  .manage-action-btn-remove:hover:not(:disabled),
+  .manage-action-btn-remove:active:not(:disabled) {
+    background: var(--status-severe-text);
+    border-color: var(--status-severe-text);
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(156, 55, 48, 0.35);
+  }
+
+  .manage-action-btn-remove:focus-visible {
+    outline-color: var(--status-severe-text);
+  }
+
+  .manage-action-icon {
+    display: block;
+  }
+
+  .manage-action-label {
+    display: none;
   }
 
   .section-title {

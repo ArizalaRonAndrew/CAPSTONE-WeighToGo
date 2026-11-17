@@ -304,4 +304,4 @@ For a barangay with High or Very High overall significance, select **Explain wit
 
 ## 9. Privacy and good practice
 
-WeighToGo contains children's personal details and sensitive health information. Use only your authorized account, keep your credentials private, do not share screenshots or printed reports with unauthorized people, and sign out when finished on a shared device. Follow municipal procedures when correcting records or handling a parent's/guardian's request about a child's information.
+WeighToGo contains children's personal details and sensitive health information. Use only your authorized account, keep your credentials private, do not share screenshots or printed reports with unauthorized people, and sign out when finished on a shared device. Follow municipal procedures when correcting records or handling a parent's/guardian's request about a child's information..

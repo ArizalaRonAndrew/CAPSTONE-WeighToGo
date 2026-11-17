@@ -84,6 +84,16 @@ const ICON_PATHS = {
   phone: (
     <path d="M6.6 10.8c1.4 2.7 3.6 4.9 6.3 6.3l2.1-2.1c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.5.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.6c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.5.1.4 0 .8-.3 1.1l-2.1 2.1Z" />
   ),
+  check: <path d="M20 6 9 17l-5-5" />,
+  close: <path d="M18 6 6 18M6 6l12 12" />,
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
 };
 
 function InfoIcon({ name }) {
@@ -98,6 +108,28 @@ function InfoIcon({ name }) {
       strokeLinejoin="round"
       width="16"
       height="16"
+    >
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}
+
+// Icon shown by the footer action buttons in place of their text label on
+// small screens (see .manage-action-icon in theme.css).
+function ActionIcon({ name }) {
+  return (
+    <svg
+      className="manage-action-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="20"
+      height="20"
+      aria-hidden="true"
+      focusable="false"
     >
       {ICON_PATHS[name]}
     </svg>
@@ -735,9 +767,24 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           <div className="manage-modal-footer">
             <div className="manage-modal-footer-actions">
               <button
+                type="submit"
+                form="manage-child-edit-form"
+                className="btn manage-action-btn manage-action-btn-save"
+                disabled={savingInfo || removing}
+                aria-label="Save changes"
+                title="Save changes"
+              >
+                <ActionIcon name="check" />
+                <span className="manage-action-label">
+                  {savingInfo ? "Saving..." : "Save Changes"}
+                </span>
+              </button>
+              <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary manage-action-btn manage-action-btn-cancel"
                 disabled={removing}
+                aria-label="Cancel"
+                title="Cancel"
                 onClick={() => {
                   setEditForm(withCleanPurok(child));
                   setEditing(false);
@@ -746,28 +793,24 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                   setInfoError("");
                 }}
               >
-                Cancel
-              </button>
-              <button
-                className="btn"
-                type="submit"
-                form="manage-child-edit-form"
-                disabled={savingInfo || removing}
-              >
-                {savingInfo ? "Saving..." : "Save Changes"}
+                <ActionIcon name="close" />
+                <span className="manage-action-label">Cancel</span>
               </button>
             </div>
             <button
               ref={removeTriggerRef}
               type="button"
-              className="btn btn-danger"
+              className="btn btn-danger manage-action-btn manage-action-btn-remove"
               disabled={savingInfo || removing}
+              aria-label="Remove child registration"
+              title="Remove child registration"
               onClick={() => {
                 setRemoveError("");
                 setConfirmingRemove(true);
               }}
             >
-              Remove Child Registration
+              <ActionIcon name="trash" />
+              <span className="manage-action-label">Remove Child Registration</span>
             </button>
           </div>
         )}
