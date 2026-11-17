@@ -6,6 +6,7 @@ const { bustAll, touchRevs } = require("../config/redis");
 const { assertBarangayAccess } = require("../utils/access");
 const { isValidPhContact } = require("../utils/phone");
 const { formatPersonName, isValidPersonName } = require("../utils/names");
+const { normalizePurok, isValidPurok } = require("../utils/purok");
 const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { pickFields } = require("../utils/pickFields");
 const { buildRegistrationBackfill } = require("../services/supplementSchedule.service");
@@ -96,6 +97,11 @@ async function createChild(req, res, next) {
     if (!isValidBarangay(barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
     }
+    if (!isValidPurok(purok)) {
+      return res.status(400).json({
+        error: "purok must use letters and numbers only — no special characters",
+      });
+    }
     if (!isValidPersonName(formattedName)) {
       return res.status(400).json({
         error: "name must use letters only — no numbers or special characters",
@@ -125,7 +131,12 @@ async function createChild(req, res, next) {
         existingId: duplicate.id,
       });
     }
-    const child = await childrenModel.create({ ...req.body, name: formattedName, barangay });
+    const child = await childrenModel.create({
+      ...req.body,
+      name: formattedName,
+      barangay,
+      purok: normalizePurok(purok),
+    });
 
     // Perfect-historical-compliance default for late registrations: every
     // dose window that had already opened by registration is assumed given
@@ -189,6 +200,14 @@ async function updateChild(req, res, next) {
     }
     if (fields.barangay && !isValidBarangay(fields.barangay)) {
       return res.status(400).json({ error: "barangay must be one of the municipality's registered barangays" });
+    }
+    if ("purok" in fields) {
+      if (!isValidPurok(fields.purok)) {
+        return res.status(400).json({
+          error: "purok must use letters and numbers only — no special characters",
+        });
+      }
+      fields.purok = normalizePurok(fields.purok);
     }
     if ("name" in fields && !isValidPersonName(fields.name)) {
       return res.status(400).json({

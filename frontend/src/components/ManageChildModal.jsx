@@ -6,6 +6,7 @@ import { ageInMonths } from "../utils/age";
 import { currentMonth, todayInManila, periodKeyForDate, periodKeyForMonth } from "../utils/month";
 import { sanitizePhoneInput, isValidPhContact, formatPhContact } from "../utils/phone";
 import { sanitizeNameInput, isValidPersonName, PERSON_NAME_HINT } from "../utils/name";
+import { normalizePurok, sanitizePurokInput, isValidPurok, PUROK_HINT } from "../utils/purok";
 import { sanitizeDecimalInput } from "../utils/decimal";
 import { classifyNutritionStatusLocal } from "../utils/nutritionStatus";
 import StatusBadge from "./StatusBadge";
@@ -36,6 +37,12 @@ function getInitials(name) {
   const first = parts[0]?.[0] || "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase();
+}
+
+// Legacy records may hold a purok with punctuation; clean it before it
+// reaches the edit form so only letters/numbers are shown or re-saved.
+function withCleanPurok(data) {
+  return data ? { ...data, purok: sanitizePurokInput(data.purok) } : data;
 }
 
 function formatFullDate(dateString) {
@@ -153,7 +160,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
       getOfflineChildBundle(childId).then((bundle) => {
         if (bundle) {
           setChild(bundle.child);
-          setEditForm(bundle.child);
+          setEditForm(withCleanPurok(bundle.child));
         } else {
           setLoadError("This registration hasn't synced yet and isn't saved on this device.");
         }
@@ -165,7 +172,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
       .get(`/children/${childId}`)
       .then((data) => {
         setChild(data);
-        setEditForm(data);
+        setEditForm(withCleanPurok(data));
       })
       // Offline with a loaded record is normal (banner explains) — only
       // complain when there is nothing to show at all.
@@ -309,6 +316,11 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
       setInfoError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
       return;
     }
+    if (!isValidPurok(editForm.purok)) {
+      setInfoError(`Purok / Sitio: ${PUROK_HINT}`);
+      return;
+    }
+    const nextPurok = normalizePurok(editForm.purok);
     setSavingInfo(true);
     try {
       const updated = await api.patch(
@@ -317,7 +329,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
           name: editForm.name,
           parent_name: editForm.parent_name,
           parent_contact: editForm.parent_contact,
-          purok: editForm.purok,
+          purok: nextPurok,
           gender: editForm.gender,
           is_ip: editForm.is_ip,
         },
@@ -325,7 +337,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
       );
       if (updated?._queued) {
         // Offline: reflect the edit locally; the queue sends it on reconnect.
-        setChild({ ...child, ...editForm });
+        setChild({ ...child, ...editForm, purok: nextPurok });
         setEditing(false);
         setInfoNotice("Saved on this device — will sync when you're back online.");
       } else {
@@ -507,7 +519,11 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 <input
                   className="input"
                   value={editForm.purok}
-                  onChange={(e) => setEditForm({ ...editForm, purok: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, purok: sanitizePurokInput(e.target.value) })}
+                  placeholder="e.g. Purok 1"
+                  title={PUROK_HINT}
+                  autoComplete="off"
+                  maxLength={50}
                 />
               </div>
               <div className="field">
@@ -723,7 +739,7 @@ export default function ManageChildModal({ childId, onClose, onChanged, initialT
                 className="btn btn-secondary"
                 disabled={removing}
                 onClick={() => {
-                  setEditForm(child);
+                  setEditForm(withCleanPurok(child));
                   setEditing(false);
                   setConfirmingRemove(false);
                   setRemoveError("");

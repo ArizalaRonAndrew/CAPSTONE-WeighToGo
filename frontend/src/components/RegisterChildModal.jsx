@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { sanitizePhoneInput, isValidPhContact } from "../utils/phone";
+import { normalizePurok, sanitizePurokInput, isValidPurok, PUROK_HINT } from "../utils/purok";
 import {
   combineChildName,
   sanitizeNameInput,
@@ -45,7 +46,7 @@ function loadDraft(key) {
     if (!hasContent && parsed.is_ip !== true && parsed.gender !== "Female") {
       return { form: EMPTY_FORM, restored: false };
     }
-    return { form: { ...EMPTY_FORM, ...parsed }, restored: hasContent || parsed.is_ip === true };
+    return { form: { ...EMPTY_FORM, ...parsed, purok: sanitizePurokInput(parsed.purok) }, restored: hasContent || parsed.is_ip === true };
   } catch {
     return { form: EMPTY_FORM, restored: false };
   }
@@ -189,10 +190,18 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
       setError("Contact number must be 11 digits and start with 09 (e.g. 09171234567).");
       return;
     }
+    if (!isValidPurok(form.purok)) {
+      setError(`Purok: ${PUROK_HINT}`);
+      return;
+    }
     setSubmitting(true);
     try {
       const { firstName, middleName, lastName, suffix, ...rest } = form;
-      const payload = { ...rest, name: combineChildName({ firstName, middleName, lastName, suffix }) };
+      const payload = {
+        ...rest,
+        purok: normalizePurok(form.purok),
+        name: combineChildName({ firstName, middleName, lastName, suffix }),
+      };
       // Client-side duplicate guard: same name (case/space-insensitive) +
       // same birthdate. The server re-checks scoped to the barangay and
       // returns 409, but catching it here gives instant feedback without a
@@ -377,7 +386,16 @@ export default function RegisterChildModal({ onClose, onRegistered }) {
               </div>
               <div className="field">
                 <label className="required">Purok</label>
-                <input className="input" value={form.purok} onChange={(e) => update("purok", e.target.value)} required />
+                <input
+                  className="input"
+                  value={form.purok}
+                  onChange={(e) => update("purok", sanitizePurokInput(e.target.value))}
+                  placeholder="e.g. Purok 1"
+                  title={PUROK_HINT}
+                  autoComplete="off"
+                  maxLength={50}
+                  required
+                />
               </div>
             </div>
             <div className="checkbox-card register-ip-card">
