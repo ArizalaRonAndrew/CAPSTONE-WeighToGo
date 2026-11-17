@@ -749,6 +749,16 @@ table {
   user-select: none;
 }
 
+/* Keep the Vitamins & Deworming rows on the same rhythm as the BNS
+   Masterlist, just a touch taller so dose badges and the Manage
+   Supplements button have extra breathing room. Desktop only — smaller
+   screens render the table as stacked cards (see the <=700px block). */
+@media screen and (min-width: 701px) {
+  .bns-vitamins-table tbody tr {
+    height: 60px;
+  }
+}
+
 .bns-masterlist-table th,
 .bns-masterlist-table td {
   white-space: normal;

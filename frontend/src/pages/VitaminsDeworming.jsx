@@ -294,7 +294,7 @@ export default function VitaminsDeworming() {
 
       {(loading || entries.length > 0) && (
         <div className="table-wrap">
-          <table>
+          <table className="bns-vitamins-table">
             <thead>
               <tr>
                 <th>Name of Child</th>
