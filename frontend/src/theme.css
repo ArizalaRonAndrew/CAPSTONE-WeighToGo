@@ -3938,6 +3938,51 @@ button.dose-is-due {
   margin-bottom: 24px;
 }
 
+/* Filter changes keep the last rendered OPT+ table mounted while the new
+   snapshot loads. This floating pill signals the in-place update without
+   dimming or unmounting the table, so its content stays readable. */
+.report-content {
+  position: relative;
+}
+
+.report-loading-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.report-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.report-loading-pill::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary-200);
+  border-top-color: var(--color-primary-600);
+  animation: report-loading-spin 0.7s linear infinite;
+}
+
+@keyframes report-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .growth-summary-header {
   display: flex;
   align-items: flex-start;

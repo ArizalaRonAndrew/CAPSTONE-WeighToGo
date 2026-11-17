@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useBarangays } from "../hooks/useBarangays";
 import { useRevReport } from "../hooks/useRevReport";
 import RefreshLine from "../components/RefreshLine";
@@ -191,6 +191,19 @@ export default function Reports() {
   const growth = growthQuery.data;
   const loading = growthQuery.loading;
 
+  // Changing a filter switches the rev-gated URL, which briefly reports no data
+  // while the new snapshot loads. Keep the last rendered summary mounted so the
+  // table never blanks out — the numbers stay readable and simply swap in place
+  // once the request lands.
+  const [lastReport, setLastReport] = useState(null);
+  useEffect(() => {
+    if (growth) setLastReport({ summary: growth, updatedAt: growthQuery.updatedAt });
+  }, [growth, growthQuery.updatedAt]);
+
+  const summary = growth || lastReport?.summary;
+  const updatedAt = growthQuery.updatedAt || lastReport?.updatedAt || null;
+  const initialLoading = loading && !summary;
+
   return (
     <div className="reports-page">
       <div className="page-header">
@@ -211,15 +224,34 @@ export default function Reports() {
         </div>
       </div>
 
-      {loading && <div className="loading-state print-hide">Loading...</div>}
+      {initialLoading && <div className="loading-state print-hide">Loading...</div>}
 
-      {!loading && (
+      {!initialLoading && (
         <div className="print-hide">
-          <RefreshLine refreshing={growthQuery.refreshing} updatedAt={growthQuery.updatedAt} onRefresh={growthQuery.refresh} />
+          <RefreshLine
+            refreshing={growthQuery.refreshing || loading}
+            updatedAt={updatedAt}
+            onRefresh={growthQuery.refresh}
+          />
         </div>
       )}
 
-      {!loading && growth && <GrowthSummaryReport summary={growth} />}
+      {!loading && !growth && growthQuery.error && (
+        <div className="error-text print-hide" role="alert" style={{ marginBottom: 10 }}>
+          Couldn't update the report: {growthQuery.error}. Showing the last loaded data.
+        </div>
+      )}
+
+      {summary && (
+        <div className="report-content" aria-busy={loading}>
+          <GrowthSummaryReport summary={summary} />
+          {loading && (
+            <div className="report-loading-overlay print-hide" role="status" aria-live="polite">
+              <span className="report-loading-pill">Updating…</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
