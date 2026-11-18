@@ -1049,6 +1049,52 @@ table {
   height: 100%;
 }
 
+@media screen and (min-width: 701px) {
+  .bns-vitamins-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .bns-vitamins-table col:nth-child(1),
+  .bns-vitamins-table col:nth-child(2) {
+    width: 20%;
+  }
+
+  .bns-vitamins-table col:nth-child(3) {
+    width: 15%;
+  }
+
+  .bns-vitamins-table col:nth-child(4) {
+    width: 10%;
+  }
+
+  .bns-vitamins-table col:nth-child(5) {
+    width: 25%;
+  }
+
+  .bns-vitamins-table col:nth-child(6) {
+    width: 10%;
+  }
+
+  .bns-vitamins-table th,
+  .bns-vitamins-table td {
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .bns-vitamins-table td[data-label="Action"] {
+    text-align: center;
+  }
+
+  .bns-vitamins-table td[data-label="Action"] .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 6px 5px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+}
+
 @media screen and (max-width: 700px) {
   .bns-vitamins-page .table-wrap tr.filler-row {
     display: none;

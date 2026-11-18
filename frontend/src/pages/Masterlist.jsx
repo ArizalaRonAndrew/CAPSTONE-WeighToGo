@@ -279,12 +279,12 @@ export default function Masterlist() {
       <div className="table-wrap">
         <table className="bns-masterlist-table">
           <colgroup>
-            <col style={{ width: "24%" }} />
-            <col style={{ width: "24%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "17%" }} />
-            <col style={{ width: "17%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "18%" }} />
           </colgroup>
           <thead>
             <tr>
