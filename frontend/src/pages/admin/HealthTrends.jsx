@@ -229,12 +229,14 @@ export default function HealthTrends() {
     () => new Set(STATUS_OPTIONS.wfa),
   );
   const [lineBarangay, setLineBarangay] = useState("");
+  const [displayedTrendData, setDisplayedTrendData] = useState(null);
   const [barMonth, setBarMonth] = useState(() => periodKeyForMonth(currentMonth()));
 
   // Barangay comparison chart: all 48 barangays, split evenly across 3 pages.
   const BAR_PAGE_SIZE = 16;
   const BAR_TOTAL_PAGES = 3;
   const [barPage, setBarPage] = useState(1);
+  const [displayedBarData, setDisplayedBarData] = useState(null);
 
   // Line chart always spans January–December of the current year.
   const trendYear = currentMonth().slice(0, 4);
@@ -245,19 +247,25 @@ export default function HealthTrends() {
   const trendTo = `${trendYear}-12`;
   const trendParams = new URLSearchParams({ from: trendFrom, to: trendTo, indicator: "all" });
   if (lineBarangay) trendParams.set("barangay", lineBarangay);
+  const trendUrl = `/reports/trends?${trendParams.toString()}`;
   const trendMonths = useMemo(() => monthsBetween(trendFrom, trendTo), [trendFrom, trendTo]);
-  const trendQuery = useRevReport(`/reports/trends?${trendParams.toString()}`, trendMonths, {
+  const trendQuery = useRevReport(trendUrl, trendMonths, {
     alwaysRevalidate: true,
   });
+  useEffect(() => {
+    if (!trendQuery.loading && Array.isArray(trendQuery.data)) {
+      setDisplayedTrendData({ url: trendUrl, data: trendQuery.data });
+    }
+  }, [trendQuery.data, trendQuery.loading, trendUrl]);
   // Stabilized so downstream memos don't recompute on every render when
   // there is no snapshot yet (data null → fresh [] each render otherwise).
   const trendStatuses = STATUS_OPTIONS[lineIndicator];
   const rawTrend = useMemo(
     () =>
-      Array.isArray(trendQuery.data)
-        ? trendQuery.data.map((row) => ({ month: row.month, ...row[lineIndicator] }))
+      Array.isArray(displayedTrendData?.data)
+        ? displayedTrendData.data.map((row) => ({ month: row.month, ...row[lineIndicator] }))
         : [],
-    [trendQuery.data, lineIndicator]
+    [displayedTrendData, lineIndicator]
   );
   // Jan–Mar renders as one "Jan–Mar" bracket: a single on-time assessment
   // covers that quarter, so the three calendar months are summed.
@@ -268,6 +276,9 @@ export default function HealthTrends() {
   );
   const trendLoading = trendQuery.loading;
   const trendError = trendQuery.error;
+  const trendPending = Boolean(displayedTrendData && displayedTrendData.url !== trendUrl);
+  const trendUpdating = trendPending && !trendError;
+  const trendInitialLoading = !displayedTrendData && (trendLoading || !trendError);
 
   const barQuery = useRevReport(`/reports/barangay-comparison?month=${barMonth}`, [barMonth], {
     alwaysRevalidate: true,
@@ -280,7 +291,7 @@ export default function HealthTrends() {
     setBarPage(1);
   }, [barMonth]);
 
-  const allBarData = useMemo(() => {
+  const currentBarData = useMemo(() => {
     const comparisonByBarangay = new Map(
       (Array.isArray(barQuery.data) ? barQuery.data : []).map((row) => [
         row.barangay,
@@ -296,6 +307,13 @@ export default function HealthTrends() {
       })
       .sort((a, b) => b.count - a.count || a.barangay.localeCompare(b.barangay));
   }, [barQuery.data, barangays]);
+  useEffect(() => {
+    if (!barQuery.loading && Array.isArray(barQuery.data)) {
+      setDisplayedBarData({ month: barMonth, data: currentBarData });
+    }
+  }, [barMonth, barQuery.data, barQuery.loading, currentBarData]);
+
+  const allBarData = displayedBarData?.data || [];
   const barTotal = allBarData.length;
   const barTotalPages = BAR_TOTAL_PAGES;
   useEffect(() => {
@@ -305,6 +323,9 @@ export default function HealthTrends() {
   const barData = allBarData.slice((barPage - 1) * BAR_PAGE_SIZE, barPage * BAR_PAGE_SIZE);
   const rangeStart = (barPage - 1) * BAR_PAGE_SIZE + 1;
   const rangeEnd = Math.min(barPage * BAR_PAGE_SIZE, barTotal);
+  const barPending = Boolean(displayedBarData && displayedBarData.month !== barMonth);
+  const barUpdating = barPending && !barError;
+  const barInitialLoading = !displayedBarData && (barLoading || !barError);
 
   const barColor = "var(--status-severe-text)";
 
@@ -444,7 +465,7 @@ export default function HealthTrends() {
 
         <RefreshLine refreshing={trendQuery.refreshing} updatedAt={trendQuery.updatedAt} onRefresh={trendQuery.refresh} />
 
-        {trendLoading && !trendQuery.data ? (
+        {trendInitialLoading ? (
           <div className="health-trends-loading" role="status">
             <svg
               className="health-trends-runner"
@@ -480,11 +501,11 @@ export default function HealthTrends() {
             </svg>
             <span>Loading health trends…</span>
           </div>
-        ) : trendError && !trendQuery.data ? (
+        ) : trendError && !displayedTrendData ? (
           <div className="empty-state">{trendError}</div>
         ) : (
-          <div style={{ position: "relative" }} aria-busy={trendLoading}>
-            {trendLoading && (
+          <div style={{ position: "relative" }} aria-busy={trendUpdating}>
+            {trendUpdating && (
               <div
                 role="status"
                 style={{
@@ -501,6 +522,18 @@ export default function HealthTrends() {
                 }}
               >
                 Updating for {lineBarangay || "all barangays"}…
+              </div>
+            )}
+            {trendError && displayedTrendData && (
+              <div
+                className="banner banner-warning"
+                role="alert"
+                style={{ position: "absolute", zIndex: 1, top: 8, right: 8, maxWidth: 360 }}
+              >
+                {trendError}{" "}
+                <button type="button" className="btn btn-sm" onClick={trendQuery.refresh}>
+                  Retry
+                </button>
               </div>
             )}
             <ResponsiveContainer width="100%" height={320}>
@@ -560,6 +593,8 @@ export default function HealthTrends() {
                       name={status}
                       stroke={color}
                       strokeWidth={2.5}
+                      animationDuration={350}
+                      animationEasing="ease-in-out"
                       dot={{
                         r: 3.5,
                         strokeWidth: 2,
@@ -604,54 +639,83 @@ export default function HealthTrends() {
 
         <RefreshLine refreshing={barQuery.refreshing} updatedAt={barQuery.updatedAt} onRefresh={barQuery.refresh} />
 
-        {barLoading ? (
+        {barInitialLoading ? (
           <div className="loading-state">Loading...</div>
-        ) : barError ? (
+        ) : barError && !displayedBarData ? (
           <div className="empty-state">{barError}</div>
         ) : barData.length === 0 ? (
           <div className="empty-state">No cases recorded for this filter.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={380}>
-            <BarChart
-              data={barData}
-              margin={{ top: 8, right: 16, left: 12, bottom: 12 }}
-            >
-              <CartesianGrid
-                stroke="var(--color-border)"
-                strokeDasharray="3 3"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="barangay"
-                stroke="var(--color-text-muted)"
-                tick={<BarangayAxisTick />}
-                interval={0}
-                height={100}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                stroke="var(--color-text-muted)"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                width={52}
-                tickMargin={8}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--color-row-hover)" }}
-                content={<BarangayIssueTooltip />}
-              />
-              <Bar
-                dataKey="count"
-                name="Children with an issue"
-                fill={barColor}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={{ position: "relative" }} aria-busy={barUpdating}>
+            {barUpdating && (
+              <div
+                role="status"
+                style={{
+                  position: "absolute",
+                  zIndex: 1,
+                  top: 8,
+                  right: 8,
+                  padding: "5px 9px",
+                  borderRadius: 6,
+                  background: "var(--color-surface)",
+                  color: "var(--color-text-muted)",
+                  boxShadow: "var(--shadow-sm)",
+                  fontSize: 12,
+                }}
+              >
+                Updating for {formatMonthLabel(barMonth)}…
+              </div>
+            )}
+            {barError && displayedBarData && (
+              <div className="banner banner-warning" role="alert" style={{ marginBottom: 12 }}>
+                {barError}{" "}
+                <button type="button" className="btn btn-sm" onClick={barQuery.refresh}>
+                  Retry
+                </button>
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart
+                data={barData}
+                margin={{ top: 8, right: 16, left: 12, bottom: 12 }}
+              >
+                <CartesianGrid
+                  stroke="var(--color-border)"
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="barangay"
+                  stroke="var(--color-text-muted)"
+                  tick={<BarangayAxisTick />}
+                  interval={0}
+                  height={100}
+                  tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  stroke="var(--color-text-muted)"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                  tickMargin={8}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--color-row-hover)" }}
+                  content={<BarangayIssueTooltip />}
+                />
+                <Bar
+                  dataKey="count"
+                  name="Children with an issue"
+                  fill={barColor}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
-        {!barLoading && !barError && barTotal > 0 && (
+        {displayedBarData && barTotal > 0 && (
           <div className="pagination-bar">
             <span className="pagination-info">
               Showing {rangeStart}–{rangeEnd} of {barTotal} barangay{barTotal === 1 ? "" : "s"}
