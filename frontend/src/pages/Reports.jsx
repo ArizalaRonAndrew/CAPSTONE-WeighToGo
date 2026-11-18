@@ -83,19 +83,32 @@ function GrowthSummaryReport({ summary }) {
       </div>
 
       <div className="growth-summary-totals print-hide">
-        {GROWTH_SUMMARY_SECTIONS.map((section) => (
-          <div className="growth-summary-total-tile" key={section.indicator}>
-            <span className="label">Total {section.indicator.toUpperCase().replace("_", "/")}</span>
-            <span className="value">{indicators[section.indicator]?.totalAssessed ?? 0}</span>
+        <div className="growth-summary-total-tile growth-summary-kpi growth-summary-kpi-registered">
+          <div className="growth-summary-kpi-heading">
+            <span className="growth-summary-kpi-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="10" cy="7" r="4" />
+                <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </span>
+            <span className="label">Registered Children</span>
           </div>
-        ))}
-        <div className="growth-summary-total-tile growth-summary-total-tile-overview">
-          <span className="label">Total Registered</span>
           <span className="value">{summary.totalRegistered ?? 0}</span>
+          <span className="growth-summary-kpi-note">In {summary.barangay}</span>
         </div>
-        <div className="growth-summary-total-tile growth-summary-total-tile-overview">
-          <span className="label">Total Assessed</span>
+        <div className="growth-summary-total-tile growth-summary-kpi growth-summary-kpi-assessed">
+          <div className="growth-summary-kpi-heading">
+            <span className="growth-summary-kpi-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m5 12 4 4L19 6" />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </span>
+            <span className="label">Assessed This Period</span>
+          </div>
           <span className="value">{overall.total.total}</span>
+          <span className="growth-summary-kpi-note">For {monthLabel(summary.month)}</span>
         </div>
       </div>
 

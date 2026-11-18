@@ -4369,10 +4369,59 @@ button.dose-is-due {
   border: 1px solid var(--color-primary-100);
 }
 
-.growth-summary-total-tile-overview {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+.growth-summary-kpi {
+  gap: 5px;
+  min-height: 88px;
+  padding: 10px 12px;
+  border-radius: 14px;
   box-shadow: var(--shadow-sm);
+}
+
+.growth-summary-kpi-registered {
+  background: linear-gradient(135deg, var(--color-primary-50), var(--color-surface) 75%);
+  border-color: var(--color-primary-100);
+}
+
+.growth-summary-kpi-assessed {
+  background: linear-gradient(135deg, var(--status-normal-bg), var(--color-surface) 75%);
+  border-color: var(--status-normal-bg);
+}
+
+.growth-summary-kpi-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.growth-summary-kpi-icon {
+  display: inline-flex;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-primary-700);
+}
+
+.growth-summary-kpi-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.growth-summary-kpi-assessed .growth-summary-kpi-icon {
+  color: var(--status-normal-text);
+}
+
+.growth-summary-kpi .value {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.growth-summary-kpi-note {
+  color: var(--color-text-muted);
+  font-size: 11px;
 }
 
 .growth-summary-total-tile .label {
@@ -4542,18 +4591,14 @@ button.dose-is-due {
 }
 
 .reports-page .growth-summary-totals {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 8px;
 }
 
-.reports-page .growth-summary-total-tile {
-  gap: 2px;
-  padding: 7px 10px;
-}
-
-.reports-page .growth-summary-total-tile .value {
-  font-size: 20px;
+.reports-page .growth-summary-kpi {
+  gap: 5px;
+  padding: 9px 12px;
 }
 
 .reports-page .growth-summary-table th,
@@ -4584,6 +4629,20 @@ button.dose-is-due {
 
   .reports-page .growth-summary-totals {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .reports-page .growth-summary-kpi {
+    min-height: 78px;
+    padding: 8px 10px;
+  }
+
+  .reports-page .growth-summary-kpi .value {
+    font-size: 21px;
+  }
+
+  .reports-page .growth-summary-kpi .label {
+    font-size: 10px;
   }
 
   .reports-page .growth-summary-table th,
