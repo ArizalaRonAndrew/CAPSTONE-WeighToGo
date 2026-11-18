@@ -15,6 +15,7 @@ import { useRevReport } from "../../hooks/useRevReport";
 import RefreshLine from "../../components/RefreshLine";
 import { currentMonth, addMonths, periodKeyForMonth } from "../../utils/month";
 import Dropdown from "../../components/Dropdown";
+import MonthPeriodPicker from "../../components/MonthPeriodPicker";
 import "./HealthTrends.css";
 
 const INDICATOR_OPTIONS = [
@@ -228,7 +229,7 @@ export default function HealthTrends() {
     () => new Set(STATUS_OPTIONS.wfa),
   );
   const [lineBarangay, setLineBarangay] = useState("");
-  const [barMonth, setBarMonth] = useState(currentMonth());
+  const [barMonth, setBarMonth] = useState(() => periodKeyForMonth(currentMonth()));
 
   // Barangay comparison chart: all 48 barangays, split evenly across 3 pages.
   const BAR_PAGE_SIZE = 16;
@@ -590,19 +591,14 @@ export default function HealthTrends() {
           }}
         >
           Children with a non-normal Weight-for-Age, Height-for-Age, or
-          Weight-for-Length/Height status this month. A child flagged in more
+          Weight-for-Length/Height status in this assessment period. A child flagged in more
           than one indicator is still only counted once — hover a bar for the
           breakdown.
         </p>
         <div className="filter-bar">
           <div className="field">
-            <label>Month</label>
-            <input
-              className="input"
-              type="month"
-              value={barMonth}
-              onChange={(e) => setBarMonth(e.target.value)}
-            />
+            <label htmlFor="trends-bar-period">Assessment Period</label>
+            <MonthPeriodPicker id="trends-bar-period" value={barMonth} onChange={setBarMonth} />
           </div>
         </div>
 

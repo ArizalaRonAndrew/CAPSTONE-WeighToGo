@@ -5,6 +5,7 @@ const {
   toMonthRange,
   toPeriodRange,
   isValidMonthString,
+  isValidPeriodString,
   isQ1Month,
   periodKeyForDate,
   periodKeyForMonth,
@@ -114,8 +115,8 @@ function sumBracketCounts(counts) {
 async function getGrowthSummaryReport(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = effectiveBarangay(req);
     // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
@@ -187,8 +188,8 @@ async function getGrowthSummaryReport(req, res, next) {
 async function getNutritionReport(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = effectiveBarangay(req);
     // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
@@ -254,8 +255,8 @@ function tallyMasterlistKpis(kpiRows) {
 async function getMonthlyMasterlistReport(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = effectiveBarangay(req);
     const purok = req.query.purok || null;
@@ -323,11 +324,13 @@ async function getMonthlyMasterlistReport(req, res, next) {
 async function getVitaminReport(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = effectiveBarangay(req);
-    const { start, end } = toMonthRange(month);
+    // Q1-aware: a combined "January – March" selection covers the whole
+    // quarter just like a single Jan/Feb/Mar month does.
+    const { start, end } = toPeriodRange(month);
 
     const rows = filterByBarangay(await reportsModel.fetchSupplementsWithBarangay({ start, end }), barangay);
     const byType = tally(rows, "supplement_type");
@@ -501,8 +504,8 @@ async function getTrends(req, res, next) {
 async function getBarangayComparison(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month (YYYY-MM) is required" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month (YYYY-MM or YYYY-Q1) is required" });
     }
 
     // Q1-aware: Jan/Feb/Mar selections cover the whole Jan–Mar quarter.
@@ -546,8 +549,8 @@ async function getBarangayComparison(req, res, next) {
 async function getBarangayHealthStatus(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
 
     const barangays = await computeBarangayHealthStatus({ req, month });
@@ -560,8 +563,8 @@ async function getBarangayHealthStatus(req, res, next) {
 async function submitMonthlyReport(req, res, next) {
   try {
     const { month } = req.body;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = req.user.assigned_barangay;
     if (!barangay) {
@@ -606,8 +609,8 @@ async function submitMonthlyReport(req, res, next) {
 async function getMasterlistSummary(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     let barangay = effectiveBarangay(req);
     // BNS accounts are barangay-locked server-side, same as the legacy route.
@@ -655,8 +658,8 @@ async function getMasterlistSummary(req, res, next) {
 async function getMasterlistRows(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     let barangay = effectiveBarangay(req);
     if (req.user.role === "BNS") barangay = req.user.assigned_barangay;
@@ -802,8 +805,8 @@ async function getSyncStatus(req, res, next) {
 async function getSubmissionStatus(req, res, next) {
   try {
     const { month } = req.query;
-    if (!isValidMonthString(month)) {
-      return res.status(400).json({ error: "month is required in YYYY-MM format" });
+    if (!isValidPeriodString(month)) {
+      return res.status(400).json({ error: "month is required in YYYY-MM or YYYY-Q1 format" });
     }
     const barangay = req.user.role === "BNS" ? req.user.assigned_barangay : req.query.barangay;
     if (!barangay) {

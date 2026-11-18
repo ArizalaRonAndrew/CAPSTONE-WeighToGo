@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useBarangays } from "../hooks/useBarangays";
 import { useRevReport } from "../hooks/useRevReport";
 import RefreshLine from "../components/RefreshLine";
-import { currentMonth, monthLabel } from "../utils/month";
+import { currentMonth, monthLabel, periodKeyForMonth } from "../utils/month";
 import Dropdown from "../components/Dropdown";
+import MonthPeriodPicker from "../components/MonthPeriodPicker";
 
 // Operation Timbang Plus (OPT+) style summary rows, in the DOH form's
 // standard row order for each indicator.
@@ -180,7 +181,9 @@ function GrowthSummaryReport({ summary }) {
 export default function Reports() {
   const { barangays } = useBarangays();
 
-  const [month, setMonth] = useState(currentMonth());
+  // Jan–Mar is one assessment window: start on its canonical "YYYY-Q1" key
+  // instead of a single calendar month inside the quarter.
+  const [month, setMonth] = useState(() => periodKeyForMonth(currentMonth()));
   const [barangay, setBarangay] = useState("");
 
   // Rev-gated: snapshot renders instantly; the summary refetches only when
@@ -210,8 +213,8 @@ export default function Reports() {
         <h1>Consolidated Reports</h1>
         <div className="filter-bar">
           <div className="field">
-            <label>Month</label>
-            <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+            <label htmlFor="reports-period">Assessment Period</label>
+            <MonthPeriodPicker id="reports-period" value={month} onChange={setMonth} align="right" />
           </div>
           <div className="field">
             <label>Barangay</label>

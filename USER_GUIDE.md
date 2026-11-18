@@ -132,7 +132,7 @@ This page shows the assigned barangay's monthly assessment data and nutritional-
 
 #### Choose month and filter statuses
 
-1. Use the **Month** field to choose the reporting month.
+1. Use the **Assessment Period** picker to choose the reporting period. January, February, and March appear as one **January – March (Q1)** choice, because that quarter holds a single assessment per child.
 2. Review the Overview card for the total registered and assessed children. The WFA, HFA, and WFL/H cards summarize the counts in each status.
 3. In **Masterlist Report Data**, choose a **Nutrition Status** filter to narrow the assessment rows. Select **Clear filters** to return to all statuses.
 4. Use **Previous** and **Next** to page through the table.
@@ -147,7 +147,7 @@ The table includes address/purok, caregiver, child, Indigenous Person group, sex
 - If submitted while offline, the page says the submission is saved on the device and will send when online. Confirm the result in the Sync queue.
 - A not-yet-submitted notice indicates MNAO cannot yet see this barangay's report data.
 
-**Assessment period note:** January, February, and March are treated as one January–March assessment period. Only one assessment per child is allowed in that period. The page may label a selected month as part of this shared reporting window.
+**Assessment period note:** January, February, and March are treated as one January–March assessment period. Only one assessment per child is allowed in that period, so the **Assessment Period** picker shows a single **January – March (Q1)** option instead of three separate months.
 
 ## 5. Register a child
 
@@ -240,7 +240,7 @@ The trend covers January–December of the current year. January–March appears
 
 #### Nutritional Issues by Barangay
 
-1. Choose a **Month**.
+1. Choose an **Assessment Period** (January – March is one combined Q1 period).
 2. Review the bar chart showing unique children with at least one non-normal WFA, HFA, or WFL/H result in that month.
 3. Hover a bar for the barangay's total and indicator/status breakdown.
 4. Use **Previous** and **Next** to move through barangay pages.
@@ -252,7 +252,7 @@ A child with more than one non-normal indicator is counted once in the bar's ove
 
 This page provides MNAO with monthly assessment rows and summaries from all barangays. Summary tiles include total registered, total assessed, normal status, at-risk/malnourished, overweight/obese, severe cases, and new registrations.
 
-1. Choose a **Month**.
+1. Choose an **Assessment Period** (January – March is one combined Q1 period).
 2. Optionally enter a child's name in **Search**.
 3. Select a **Barangay** or **All barangays**.
 4. Select **Purok / Sitio**. This filter becomes available after choosing a barangay.
@@ -269,7 +269,7 @@ Select **Print** to prepare and print all rows matching the current month and fi
 
 The **Consolidated Reports** page presents an OPT+-style Growth Summary Report for a selected month.
 
-1. Choose a **Month**.
+1. Choose an **Assessment Period** (January – March is one combined Q1 period).
 2. Choose a specific **Barangay** or **All barangays**.
 3. Review the summary by age bracket and sex for WFA, HFA, and WFL/H statuses.
 4. Use **Refresh** to request the latest report.
@@ -282,7 +282,7 @@ The report includes the total registered and assessed figures and status totals/
 The map displays barangay locations with marker colors representing public-health significance. The map and side panel update to the selected month and indicator.
 
 1. Choose an **Indicator**: **Overall significance**, **Underweight**, **Stunted**, **Wasted**, or **Overweight**.
-2. Choose a **Month**.
+2. Choose an **Assessment Period** (January – March is one combined Q1 period).
 3. Read the legend for severity levels: Very Low, Low, Medium, High, Very High, or No data.
 4. Pan or zoom the map, then select a barangay marker. The marker tooltip identifies the barangay; its popup shows registered-child count and severity or indicator prevalence.
 5. The side panel shows registered and assessed child totals, prevalence percentages for underweight, stunting, wasting, and overweight, and the nutritional-status breakdown for WFA, HFA, and WFL/H.

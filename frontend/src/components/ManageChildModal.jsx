@@ -22,7 +22,7 @@ const ALL_TABS = [
 function monthLabel(monthString) {
   // Jan–Mar is one on-time assessment window, labelled as a single bracket.
   const key = periodKeyForMonth(monthString);
-  if (/^\d{4}-Q1$/.test(key)) return `January–March ${key.slice(0, 4)}`;
+  if (/^\d{4}-Q1$/.test(key)) return `January – March ${key.slice(0, 4)}`;
   const [year, month] = key.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "long",

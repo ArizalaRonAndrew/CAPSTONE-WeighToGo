@@ -8,7 +8,7 @@ import {
 } from "../api/client";
 import { purgeApiCache } from "../utils/pwaCache";
 import { loadRevGated } from "../hooks/useRevReport";
-import { addMonths, currentMonth } from "../utils/month";
+import { addMonths, currentMonth, periodKeyForMonth } from "../utils/month";
 import { clearLastRoute } from "../utils/lastRoute";
 import {
   setSessionUserId,
@@ -41,7 +41,10 @@ let logoutCleanup = Promise.resolve();
 // and a duplicate in-flight GET only costs one identical request.
 function prefetchLandingData(role) {
   try {
-    const month = currentMonth();
+    // Same canonical period key the report filters use, so the prefetched
+    // snapshot matches the URL Health Trends requests on mount (Jan–Mar is
+    // one "YYYY-Q1" period, not three separate monthly URLs).
+    const month = periodKeyForMonth(currentMonth());
     const year = month.slice(0, 4);
     const trendMonths = Array.from(
       { length: 12 },

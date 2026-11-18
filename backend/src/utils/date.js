@@ -51,6 +51,7 @@ function todayInManila() {
 // ("YYYY-Q1") so duplicate checks, reports, and the admin trend line all
 // agree that those three months are one assessment window.
 function isQ1Month(monthString) {
+  if (/^\d{4}-Q1$/.test(monthString || "")) return true;
   if (!/^\d{4}-\d{2}$/.test(monthString || "")) return false;
   const month = Number(monthString.slice(5, 7));
   return month >= 1 && month <= 3;
@@ -118,7 +119,7 @@ function periodsBetween(from, to) {
 // Human labels: "2026-Q1" -> "Jan–Mar 2026" / "Jan–Mar".
 function periodLabel(periodOrMonth) {
   const key = periodKeyForMonth(periodOrMonth);
-  if (/^\d{4}-Q1$/.test(key)) return `Jan–Mar ${key.slice(0, 4)}`;
+  if (/^\d{4}-Q1$/.test(key)) return `January – March ${key.slice(0, 4)}`;
   const [year, month] = key.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", {
     month: "long",

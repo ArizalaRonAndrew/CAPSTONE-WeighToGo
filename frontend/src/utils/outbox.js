@@ -1,4 +1,5 @@
 import { idbPut, idbGet, idbDel, idbGetAll } from "./offlineDb.js";
+import { monthLabel } from "./month.js";
 
 // Offline outbox (Phase C): queued mutations + read cache + session memory.
 //
@@ -140,7 +141,8 @@ export function entryLabel(method, path, body) {
   if (clean === "/supplements" && method === "POST")
     return `Supplement dose · ${body?.supplement_type || ""} #${body?.dose_order ?? ""}`.trim();
   if (clean.startsWith("/supplements/")) return `Edit supplement record`;
-  if (clean === "/reports/submit") return `Submit monthly report · ${body?.month || ""}`.trim();
+  if (clean === "/reports/submit")
+    return `Submit monthly report · ${body?.month ? monthLabel(body.month) : ""}`.trim();
   return `${method} ${clean}`;
 }
 

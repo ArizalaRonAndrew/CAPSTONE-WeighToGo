@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useRevReport } from "../hooks/useRevReport";
 import RefreshLine from "../components/RefreshLine";
-import { currentMonth, monthLabel } from "../utils/month";
+import { currentMonth, monthLabel, periodKeyForMonth } from "../utils/month";
 import { colorVarForStatus, statusBadgeClass } from "../utils/statusGroups";
 import { formatNameForTable } from "../utils/name";
 import StatusBadge from "../components/StatusBadge";
 import Dropdown from "../components/Dropdown";
+import MonthPeriodPicker from "../components/MonthPeriodPicker";
 import { STATUS_FILTER_OPTIONS, matchesNutritionStatus, statusLabelFor } from "../utils/nutritionStatusFilter";
 
 function formatShortDate(dateStr) {
@@ -132,7 +133,9 @@ function scrollToTopOnMobile() {
 }
 
 export default function MonthlyReport() {
-  const [month, setMonth] = useState(currentMonth());
+  // Jan–Mar is one assessment window: use its canonical "YYYY-Q1" key so the
+  // picker, submit, and report queries all refer to the same period.
+  const [month, setMonth] = useState(() => periodKeyForMonth(currentMonth()));
   const [submitting, setSubmitting] = useState(false);
   const [submitNotice, setSubmitNotice] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -229,12 +232,16 @@ export default function MonthlyReport() {
   // Same filter header as the admin print (BNS is barangay-locked with no
   // purok/search inputs, so those boxes show the matching fixed values).
   const printFilterDetails = [
-    { label: "Month", value: monthLabel(month) },
+    { label: "Assessment Period", value: monthLabel(month) },
     { label: "Barangay", value: barangayName },
     { label: "Purok / Sitio", value: "All puroks" },
     { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
     { label: "Records", value: String(printRows?.length ?? filteredRows.length) },
   ];
+
+  // The selected assessment period may span the whole first quarter; keep the
+  // overview card's wording accurate instead of always saying "This Month".
+  const periodScopeLabel = month.endsWith("-Q1") ? "This Quarter" : "This Month";
 
   return (
     <div className="bns-monthly-report-page">
@@ -246,7 +253,7 @@ export default function MonthlyReport() {
           </p>
         </div>
         <div className="page-header-actions" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <MonthPeriodPicker id="monthly-report-period" value={month} onChange={setMonth} align="right" className="monthly-report-period" />
           <button className="btn btn-secondary hide-on-mobile print-hide" onClick={handlePrint} disabled={preparingPrint || loading}>
             <PrintIcon /> {preparingPrint ? "Preparing…" : "Print Report"}
           </button>
@@ -320,7 +327,7 @@ export default function MonthlyReport() {
           <div className="indicator-card-header">
             <div>
               <div className="indicator-card-title">Overview</div>
-              <div className="indicator-card-abbr">This Month</div>
+              <div className="indicator-card-abbr">{periodScopeLabel}</div>
             </div>
           </div>
           <div className="indicator-status-row">
@@ -331,7 +338,7 @@ export default function MonthlyReport() {
           </div>
           <div className="indicator-status-row">
             <span className="indicator-status-label">
-              <ClipboardIcon /> Assessed This Month
+              <ClipboardIcon /> Assessed {periodScopeLabel}
             </span>
             <span className="indicator-status-count">{loading ? "…" : totalAssessed}</span>
           </div>

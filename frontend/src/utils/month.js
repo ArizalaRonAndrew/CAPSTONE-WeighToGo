@@ -31,7 +31,7 @@ export function addMonths(monthString, count) {
 
 export function monthLabel(monthString) {
   const key = periodKeyForMonth(monthString);
-  if (/^\d{4}-Q1$/.test(key)) return `January–March ${key.slice(0, 4)}`;
+  if (/^\d{4}-Q1$/.test(key)) return `January – March ${key.slice(0, 4)}`;
   const [year, month] = key.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
     month: "long",
@@ -45,6 +45,7 @@ export function monthLabel(monthString) {
 // the same year collapse to "YYYY-Q1" so duplicate checks, reports, and the
 // admin trend line all agree those three months are one assessment window.
 export function isQ1Month(monthString) {
+  if (/^\d{4}-Q1$/.test(monthString || "")) return true;
   if (!/^\d{4}-\d{2}$/.test(monthString || "")) return false;
   const month = Number(monthString.slice(5, 7));
   return month >= 1 && month <= 3;
@@ -106,4 +107,45 @@ export function periodShortLabel(periodOrMonth) {
     month: "short",
     timeZone: "UTC",
   });
+}
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+// Dropdown entries for one calendar year, with January–March collapsed into a
+// single Q1 option. The Q1 value is the same canonical "YYYY-Q1" period key
+// the backend accepts, so filters never expose three choices that produce the
+// same assessment window.
+export function periodOptionsForYear(year) {
+  const yyyy = String(year);
+  const quarter = {
+    value: `${yyyy}-Q1`,
+    type: "quarter",
+    label: "January – March",
+    description: "Jan – Mar · single quarterly assessment",
+    year,
+  };
+  const months = MONTH_NAMES.slice(3).map((name, index) => {
+    const month = index + 4;
+    return {
+      value: `${yyyy}-${String(month).padStart(2, "0")}`,
+      type: "month",
+      label: name,
+      description: "Monthly assessment period",
+      year,
+    };
+  });
+  return [quarter, ...months];
 }

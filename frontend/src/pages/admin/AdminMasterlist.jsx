@@ -3,12 +3,13 @@ import { useBarangays } from "../../hooks/useBarangays";
 import { useRevReport } from "../../hooks/useRevReport";
 import { api } from "../../api/client";
 import RefreshLine from "../../components/RefreshLine";
-import { currentMonth } from "../../utils/month";
+import { currentMonth, monthLabel, periodKeyForMonth } from "../../utils/month";
 import { statusBadgeClass } from "../../utils/statusGroups";
 import { formatNameForTable } from "../../utils/name";
 import StatusBadge from "../../components/StatusBadge";
 import ManageChildModal from "../../components/ManageChildModal";
 import Dropdown from "../../components/Dropdown";
+import MonthPeriodPicker from "../../components/MonthPeriodPicker";
 import { STATUS_FILTER_OPTIONS, statusLabelFor } from "../../utils/nutritionStatusFilter";
 
 function formatShortDate(dateStr) {
@@ -21,18 +22,6 @@ function formatShortDate(dateStr) {
 
 function displayBarangayName(name) {
   return name.replace(/\s*\(poblacion\)$/i, "");
-}
-
-function monthLabel(monthString) {
-  // Jan–Mar is one on-time assessment window, labelled as a single bracket.
-  if (/^\d{4}-Q1$/.test(monthString || "")) return `January–March ${monthString.slice(0, 4)}`;
-  if (/^\d{4}-(01|02|03)$/.test(monthString || "")) return `January–March ${monthString.slice(0, 4)}`;
-  const [year, month] = String(monthString).split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 function SearchIcon() {
@@ -118,7 +107,7 @@ const KPI_TILES = [
 export default function AdminMasterlist() {
   const { barangays } = useBarangays();
 
-  const [month, setMonth] = useState(currentMonth());
+  const [month, setMonth] = useState(() => periodKeyForMonth(currentMonth()));
   const [barangayFilter, setBarangayFilter] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -239,7 +228,7 @@ export default function AdminMasterlist() {
   }
 
   const printFilterDetails = [
-    { label: "Month", value: monthLabel(month) },
+    { label: "Assessment Period", value: monthLabel(month) },
     { label: "Barangay", value: barangayFilter ? displayBarangayName(barangayFilter) : "All barangays" },
     { label: "Purok / Sitio", value: purokFilter || "All puroks" },
     { label: "Nutrition Status", value: statusFilter ? statusLabelFor(statusFilter) || statusFilter : "All statuses" },
@@ -256,7 +245,7 @@ export default function AdminMasterlist() {
           </p>
         </div>
         <div className="print-hide" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <MonthPeriodPicker id="admin-masterlist-period" value={month} onChange={setMonth} align="right" />
           <button type="button" className="btn btn-secondary" onClick={handlePrint} disabled={preparingPrint}>
             <PrintIcon /> {preparingPrint ? "Preparing…" : "Print"}
           </button>

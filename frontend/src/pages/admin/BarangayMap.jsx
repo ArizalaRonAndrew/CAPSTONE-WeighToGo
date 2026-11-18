@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { currentMonth, monthLabel } from "../../utils/month";
+import { currentMonth, monthLabel, periodKeyForMonth } from "../../utils/month";
 import { useRevReport, loadRevGated } from "../../hooks/useRevReport";
 import RefreshLine from "../../components/RefreshLine";
 import StatusBadge from "../../components/StatusBadge";
 import BarangayAiPanel from "../../components/BarangayAiPanel";
 import Dropdown from "../../components/Dropdown";
+import MonthPeriodPicker from "../../components/MonthPeriodPicker";
 
 const INDICATOR_DEFS = [
   { key: "wfa", label: "Weight-for-Age", abbr: "WFA" },
@@ -243,7 +244,7 @@ function PrintMapHandler() {
 }
 
 export default function BarangayMap() {
-  const [month, setMonth] = useState(currentMonth());
+  const [month, setMonth] = useState(() => periodKeyForMonth(currentMonth()));
   const [selected, setSelected] = useState(null);
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState("");
@@ -388,7 +389,7 @@ export default function BarangayMap() {
         <p className="map-print-meta">
           Showing: <strong>{activeIndicatorLabel} significance</strong>
           <span aria-hidden="true"> · </span>
-          Month: <strong>{monthLabel(month)}</strong>
+          Assessment Period: <strong>{monthLabel(month)}</strong>
           <span aria-hidden="true"> · </span>
           Printed: <strong>{printDate}</strong>
         </p>
@@ -414,14 +415,8 @@ export default function BarangayMap() {
             <Dropdown value={indicatorFilter} options={INDICATOR_FILTER_OPTIONS} onChange={setIndicatorFilter} />
           </div>
           <div className="field">
-            <label htmlFor="map-month">Month</label>
-            <input
-              id="map-month"
-              className="input"
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-            />
+            <label htmlFor="map-period">Assessment Period</label>
+            <MonthPeriodPicker id="map-period" value={month} onChange={setMonth} align="right" />
           </div>
           <button type="button" className="btn btn-secondary" onClick={handlePrint} disabled={preparingPrint}>
             <PrintIcon /> {preparingPrint ? "Preparing…" : "Print"}
