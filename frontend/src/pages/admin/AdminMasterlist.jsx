@@ -114,7 +114,7 @@ export default function AdminMasterlist() {
   const [purokFilter, setPurokFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [cachedRowsPage, setCachedRowsPage] = useState(null);
+  const [displayedData, setDisplayedData] = useState(null);
   const [viewChildId, setViewChildId] = useState(null);
   // Print sheet state: the full filtered row set (all pages) rendered into
   // a print-only table. Kept after printing so reprints skip the refetch.
@@ -154,22 +154,26 @@ export default function AdminMasterlist() {
   const rowsParams = buildRowsParams(page, PAGE_SIZE);
   const rowsQuery = useRevReport(`/reports/monthly-masterlist/rows?${rowsParams.toString()}`, [month]);
 
-  const rowsFilterKey = JSON.stringify([month, barangayFilter, purokFilter, debouncedSearch, statusFilter]);
+  const displayKey = JSON.stringify([month, barangayFilter, purokFilter, debouncedSearch, statusFilter, page]);
   useEffect(() => {
-    if (rowsQuery.data) {
-      setCachedRowsPage({ filterKey: rowsFilterKey, data: rowsQuery.data });
+    if (!summaryQuery.loading && !rowsQuery.loading && summaryQuery.data && rowsQuery.data) {
+      setDisplayedData({
+        key: displayKey,
+        summary: summaryQuery.data,
+        rowsData: rowsQuery.data,
+      });
     }
-  }, [rowsQuery.data, rowsFilterKey]);
+  }, [displayKey, summaryQuery.data, summaryQuery.loading, rowsQuery.data, rowsQuery.loading]);
 
-  const summary = summaryQuery.data;
-  const rowsData =
-    rowsQuery.data ??
-    (cachedRowsPage?.filterKey === rowsFilterKey ? cachedRowsPage.data : null);
+  const summary = displayedData?.summary;
+  const rowsData = displayedData?.rowsData;
   const rows = rowsData?.rows || [];
   const total = rowsData?.total ?? 0;
   const purokOptions = summary?.purokOptions || [];
-  const loading = summaryQuery.loading && rowsQuery.loading;
   const error = (!summaryQuery.data && summaryQuery.error) || (!rowsQuery.data && rowsQuery.error) || "";
+  const loading = !displayedData && (summaryQuery.loading || rowsQuery.loading || !error);
+  const hasPendingData = Boolean(displayedData && displayedData.key !== displayKey);
+  const updating = hasPendingData && !error;
   const refreshing = summaryQuery.refreshing || rowsQuery.refreshing;
   const updatedAt = Math.max(summaryQuery.updatedAt || 0, rowsQuery.updatedAt || 0) || null;
 
@@ -261,7 +265,7 @@ export default function AdminMasterlist() {
         </div>
       )}
 
-      <div className="card kpi-strip print-hide">
+      <div className="card kpi-strip print-hide" aria-busy={updating}>
         {KPI_TILES.map((tile) => (
           <div className="kpi-strip-item" key={tile.key}>
             <div className="kpi-strip-value" style={tile.color ? { color: tile.color } : undefined}>
@@ -337,17 +341,21 @@ export default function AdminMasterlist() {
         </div>
       )}
 
-      {!loading && !error && (
-        <p className="results-count print-hide">
-          {debouncedSearch || statusFilter
-            ? `${total} match${total === 1 ? "" : "es"}${debouncedSearch ? ` for “${debouncedSearch}”` : ""}${
-                statusFilter ? ` with status “${statusLabel}”` : ""
-              }`
-            : `Showing ${total} checkups this month`}
+      {!loading && displayedData && (
+        <p className="results-count print-hide" aria-live="polite">
+          {hasPendingData
+            ? error
+              ? "Showing previously loaded results"
+              : "Updating results…"
+            : debouncedSearch || statusFilter
+              ? `${total} match${total === 1 ? "" : "es"}${debouncedSearch ? ` for “${debouncedSearch}”` : ""}${
+                  statusFilter ? ` with status “${statusLabel}”` : ""
+                }`
+              : `Showing ${total} checkups this month`}
         </p>
       )}
 
-      <div className="card masterlist-screen-card">
+      <div className="card masterlist-screen-card" aria-busy={updating}>
         <div className="table-wrap">
           <table className="masterlist-table">
             <colgroup>

@@ -261,6 +261,8 @@ This page provides MNAO with monthly assessment rows and summaries from all bara
 7. Use **Previous** and **Next** to page through the matching rows.
 8. Select **Refresh** to reload the summary and rows.
 
+When a filter changes, the current summary and rows stay visible until the updated results are ready.
+
 Rows show location, caregiver and child names, IP group, sex, birth and measurement dates, weight, height, age, and the three nutrition status indicators. Select **Profile** on a row to open the child's profile in read-only mode.
 
 Select **Print** to prepare and print all rows matching the current month and filters, not only the rows visible on the current screen page. The print sheet includes the applied filters, current measurement columns, and blank follow-up columns for the next measurement round. If preparation fails, select **Retry** in the print warning.
