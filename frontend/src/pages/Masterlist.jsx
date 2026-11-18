@@ -195,20 +195,20 @@ export default function Masterlist() {
         </button>
       </div>
 
-      <div className="stat-row">
-        <div className="card stat-tile">
-          <div className="value">{children.length}</div>
-          <div className="label">Registered children</div>
+      <section className="card kpi-strip bns-kpi-strip" aria-label="Masterlist summary">
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Registered children</div>
+          <div className="kpi-strip-value">{children.length}</div>
         </div>
-        <div className="card stat-tile">
-          <div className="value">{checkedCount}</div>
-          <div className="label">Checked this month</div>
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Checked this month</div>
+          <div className="kpi-strip-value bns-kpi-value--success">{checkedCount}</div>
         </div>
-        <div className="card stat-tile">
-          <div className="value">{children.length - checkedCount}</div>
-          <div className="label">Pending this month</div>
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Pending this month</div>
+          <div className="kpi-strip-value bns-kpi-value--warning">{children.length - checkedCount}</div>
         </div>
-      </div>
+      </section>
 
       {error && (
         <div className="banner banner-warning" style={{ marginBottom: 20 }}>

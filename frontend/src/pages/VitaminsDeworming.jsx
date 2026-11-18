@@ -211,20 +211,20 @@ export default function VitaminsDeworming() {
         </div>
       </div>
 
-      <div className="stat-row">
-        <div className="card stat-tile">
-          <div className="value">{loading ? "…" : entries.length}</div>
-          <div className="label">Children needing a dose</div>
+      <section className="card kpi-strip bns-kpi-strip" aria-label="Vitamins and deworming summary">
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Children needing a dose</div>
+          <div className="kpi-strip-value">{loading ? "…" : entries.length}</div>
         </div>
-        <div className="card stat-tile">
-          <div className="value">{loading ? "…" : totalDue}</div>
-          <div className="label">Total doses due</div>
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Total doses due</div>
+          <div className="kpi-strip-value bns-kpi-value--info">{loading ? "…" : totalDue}</div>
         </div>
-        <div className="card stat-tile">
-          <div className="value">{loading ? "…" : overdueChildren}</div>
-          <div className="label">Children overdue</div>
+        <div className="kpi-strip-item">
+          <div className="kpi-strip-label">Children overdue</div>
+          <div className="kpi-strip-value bns-kpi-value--severe">{loading ? "…" : overdueChildren}</div>
         </div>
-      </div>
+      </section>
 
       <div className="card filter-card">
         <div className="filter-bar" style={{ marginBottom: 0 }}>

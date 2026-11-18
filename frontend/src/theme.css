@@ -5402,3 +5402,86 @@ body.map-printing .barangay-map-page .map-side-card {
     print-color-adjust: exact;
   }
 }
+
+.bns-masterlist-page .page-header,
+.bns-vitamins-page .page-header {
+  margin-bottom: 12px;
+}
+
+.bns-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  min-height: 68px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.bns-kpi-strip .kpi-strip-item {
+  display: flex;
+  min-width: 0;
+  flex: initial;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 16px;
+  border-left: 1px solid var(--color-border);
+}
+
+.bns-kpi-strip .kpi-strip-item:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.bns-kpi-strip .kpi-strip-value {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.bns-kpi-strip .kpi-strip-label {
+  margin-top: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+.bns-kpi-value--success {
+  color: var(--status-normal-text);
+}
+
+.bns-kpi-value--warning {
+  color: var(--status-mild-text);
+}
+
+.bns-kpi-value--info {
+  color: var(--status-over-text);
+}
+
+.bns-kpi-value--severe {
+  color: var(--status-severe-text);
+}
+
+@media (max-width: 640px) {
+  .bns-kpi-strip {
+    min-height: 64px;
+    padding: 8px 10px;
+  }
+
+  .bns-kpi-strip .kpi-strip-item {
+    padding: 2px 8px;
+  }
+
+  .bns-kpi-strip .kpi-strip-item:first-child {
+    padding-left: 0;
+  }
+
+  .bns-kpi-strip .kpi-strip-value {
+    font-size: 21px;
+  }
+
+  .bns-kpi-strip .kpi-strip-label {
+    font-size: 10px;
+  }
+}
