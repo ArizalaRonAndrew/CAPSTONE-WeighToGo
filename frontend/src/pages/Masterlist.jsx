@@ -19,6 +19,7 @@ function initials(name) {
 
 const PAGE_SIZE = 7;
 const MOBILE_PAGE_SIZE = 10;
+const MAX_AGE_MONTHS = 59;
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -73,7 +74,7 @@ export default function Masterlist() {
   // Rev-gated: snapshots render instantly; the roster + checkups refetch
   // only when revision counters moved server-side.
   const monthNow = currentMonth();
-  const childrenQuery = useRevReport("/children", [monthNow]);
+  const childrenQuery = useRevReport("/children", [monthNow], { daySensitive: true });
   const assessmentsQuery = useRevReport("/assessments", [monthNow]);
 
   // Children removed in the modal vanish instantly (optimistic) — the server
@@ -92,7 +93,7 @@ export default function Masterlist() {
 
   const children = useMemo(
     () => [...extraChildren, ...((childrenQuery.data || []).filter((c) => !extraChildren.some((x) => x.name === c.name && x.dob === c.dob)))]
-      .filter((c) => !removedSet.has(String(c.id))),
+      .filter((c) => !removedSet.has(String(c.id)) && ageInMonths(c.dob) <= MAX_AGE_MONTHS),
     [extraChildren, childrenQuery.data, removedSet]
   );
   // Jan–Mar counts as one assessment window: a checkup dated in any of those

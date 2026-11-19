@@ -18,8 +18,15 @@ const MEASUREMENT_ERROR =
   `weight must be a number between ${WEIGHT_RANGE.min}-${WEIGHT_RANGE.max} kg and height between ` +
   `${HEIGHT_RANGE.min}-${HEIGHT_RANGE.max} cm`;
 const AGE_LIMIT_ERROR =
-  `This child is over ${MAX_AGE_MONTHS} months old and has aged out of the WHO under-5 growth standards ` +
-  "this program uses.";
+  `This child must be 0-${MAX_AGE_MONTHS} months old to be assessed.`;
+
+function eligibleAssessmentAge(child, dateMeasured) {
+  const currentAge = calculateAgeInMonths(child.dob, todayInManila());
+  const ageAtAssessment = calculateAgeInMonths(child.dob, dateMeasured);
+  return currentAge <= MAX_AGE_MONTHS && ageAtAssessment <= MAX_AGE_MONTHS
+    ? ageAtAssessment
+    : null;
+}
 
 // child_id and the status columns are deliberately excluded: child_id must
 // never be reassignable through an update (that's how a record could get
@@ -92,8 +99,8 @@ async function createAssessment(req, res, next) {
     const child = await childrenModel.findById(child_id);
     assertBarangayAccess(req, child);
 
-    const age_in_months = calculateAgeInMonths(child.dob, date_measured);
-    if (age_in_months > MAX_AGE_MONTHS) {
+    const age_in_months = eligibleAssessmentAge(child, date_measured);
+    if (age_in_months === null) {
       return res.status(400).json({ error: AGE_LIMIT_ERROR });
     }
 
@@ -161,8 +168,8 @@ async function previewAssessment(req, res, next) {
     assertBarangayAccess(req, child);
 
     const effectiveDate = date_measured || todayInManila();
-    const age_in_months = calculateAgeInMonths(child.dob, effectiveDate);
-    if (age_in_months > MAX_AGE_MONTHS) {
+    const age_in_months = eligibleAssessmentAge(child, effectiveDate);
+    if (age_in_months === null) {
       return res.status(400).json({ error: AGE_LIMIT_ERROR });
     }
     const status = classifyNutritionStatus({
@@ -196,8 +203,8 @@ async function updateAssessment(req, res, next) {
       return res.status(400).json({ error: MEASUREMENT_ERROR });
     }
 
-    const age_in_months = calculateAgeInMonths(child.dob, date_measured);
-    if (age_in_months > MAX_AGE_MONTHS) {
+    const age_in_months = eligibleAssessmentAge(child, date_measured);
+    if (age_in_months === null) {
       return res.status(400).json({ error: AGE_LIMIT_ERROR });
     }
 

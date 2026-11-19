@@ -8,11 +8,12 @@ const { isValidPhContact } = require("../utils/phone");
 const { formatPersonName, isValidPersonName } = require("../utils/names");
 const { normalizePurok, isValidPurok } = require("../utils/purok");
 const { calculateAgeInMonths, todayInManila } = require("../utils/date");
+const { MAX_AGE_MONTHS } = require("../utils/measurements");
 const { pickFields } = require("../utils/pickFields");
 const { buildRegistrationBackfill } = require("../services/supplementSchedule.service");
 
 // Under-5 program scope: only children 59 months old or younger can be registered.
-const MAX_REGISTRATION_AGE_MONTHS = 59;
+const MAX_REGISTRATION_AGE_MONTHS = MAX_AGE_MONTHS;
 
 function ageValidationError(dob) {
   if (!dob) return null;
@@ -47,9 +48,16 @@ async function listChildren(req, res, next) {
     }
     let children = await childrenModel.findAll({ barangay, status });
 
+    if (req.user.role === "BNS") {
+      const today = todayInManila();
+      children = children.filter(
+        (child) => calculateAgeInMonths(child.dob, today) <= MAX_AGE_MONTHS
+      );
+    }
+
     // Admins only see a child once the assigned BNS has submitted at least
-    // one checked-up assessment for them. BNS users always see their own
-    // full roster, checked or still pending.
+    // one checked-up assessment for them. BNS users see all eligible children
+    // in their barangay, checked or still pending.
     if (req.user.role === "MNAO") {
       const submittedChildIds = await assessmentModel.findSubmittedChildIds(children.map((c) => c.id));
       children = children.filter((c) => submittedChildIds.has(c.id));

@@ -5,11 +5,10 @@
 const WEIGHT_RANGE = { min: 0.5, max: 40 }; // kg
 const HEIGHT_RANGE = { min: 30, max: 130 }; // cm
 
-// WHO Child Growth Standards — and this program's under-5 growth-monitoring
-// scope — only cover birth to 5 years. growthReference.js silently clamps
-// anything past 60 months to the last table row rather than erroring, so
-// this cap has to be enforced by the caller instead.
-const MAX_AGE_MONTHS = 60;
+// This program assesses children from birth through 59 months. The WHO
+// reference includes a 60-month row, but children at that age are out of
+// scope for this program.
+const MAX_AGE_MONTHS = 59;
 
 function parseMeasurement(value, { min, max }) {
   const num = Number(value);
