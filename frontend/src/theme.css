@@ -186,6 +186,26 @@ h4 {
     gap: 13px;
   }
 
+  .sidebar:hover ~ .main-content .admin-masterlist-page .masterlist-table th:nth-child(5),
+  .sidebar:hover ~ .main-content .admin-masterlist-page .masterlist-table td:nth-child(5),
+  .sidebar:hover ~ .main-content .admin-masterlist-page .masterlist-table th:nth-child(n + 7):nth-child(-n + 13),
+  .sidebar:hover ~ .main-content .admin-masterlist-page .masterlist-table td:nth-child(n + 7):nth-child(-n + 13),
+  .sidebar:focus-within ~ .main-content .admin-masterlist-page .masterlist-table th:nth-child(5),
+  .sidebar:focus-within ~ .main-content .admin-masterlist-page .masterlist-table td:nth-child(5),
+  .sidebar:focus-within ~ .main-content .admin-masterlist-page .masterlist-table th:nth-child(n + 7):nth-child(-n + 13),
+  .sidebar:focus-within ~ .main-content .admin-masterlist-page .masterlist-table td:nth-child(n + 7):nth-child(-n + 13) {
+    padding-right: 6px;
+    padding-left: 6px;
+    font-size: 12px;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .sidebar:hover ~ .main-content .admin-masterlist-page .kpi-strip-item--at-risk .kpi-strip-label,
+  .sidebar:focus-within ~ .main-content .admin-masterlist-page .kpi-strip-item--at-risk .kpi-strip-label {
+    font-size: 10px;
+  }
+
   .sidebar-label,
   .sidebar-user-info {
     opacity: 0;
@@ -201,6 +221,24 @@ h4 {
     transition:
       opacity 0.16s ease 0.06s,
       max-width 0.22s cubic-bezier(0.2, 0.75, 0.25, 1);
+  }
+
+  .sidebar:hover ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(8),
+  .sidebar:hover ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(9),
+  .sidebar:hover ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(10),
+  .sidebar:focus-within ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(8),
+  .sidebar:focus-within ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(9),
+  .sidebar:focus-within ~ .main-content .bns-monthly-report-page .masterlist-table th:nth-child(10) {
+    padding-right: 6px;
+    padding-left: 6px;
+    font-size: 12px;
+    overflow-wrap: normal;
+  }
+
+  .sidebar:hover ~ .main-content .bns-vitamins-page .bns-vitamins-table td[data-label="Doses Due"] .badge-severe,
+  .sidebar:focus-within ~ .main-content .bns-vitamins-page .bns-vitamins-table td[data-label="Doses Due"] .badge-severe {
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
 }
 
@@ -268,6 +306,18 @@ h4 {
   transition: background 0.16s ease;
 }
 
+.sidebar-user--mnao {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+@media (min-width: 901px) {
+  .sidebar-user--mnao {
+    height: 92px;
+  }
+}
+
 .sidebar-avatar {
   flex-shrink: 0;
   width: 34px;
@@ -281,11 +331,32 @@ h4 {
   font-weight: 700;
 }
 
+.sidebar-user--mnao .sidebar-avatar {
+  color: #e7f5ee;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
 .sidebar-user-info {
   min-width: 0;
+  overflow: hidden;
   transition:
     opacity 0.12s ease,
     max-width 0.16s ease;
+}
+
+.sidebar-user-name {
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.sidebar-user-name span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .sidebar-user-email {
@@ -306,6 +377,21 @@ h4 {
   padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
+}
+
+.sidebar-user--mnao .sidebar-role-pill {
+  margin-top: 5px;
+  color: #e8f5ee;
+  background: rgba(255, 255, 255, 0.16);
+  letter-spacing: 0.06em;
+}
+
+.sidebar-user-title {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .sidebar-nav {
@@ -1053,6 +1139,7 @@ table {
   .bns-vitamins-table {
     table-layout: fixed;
     width: 100%;
+    min-width: 1000px;
   }
 
   .bns-vitamins-table col:nth-child(1),
@@ -1061,15 +1148,15 @@ table {
   }
 
   .bns-vitamins-table col:nth-child(3) {
-    width: 15%;
+    width: 14%;
   }
 
   .bns-vitamins-table col:nth-child(4) {
-    width: 10%;
+    width: 9%;
   }
 
   .bns-vitamins-table col:nth-child(5) {
-    width: 25%;
+    width: 27%;
   }
 
   .bns-vitamins-table col:nth-child(6) {
@@ -1080,6 +1167,20 @@ table {
   .bns-vitamins-table td {
     white-space: normal;
     overflow-wrap: break-word;
+  }
+
+  .bns-vitamins-table th:nth-child(3),
+  .bns-vitamins-table td:nth-child(3),
+  .bns-vitamins-table th:nth-child(4),
+  .bns-vitamins-table td:nth-child(4),
+  .bns-vitamins-table th:nth-child(5),
+  .bns-vitamins-table td:nth-child(5) {
+    padding-left: 8px;
+  }
+
+  .bns-vitamins-table td[data-label="Doses Due"] .badge {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .bns-vitamins-table td[data-label="Action"] {

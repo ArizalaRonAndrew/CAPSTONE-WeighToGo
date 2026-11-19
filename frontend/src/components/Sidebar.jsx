@@ -77,8 +77,9 @@ function Icon({ name }) {
 export default function Sidebar({ open = false, onClose = () => {} }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const links = user?.role === "MNAO" ? ADMIN_LINKS : BNS_LINKS;
-  const initial = user?.email?.[0]?.toUpperCase() || "?";
+  const isMnao = user?.role === "MNAO";
+  const links = isMnao ? ADMIN_LINKS : BNS_LINKS;
+  const initial = isMnao ? "HO" : user?.email?.[0]?.toUpperCase() || "?";
 
   function handleLogout() {
     // logout() wipes the local session synchronously and returns without
@@ -121,15 +122,30 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
           <span className="sidebar-label">WeighToGo</span>
         </div>
 
-        <div className="sidebar-user" title={user?.email}>
+        <div
+          className={`sidebar-user${isMnao ? " sidebar-user--mnao" : ""}`}
+          title={isMnao ? "Hans Emil V. Ople (RND) · MNAO" : user?.email}
+        >
           <span className="sidebar-avatar">{initial}</span>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-email">{user?.email}</div>
-            <span className="sidebar-role-pill">
-              {user?.role === "MNAO"
-                ? "Administrator"
-                : `BNS · ${user?.assigned_barangay}`}
-            </span>
+            {isMnao ? (
+              <>
+                <div className="sidebar-user-name">
+                  Hans Emil V. Ople <span>(RND)</span>
+                </div>
+                <span className="sidebar-role-pill">MNAO</span>
+                <div className="sidebar-user-title">
+                  Municipal Nutrition Action Officer
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="sidebar-user-email">{user?.email}</div>
+                <span className="sidebar-role-pill">
+                  BNS · {user?.assigned_barangay}
+                </span>
+              </>
+            )}
           </div>
         </div>
 

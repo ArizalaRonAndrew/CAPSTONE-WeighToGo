@@ -267,7 +267,10 @@ export default function AdminMasterlist() {
 
       <div className="card kpi-strip print-hide" aria-busy={updating}>
         {KPI_TILES.map((tile) => (
-          <div className="kpi-strip-item" key={tile.key}>
+          <div
+            className={`kpi-strip-item${tile.key === "malnourishedStunted" ? " kpi-strip-item--at-risk" : ""}`}
+            key={tile.key}
+          >
             <div className="kpi-strip-value" style={tile.color ? { color: tile.color } : undefined}>
               {loading ? "…" : summary?.[tile.key] ?? 0}
             </div>

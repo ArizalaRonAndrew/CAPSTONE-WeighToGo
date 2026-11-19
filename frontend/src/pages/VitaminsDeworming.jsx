@@ -25,9 +25,10 @@ function initials(name) {
 function DueBadge({ dose }) {
   const detail = dose.requirement
     || (dose.slot && dose.bracket_label ? `${dose.slot} for ${dose.bracket_label}` : `${ordinal(dose.dose_order)} dose`);
+  const compactDetail = detail.replace(/\bFirst Dose\b/g, "1st Dose").replace(/\bSecond Dose\b/g, "2nd Dose");
   return (
     <span className={`badge ${dose.overdue ? "badge-severe" : "badge-mild"}`}>
-      {dose.supplement_type} — {detail}{dose.overdue ? " overdue" : ""}
+      {dose.supplement_type} — {compactDetail}{dose.overdue ? " overdue" : ""}
     </span>
   );
 }
@@ -340,7 +341,7 @@ export default function VitaminsDeworming() {
                         <span style={{ fontWeight: 700 }}>{formatNameForTable(child.name)}</span>
                       </div>
                     </td>
-                    <td data-label="Parent / Guardian">{child.parent_name}</td>
+                    <td data-label="Parent / Guardian">{formatNameForTable(child.parent_name)}</td>
                     <td data-label="Purok / Sitio">{child.purok}</td>
                     <td data-label="Age">{ageInMonths} mo</td>
                     <td data-label="Doses Due">

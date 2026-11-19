@@ -93,6 +93,7 @@ export function formatNameForTable(fullName) {
   const first = core[0];
   const last = core[core.length - 1];
   const middle = core.slice(1, -1).join(" ");
+  const middleInitial = middle ? `${Array.from(middle)[0]}.` : "";
 
-  return [`${last}, ${first}`, middle, suffix].filter(Boolean).join(" ");
+  return [`${last}, ${first}`, middleInitial, suffix].filter(Boolean).join(" ");
 }
