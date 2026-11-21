@@ -4,6 +4,7 @@ const { calculateAgeInMonths, todayInManila } = require("../utils/date");
 const { getDueSupplements, getComplianceStatus, getSupplementSchedule, isUndoableRecord } = require("../services/supplementSchedule.service");
 const { assertBarangayAccess } = require("../utils/access");
 const { pickFields } = require("../utils/pickFields");
+const { MAX_AGE_MONTHS } = require("../utils/measurements");
 const { bustAll, touchRevs } = require("../config/redis");
 
 // child_id is deliberately excluded — same reasoning as assessments: it must
@@ -12,10 +13,14 @@ const { bustAll, touchRevs } = require("../config/redis");
 const SUPPLEMENT_UPDATE_FIELDS = ["supplement_type", "dose_order", "date_administered"];
 
 async function visibleChildren(req) {
+  let children;
   if (req.user.role === "BNS") {
-    return childrenModel.findAll({ barangay: req.user.assigned_barangay });
+    children = await childrenModel.findAll({ barangay: req.user.assigned_barangay });
+  } else {
+    children = await childrenModel.findAll({ barangay: req.query.barangay || undefined });
   }
-  return childrenModel.findAll({ barangay: req.query.barangay || undefined });
+  const today = todayInManila();
+  return children.filter((child) => calculateAgeInMonths(child.dob, today) <= MAX_AGE_MONTHS);
 }
 
 async function listSupplements(req, res, next) {

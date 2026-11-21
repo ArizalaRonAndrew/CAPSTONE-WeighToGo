@@ -5,9 +5,11 @@ import RefreshLine from "../components/RefreshLine";
 import { useRevReport } from "../hooks/useRevReport";
 import { listEntries, subscribeOutbox } from "../utils/outbox";
 import { currentMonth } from "../utils/month";
+import { ageInMonths } from "../utils/age";
 import { formatNameForTable } from "../utils/name";
 
 const PAGE_SIZE = 7;
+const MAX_AGE_MONTHS = 59;
 
 const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
@@ -156,11 +158,15 @@ export default function VitaminsDeworming() {
       [...localCleared, ...queuedCleared].map((c) => `${c.child_id}|${c.supplement_type}|${c.dose_order}`)
     );
     return [...rows]
-      .map((entry) => ({
-        ...entry,
-        due: entry.due.filter((d) => !cleared.has(`${entry.child.id}|${d.supplement_type}|${d.dose_order}`)),
-      }))
-      .filter((entry) => entry.due.length > 0)
+      .map((entry) => {
+        const currentAge = ageInMonths(entry.child.dob);
+        return {
+          ...entry,
+          ageInMonths: currentAge,
+          due: entry.due.filter((d) => !cleared.has(`${entry.child.id}|${d.supplement_type}|${d.dose_order}`)),
+        };
+      })
+      .filter((entry) => entry.ageInMonths <= MAX_AGE_MONTHS && entry.due.length > 0)
       .sort(
         (a, b) => (a.child.purok || "").localeCompare(b.child.purok || "") || a.child.name.localeCompare(b.child.name)
       );
